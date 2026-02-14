@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-100 text-gray-900;
+  }
+}
+
+@layer utilities {
+  .cell-initial {
+    @apply bg-gray-200 font-bold text-gray-900;
+  }
+
+  .cell-user {
+    @apply bg-white text-blue-600;
+  }
+
+  .cell-error {
+    @apply bg-red-100 text-red-600;
+  }
+
+  .cell-selected {
+    @apply ring-2 ring-blue-500;
+  }
+
+  .cell-highlighted {
+    @apply bg-blue-50;
+  }
+}
