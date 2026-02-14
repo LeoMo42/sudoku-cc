@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Button } from '../UI/Button';
 import { DIFFICULTY_LEVELS, GAME_STATUS } from '../../utils/constants';
 
@@ -16,6 +17,7 @@ export function GameControls({
   gameStatus,
   notesMode,
 }) {
+  const { t } = useTranslation();
   const isPaused = gameStatus === GAME_STATUS.PAUSED;
   const isPlaying = gameStatus === GAME_STATUS.PLAYING;
   const isCompleted = gameStatus === GAME_STATUS.COMPLETED;
@@ -24,13 +26,13 @@ export function GameControls({
     <div className="flex flex-col gap-3">
       <div className="flex gap-2 flex-wrap">
         <Button onClick={onNewGame} variant="primary">
-          Новая игра
+          {t('game.newGame')}
         </Button>
 
         {isPlaying && (
           <>
             <Button onClick={onCheck} variant="secondary">
-              Проверить
+              {t('game.check')}
             </Button>
 
             <Button
@@ -38,27 +40,27 @@ export function GameControls({
               variant="secondary"
               disabled={hintsUsed >= maxHints}
             >
-              Подсказка ({hintsUsed}/{maxHints})
+              {t('game.hint')} ({t('game.hintsUsed', { used: hintsUsed, max: maxHints })})
             </Button>
 
             <Button
               onClick={onToggleNotes}
               variant={notesMode ? 'primary' : 'secondary'}
             >
-              {notesMode ? '✓ ' : ''}Заметки
+              {notesMode ? '✓ ' : ''}{t('game.notes')}
             </Button>
           </>
         )}
 
         {isPlaying && (
           <Button onClick={onPause} variant="secondary">
-            Пауза
+            {t('game.pause')}
           </Button>
         )}
 
         {isPaused && (
           <Button onClick={onResume} variant="success">
-            Продолжить
+            {t('game.resume')}
           </Button>
         )}
       </div>
@@ -66,7 +68,7 @@ export function GameControls({
       {isCompleted && (
         <div className="bg-green-100 border-2 border-green-600 rounded-lg p-4 text-center">
           <p className="text-xl font-bold text-green-800">
-            🎉 Поздравляем! Вы решили головоломку!
+            {t('game.completed')}
           </p>
         </div>
       )}

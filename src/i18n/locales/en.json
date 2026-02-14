@@ -1,0 +1,27 @@
+{
+  "game": {
+    "title": "Sudoku",
+    "newGame": "New Game",
+    "check": "Check",
+    "hint": "Hint",
+    "pause": "Pause",
+    "resume": "Resume",
+    "notes": "Notes",
+    "clear": "Clear",
+    "time": "Time:",
+    "difficulty": "Difficulty:",
+    "numberInput": "Number Input:",
+    "paused": "Game Paused",
+    "completed": "🎉 Congratulations! You solved the puzzle!",
+    "hintsUsed": "{{used}}/{{max}}"
+  },
+  "difficulty": {
+    "EASY": "Easy",
+    "MEDIUM": "Medium",
+    "HARD": "Hard",
+    "EXPERT": "Expert"
+  },
+  "controls": {
+    "keyboard": "Use keys 1-9, arrows for navigation, Backspace to clear, N for notes"
+  }
+}

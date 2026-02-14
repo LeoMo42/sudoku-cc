@@ -36,6 +36,17 @@ npm run build
 
 # Preview production build
 npm run preview
+
+# Запуск Storybook (компоненты)
+npm run storybook
+
+# Сборка Storybook
+npm run build-storybook
+
+# Запуск тестов
+npm run test         # Watch mode
+npm run test:run     # Run once
+npm run test:ui      # UI interface
 ```
 
 ## Технологический стек
@@ -44,6 +55,8 @@ npm run preview
 - **Vite** - Build tool
 - **Tailwind CSS** - Стилизация
 - **Context API + useReducer** - State management
+- **Storybook** - Документация компонентов
+- **Vitest** - Тестирование
 
 ## Архитектура проекта
 
@@ -89,6 +102,38 @@ src/
 
 ### Валидация
 Проверка корректности хода с учетом правил Sudoku (строка, столбец, блок 3x3)
+
+## Storybook - Документация компонентов
+
+Проект включает Storybook для разработки и документирования компонентов в изоляции.
+
+### Запуск Storybook:
+```bash
+npm run storybook
+```
+
+Откроется http://localhost:6006/ (или 6007, если 6006 занят)
+
+### Доступные stories:
+
+**UI компоненты:**
+- Button - Кнопки с вариантами (primary, secondary, success, danger)
+- Modal - Модальные окна
+
+**Board компоненты:**
+- Cell - Отдельная ячейка судоку (с различными состояниями)
+- Board - Игровое поле 9x9
+
+**Controls:**
+- Timer - Отображение времени
+- NumberPad - Панель ввода чисел
+- DifficultySelector - Выбор уровня сложности
+- GameControls - Кнопки управления игрой
+
+Каждая story включает:
+- Интерактивные контролы для изменения props
+- Несколько вариантов компонента в разных состояниях
+- Автодокументацию
 
 ## Производительность
 

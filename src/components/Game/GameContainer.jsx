@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useGameState } from '../../hooks/useGameState';
 import { useTimer } from '../../hooks/useTimer';
 import { Board } from '../Board/Board';
@@ -6,16 +7,25 @@ import { Timer } from '../Controls/Timer';
 import { NumberPad } from '../Controls/NumberPad';
 import { DifficultySelector } from '../Controls/DifficultySelector';
 import { GameControls } from '../Controls/GameControls';
+import { LanguageSwitcher } from '../UI/LanguageSwitcher';
 import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constants';
 
 /**
  * Main game container component
  */
 export function GameContainer() {
+  const { t } = useTranslation();
   const { state, actions } = useGameState();
 
   // Timer hook
   useTimer(state.gameStatus, actions.updateTime);
+
+  // Auto-start game if status is IDLE
+  useEffect(() => {
+    if (state.gameStatus === GAME_STATUS.IDLE) {
+      actions.newGame(state.difficulty);
+    }
+  }, []); // Only run on mount
 
   // Handle keyboard input
   useEffect(() => {
@@ -126,21 +136,40 @@ export function GameContainer() {
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-8 text-gray-900">
-          Sudoku
-        </h1>
+        {/* Header with title and language switcher */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-gray-900">
+            {t('game.title')}
+          </h1>
+          <LanguageSwitcher />
+        </div>
 
         <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
-          {/* Left side - Board */}
-          <div className="flex flex-col items-center gap-4">
-            <Board
-              board={state.board}
-              initialBoard={state.initialBoard}
-              selectedCell={state.selectedCell}
-              errors={state.errors}
-              notes={state.notes}
-              onCellClick={handleCellClick}
-            />
+          {/* Left side - Board with Difficulty */}
+          <div className="flex flex-col gap-4">
+            {/* Difficulty Selector */}
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <h3 className="text-sm font-medium text-gray-600 mb-3">
+                {t('game.difficulty')}
+              </h3>
+              <DifficultySelector
+                currentDifficulty={state.difficulty}
+                onDifficultyChange={handleDifficultyChange}
+                disabled={state.gameStatus === GAME_STATUS.PLAYING}
+              />
+            </div>
+
+            {/* Board */}
+            <div className="flex justify-center">
+              <Board
+                board={state.board}
+                initialBoard={state.initialBoard}
+                selectedCell={state.selectedCell}
+                errors={state.errors}
+                notes={state.notes}
+                onCellClick={handleCellClick}
+              />
+            </div>
           </div>
 
           {/* Right side - Controls */}
@@ -148,29 +177,17 @@ export function GameContainer() {
             {/* Timer and Status */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-medium text-gray-600">Время:</span>
+                <span className="text-sm font-medium text-gray-600">{t('game.time')}</span>
                 <Timer elapsedTime={state.elapsedTime} />
               </div>
 
               {state.gameStatus === GAME_STATUS.PAUSED && (
                 <div className="bg-yellow-100 border-2 border-yellow-600 rounded-lg p-3 text-center">
                   <p className="text-sm font-medium text-yellow-800">
-                    Игра на паузе
+                    {t('game.paused')}
                   </p>
                 </div>
               )}
-            </div>
-
-            {/* Difficulty Selector */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-sm font-medium text-gray-600 mb-3">
-                Сложность:
-              </h3>
-              <DifficultySelector
-                currentDifficulty={state.difficulty}
-                onDifficultyChange={handleDifficultyChange}
-                disabled={state.gameStatus === GAME_STATUS.PLAYING}
-              />
             </div>
 
             {/* Game Controls */}
@@ -191,18 +208,22 @@ export function GameContainer() {
 
             {/* Number Pad */}
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-sm font-medium text-gray-600 mb-3">
-                Ввод чисел:
+              <h3 className="text-sm font-medium text-gray-600 mb-3 text-center">
+                {t('game.numberInput')}
               </h3>
-              <NumberPad
-                onNumberClick={handleNumberClick}
-                onClear={handleClear}
-                disabled={
-                  !state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING
-                }
-              />
-              <p className="text-xs text-gray-500 mt-3">
-                Используйте клавиши 1-9, стрелки для навигации, Backspace для очистки, N для заметок
+              <div className="flex justify-center">
+                <div className="max-w-[180px]">
+                  <NumberPad
+                    onNumberClick={handleNumberClick}
+                    onClear={handleClear}
+                    disabled={
+                      !state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING
+                    }
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-3 text-center">
+                {t('controls.keyboard')}
               </p>
             </div>
           </div>

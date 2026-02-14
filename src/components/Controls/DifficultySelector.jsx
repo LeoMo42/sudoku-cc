@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { DIFFICULTY_LEVELS } from '../../utils/constants';
 
 /**
  * Difficulty level selector
  */
 export function DifficultySelector({ currentDifficulty, onDifficultyChange, disabled }) {
+  const { t } = useTranslation();
   const difficulties = Object.keys(DIFFICULTY_LEVELS);
 
   return (
@@ -19,7 +21,7 @@ export function DifficultySelector({ currentDifficulty, onDifficultyChange, disa
               : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          {DIFFICULTY_LEVELS[level].name}
+          {t(`difficulty.${level}`)}
         </button>
       ))}
     </div>
