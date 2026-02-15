@@ -10,12 +10,13 @@ export function Board({
   selectedCell,
   errors,
   notes,
+  sudokuType = 'CLASSIC',
   onCellClick,
 }) {
   return (
     <div className="inline-block bg-gray-800 p-2 rounded-lg shadow-2xl">
       <div
-        className="grid grid-cols-9 gap-0 bg-white"
+        className="grid grid-cols-9 gap-0 bg-white relative"
         style={{ width: '450px', height: '450px' }}
       >
         {board.map((row, rowIndex) =>
@@ -38,6 +39,10 @@ export function Board({
             const isError = errors.has(`${rowIndex},${colIndex}`);
             const cellNotes = notes.get(`${rowIndex},${colIndex}`);
 
+            // Check if cell is on diagonal (for X-Sudoku)
+            const isOnDiagonal = sudokuType === 'DIAGONAL' &&
+              (rowIndex === colIndex || rowIndex + colIndex === GRID_SIZE - 1);
+
             return (
               <Cell
                 key={`${rowIndex}-${colIndex}`}
@@ -48,6 +53,7 @@ export function Board({
                 isSelected={isSelected}
                 isHighlighted={isHighlighted}
                 isError={isError}
+                isOnDiagonal={isOnDiagonal}
                 notes={cellNotes}
                 onClick={onCellClick}
               />

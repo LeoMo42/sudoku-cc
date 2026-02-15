@@ -27,6 +27,7 @@ const initialState = {
   solution: Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)),
   selectedCell: null,
   difficulty: 'MEDIUM',
+  sudokuType: 'CLASSIC',
   gameStatus: GAME_STATUS.IDLE,
   elapsedTime: 0,
   hintsUsed: 0,
@@ -39,8 +40,8 @@ const initialState = {
 function gameReducer(state, action) {
   switch (action.type) {
     case Actions.NEW_GAME: {
-      const { difficulty } = action.payload;
-      const { puzzle, solution } = createPuzzle(difficulty);
+      const { difficulty, sudokuType } = action.payload;
+      const { puzzle, solution } = createPuzzle(difficulty, sudokuType);
 
       return {
         ...initialState,
@@ -48,6 +49,7 @@ function gameReducer(state, action) {
         initialBoard: copyBoard(puzzle),
         solution,
         difficulty,
+        sudokuType,
         gameStatus: GAME_STATUS.PLAYING,
         notes: new Map(),
       };
@@ -65,7 +67,7 @@ function gameReducer(state, action) {
       newBoard[row][col] = value;
 
       // Check for errors
-      const errors = findConflicts(newBoard);
+      const errors = findConflicts(newBoard, state.sudokuType);
 
       // Check if puzzle is solved
       let gameStatus = state.gameStatus;
@@ -97,7 +99,7 @@ function gameReducer(state, action) {
     }
 
     case Actions.CHECK_SOLUTION: {
-      const errors = findConflicts(state.board);
+      const errors = findConflicts(state.board, state.sudokuType);
       const solved = isSolved(state.board);
 
       return {
@@ -123,7 +125,7 @@ function gameReducer(state, action) {
       const newBoard = copyBoard(state.board);
       newBoard[hint.row][hint.col] = hint.value;
 
-      const errors = findConflicts(newBoard);
+      const errors = findConflicts(newBoard, state.sudokuType);
       const solved = isSolved(newBoard);
 
       // Clear notes for the hinted cell
@@ -245,8 +247,8 @@ export function GameProvider({ children }) {
     }
   }, []);
 
-  const newGame = useCallback((difficulty = 'MEDIUM') => {
-    dispatch({ type: Actions.NEW_GAME, payload: { difficulty } });
+  const newGame = useCallback((difficulty = 'MEDIUM', sudokuType = 'CLASSIC') => {
+    dispatch({ type: Actions.NEW_GAME, payload: { difficulty, sudokuType } });
   }, []);
 
   const setCellValue = useCallback((row, col, value) => {

@@ -1,4 +1,4 @@
-import { GRID_SIZE, BOX_SIZE, EMPTY_CELL } from './constants';
+import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, SUDOKU_TYPES } from './constants';
 
 /**
  * Check if placing a number at a specific position is valid
@@ -6,9 +6,10 @@ import { GRID_SIZE, BOX_SIZE, EMPTY_CELL } from './constants';
  * @param {number} row - Row index
  * @param {number} col - Column index
  * @param {number} num - Number to place (1-9)
+ * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {boolean} - True if the move is valid
  */
-export function isValidMove(board, row, col, num) {
+export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC') {
   // Check row
   for (let x = 0; x < GRID_SIZE; x++) {
     if (board[row][x] === num && x !== col) {
@@ -40,15 +41,37 @@ export function isValidMove(board, row, col, num) {
     }
   }
 
+  // Additional checks for Diagonal Sudoku
+  if (sudokuType === 'DIAGONAL') {
+    // Check main diagonal (top-left to bottom-right)
+    if (row === col) {
+      for (let i = 0; i < GRID_SIZE; i++) {
+        if (board[i][i] === num && i !== row) {
+          return false;
+        }
+      }
+    }
+
+    // Check anti-diagonal (top-right to bottom-left)
+    if (row + col === GRID_SIZE - 1) {
+      for (let i = 0; i < GRID_SIZE; i++) {
+        if (board[i][GRID_SIZE - 1 - i] === num && i !== row) {
+          return false;
+        }
+      }
+    }
+  }
+
   return true;
 }
 
 /**
  * Find all conflicts (errors) on the board
  * @param {number[][]} board - The sudoku board
+ * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {Set<string>} - Set of cell coordinates with conflicts (format: "row,col")
  */
-export function findConflicts(board) {
+export function findConflicts(board, sudokuType = 'CLASSIC') {
   const conflicts = new Set();
 
   for (let row = 0; row < GRID_SIZE; row++) {
@@ -58,7 +81,7 @@ export function findConflicts(board) {
 
       // Temporarily remove the number to check if it's valid
       board[row][col] = EMPTY_CELL;
-      if (!isValidMove(board, row, col, num)) {
+      if (!isValidMove(board, row, col, num, sudokuType)) {
         conflicts.add(`${row},${col}`);
       }
       board[row][col] = num;

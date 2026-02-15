@@ -9,6 +9,7 @@
     "notes": "Notes",
     "clear": "Clear",
     "time": "Time:",
+    "type": "Type:",
     "difficulty": "Difficulty:",
     "numberInput": "Number Input:",
     "paused": "Game Paused",
@@ -23,5 +24,15 @@
   },
   "controls": {
     "keyboard": "Use keys 1-9, arrows for navigation, Backspace to clear, N for notes"
+  },
+  "sudokuTypes": {
+    "CLASSIC": {
+      "name": "Classic",
+      "description": "Standard 9×9 Sudoku with 3×3 boxes"
+    },
+    "DIAGONAL": {
+      "name": "Diagonal (X-Sudoku)",
+      "description": "Classic rules + both diagonals contain 1-9"
+    }
   }
 }

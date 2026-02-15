@@ -34,4 +34,17 @@ export const GAME_STATUS = {
   COMPLETED: 'completed',
 };
 
+export const SUDOKU_TYPES = {
+  CLASSIC: {
+    id: 'CLASSIC',
+    name: 'Classic Sudoku',
+    description: 'Standard 9x9 Sudoku with 3x3 boxes',
+  },
+  DIAGONAL: {
+    id: 'DIAGONAL',
+    name: 'Diagonal Sudoku (X-Sudoku)',
+    description: 'Classic rules + both main diagonals must contain 1-9',
+  },
+};
+
 export const STORAGE_KEY = 'sudoku-game-state';

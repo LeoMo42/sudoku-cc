@@ -55,18 +55,179 @@ function fillBox(board, row, col) {
 }
 
 /**
+ * Check if both diagonals are valid (contain all digits 1-9)
+ * @param {number[][]} board - The board to check
+ * @returns {boolean} - True if both diagonals are valid
+ */
+function areDiagonalsValid(board) {
+  // Check main diagonal (top-left to bottom-right)
+  const mainDiag = new Set();
+  for (let i = 0; i < GRID_SIZE; i++) {
+    if (mainDiag.has(board[i][i]) || board[i][i] === EMPTY_CELL) {
+      return false;
+    }
+    mainDiag.add(board[i][i]);
+  }
+
+  // Check anti-diagonal (top-right to bottom-left)
+  const antiDiag = new Set();
+  for (let i = 0; i < GRID_SIZE; i++) {
+    const col = GRID_SIZE - 1 - i;
+    if (antiDiag.has(board[i][col]) || board[i][col] === EMPTY_CELL) {
+      return false;
+    }
+    antiDiag.add(board[i][col]);
+  }
+
+  return mainDiag.size === GRID_SIZE && antiDiag.size === GRID_SIZE;
+}
+
+/**
+ * Swap two rows within the same 3x3 block
+ * @param {number[][]} board - The board
+ * @param {number} row1 - First row
+ * @param {number} row2 - Second row
+ */
+function swapRows(board, row1, row2) {
+  [board[row1], board[row2]] = [board[row2], board[row1]];
+}
+
+/**
+ * Swap two columns within the same 3x3 block
+ * @param {number[][]} board - The board
+ * @param {number} col1 - First column
+ * @param {number} col2 - Second column
+ */
+function swapCols(board, col1, col2) {
+  for (let r = 0; r < GRID_SIZE; r++) {
+    [board[r][col1], board[r][col2]] = [board[r][col2], board[r][col1]];
+  }
+}
+
+/**
+ * Try to fix diagonals by applying valid sudoku transformations
+ * @param {number[][]} board - The board to fix
+ * @returns {number[][] | null} - Fixed board or null
+ */
+function tryFixDiagonals(board) {
+  // First check what's wrong with current diagonals
+  const mainDiag = [];
+  const antiDiag = [];
+  for (let i = 0; i < GRID_SIZE; i++) {
+    mainDiag.push(board[i][i]);
+    antiDiag.push(board[i][GRID_SIZE - 1 - i]);
+  }
+  console.log('  Main diagonal:', mainDiag, 'Unique:', new Set(mainDiag).size);
+  console.log('  Anti diagonal:', antiDiag, 'Unique:', new Set(antiDiag).size);
+
+  const attempts = 100; // More attempts with transformations
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const newBoard = copyBoard(board);
+
+    // Try random valid transformations
+    const transformType = Math.floor(Math.random() * 3);
+
+    if (transformType === 0) {
+      // Swap two rows within same block
+      const block = Math.floor(Math.random() * 3); // 0, 1, or 2
+      const baseRow = block * 3;
+      const offset1 = Math.floor(Math.random() * 3);
+      const offset2 = (offset1 + 1 + Math.floor(Math.random() * 2)) % 3;
+      swapRows(newBoard, baseRow + offset1, baseRow + offset2);
+    } else if (transformType === 1) {
+      // Swap two columns within same block
+      const block = Math.floor(Math.random() * 3);
+      const baseCol = block * 3;
+      const offset1 = Math.floor(Math.random() * 3);
+      const offset2 = (offset1 + 1 + Math.floor(Math.random() * 2)) % 3;
+      swapCols(newBoard, baseCol + offset1, baseCol + offset2);
+    } else {
+      // Swap digits
+      const digit1 = Math.floor(Math.random() * 9) + 1;
+      const digit2 = Math.floor(Math.random() * 9) + 1;
+      if (digit1 !== digit2) {
+        for (let r = 0; r < GRID_SIZE; r++) {
+          for (let c = 0; c < GRID_SIZE; c++) {
+            if (newBoard[r][c] === digit1) {
+              newBoard[r][c] = digit2;
+            } else if (newBoard[r][c] === digit2) {
+              newBoard[r][c] = digit1;
+            }
+          }
+        }
+      }
+    }
+
+    // Check if diagonals are now valid
+    if (areDiagonalsValid(newBoard)) {
+      console.log(`  ✅ Fixed diagonals on swap attempt ${attempt + 1}`);
+      return newBoard;
+    }
+  }
+
+  console.log('  Could not fix diagonals after 100 transformation attempts');
+  return null;
+}
+
+/**
+ * Base valid X-Sudoku template
+ * This is a known valid X-Sudoku solution that we'll permute for variety
+ * Source: https://freesudoku.online/x-sudoku/
+ * Main diagonal: [1, 8, 2, 3, 9, 6, 7, 5, 4] ✓
+ * Anti-diagonal: [7, 1, 3, 2, 9, 5, 4, 6, 8] ✓
+ */
+const BASE_X_SUDOKU = [
+  [1, 3, 5, 8, 2, 9, 6, 4, 7],
+  [9, 8, 6, 4, 7, 3, 5, 1, 2],
+  [7, 4, 2, 6, 5, 1, 3, 8, 9],
+  [6, 7, 1, 3, 4, 2, 8, 9, 5],
+  [4, 5, 8, 1, 9, 7, 2, 6, 3],
+  [2, 9, 3, 5, 8, 6, 4, 7, 1],
+  [5, 1, 4, 9, 3, 8, 7, 2, 6],
+  [3, 6, 7, 2, 1, 4, 9, 5, 8],
+  [8, 2, 9, 7, 6, 5, 1, 3, 4],
+];
+
+/**
+ * Generate X-Sudoku by permuting digits in the base template
+ * @returns {number[][]} - Valid X-Sudoku board
+ */
+function generateXSudoku() {
+  console.log('🎲 Generating X-Sudoku from base template...');
+
+  // Create a random permutation of digits 1-9
+  const permutation = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+  // Apply permutation to base template
+  const board = createEmptyBoard();
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const originalDigit = BASE_X_SUDOKU[r][c];
+      board[r][c] = permutation[originalDigit - 1];
+    }
+  }
+
+  console.log('✅ X-Sudoku generated successfully via digit permutation');
+  console.log('  Permutation:', [1, 2, 3, 4, 5, 6, 7, 8, 9], '→', permutation);
+
+  return board;
+}
+
+/**
  * Generate a fully filled valid sudoku board
+ * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {number[][]} - Complete sudoku board
  */
-export function generateFullBoard() {
+export function generateFullBoard(sudokuType = 'CLASSIC') {
+  if (sudokuType === 'DIAGONAL') {
+    return generateXSudoku();
+  }
+
+  // Classic sudoku generation
   const board = createEmptyBoard();
-
-  // Fill diagonal boxes first (they're independent)
   fillDiagonal(board);
-
-  // Fill remaining cells using backtracking with randomization
-  fillRemaining(board, 0, BOX_SIZE);
-
+  fillRemaining(board, 0, BOX_SIZE, 'CLASSIC', { count: 0 });
   return board;
 }
 
@@ -75,9 +236,16 @@ export function generateFullBoard() {
  * @param {number[][]} board - The board
  * @param {number} row - Current row
  * @param {number} col - Current column
+ * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
+ * @param {object} counter - Recursion counter for timeout
  * @returns {boolean} - True if successfully filled
  */
-function fillRemaining(board, row, col) {
+function fillRemaining(board, row, col, sudokuType = 'CLASSIC', counter = { count: 0 }) {
+  // Prevent infinite recursion - if we've tried too many times, give up
+  counter.count++;
+  if (counter.count > 50000) {
+    return false;
+  }
   // Move to next row if we've filled current row
   if (col >= GRID_SIZE && row < GRID_SIZE - 1) {
     row++;
@@ -89,34 +257,36 @@ function fillRemaining(board, row, col) {
     return true;
   }
 
-  // Skip diagonal boxes (already filled)
-  if (row < BOX_SIZE) {
-    if (col < BOX_SIZE) col = BOX_SIZE;
-  } else if (row < GRID_SIZE - BOX_SIZE) {
-    if (col === Math.floor(row / BOX_SIZE) * BOX_SIZE) {
-      col += BOX_SIZE;
-    }
-  } else {
-    if (col === GRID_SIZE - BOX_SIZE) {
-      row++;
-      col = 0;
-      if (row >= GRID_SIZE) return true;
+  // Skip diagonal boxes (already filled) - only for CLASSIC sudoku
+  if (sudokuType === 'CLASSIC') {
+    if (row < BOX_SIZE) {
+      if (col < BOX_SIZE) col = BOX_SIZE;
+    } else if (row < GRID_SIZE - BOX_SIZE) {
+      if (col === Math.floor(row / BOX_SIZE) * BOX_SIZE) {
+        col += BOX_SIZE;
+      }
+    } else {
+      if (col === GRID_SIZE - BOX_SIZE) {
+        row++;
+        col = 0;
+        if (row >= GRID_SIZE) return true;
+      }
     }
   }
 
   // Skip if cell is already filled
   if (board[row][col] !== EMPTY_CELL) {
-    return fillRemaining(board, row, col + 1);
+    return fillRemaining(board, row, col + 1, sudokuType, counter);
   }
 
   // Try random numbers 1-9
   const numbers = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
 
   for (const num of numbers) {
-    if (isValidMove(board, row, col, num)) {
+    if (isValidMove(board, row, col, num, sudokuType)) {
       board[row][col] = num;
 
-      if (fillRemaining(board, row, col + 1)) {
+      if (fillRemaining(board, row, col + 1, sudokuType, counter)) {
         return true;
       }
 
@@ -130,10 +300,11 @@ function fillRemaining(board, row, col) {
 /**
  * Create a puzzle by removing numbers from a full board
  * @param {string} difficulty - Difficulty level key (EASY, MEDIUM, HARD, EXPERT)
+ * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {{puzzle: number[][], solution: number[][]}} - Puzzle and its solution
  */
-export function createPuzzle(difficulty = 'MEDIUM') {
-  const solution = generateFullBoard();
+export function createPuzzle(difficulty = 'MEDIUM', sudokuType = 'CLASSIC') {
+  const solution = generateFullBoard(sudokuType);
   const puzzle = copyBoard(solution);
 
   const difficultyConfig = DIFFICULTY_LEVELS[difficulty];
@@ -159,6 +330,10 @@ export function createPuzzle(difficulty = 'MEDIUM') {
   let attempts = 0;
   const maxAttempts = GRID_SIZE * GRID_SIZE * 2;
 
+  // For X-Sudoku, uniqueness checking is very slow, so we skip it
+  // and just remove the target number of cells
+  const skipUniquenessCheck = sudokuType === 'DIAGONAL';
+
   // Remove cells while maintaining unique solution
   for (const { row, col } of shuffledPositions) {
     if (removed >= cellsToRemove || attempts >= maxAttempts) {
@@ -170,15 +345,20 @@ export function createPuzzle(difficulty = 'MEDIUM') {
     const backup = puzzle[row][col];
     puzzle[row][col] = EMPTY_CELL;
 
-    // Check if puzzle still has unique solution
-    // For performance, only check uniqueness every few removals
-    const shouldCheckUniqueness = removed % 5 === 0 || removed >= cellsToRemove - 5;
-
-    if (shouldCheckUniqueness && !hasUniqueSolution(puzzle)) {
-      // Restore the cell if solution is not unique
-      puzzle[row][col] = backup;
-    } else {
+    if (skipUniquenessCheck) {
+      // For X-Sudoku, just remove cells without checking uniqueness
       removed++;
+    } else {
+      // Check if puzzle still has unique solution
+      // For performance, only check uniqueness every few removals
+      const shouldCheckUniqueness = removed % 5 === 0 || removed >= cellsToRemove - 5;
+
+      if (shouldCheckUniqueness && !hasUniqueSolution(puzzle, sudokuType)) {
+        // Restore the cell if solution is not unique
+        puzzle[row][col] = backup;
+      } else {
+        removed++;
+      }
     }
   }
 

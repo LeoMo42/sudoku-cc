@@ -4,9 +4,10 @@ import { isValidMove, findEmptyCell, copyBoard } from './sudokuValidator';
 /**
  * Solve sudoku using backtracking algorithm
  * @param {number[][]} board - The sudoku board (will be modified)
+ * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {boolean} - True if solution found
  */
-export function solveSudoku(board) {
+export function solveSudoku(board, sudokuType = 'CLASSIC') {
   const emptyCell = findEmptyCell(board);
 
   // No empty cells means puzzle is solved
@@ -18,11 +19,11 @@ export function solveSudoku(board) {
 
   // Try numbers 1-9
   for (let num = 1; num <= GRID_SIZE; num++) {
-    if (isValidMove(board, row, col, num)) {
+    if (isValidMove(board, row, col, num, sudokuType)) {
       board[row][col] = num;
 
       // Recursively try to solve the rest
-      if (solveSudoku(board)) {
+      if (solveSudoku(board, sudokuType)) {
         return true;
       }
 
@@ -38,11 +39,12 @@ export function solveSudoku(board) {
 /**
  * Get a solved copy of the board
  * @param {number[][]} board - The sudoku board
+ * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {number[][] | null} - Solved board or null if unsolvable
  */
-export function getSolution(board) {
+export function getSolution(board, sudokuType = 'CLASSIC') {
   const boardCopy = copyBoard(board);
-  const solved = solveSudoku(boardCopy);
+  const solved = solveSudoku(boardCopy, sudokuType);
   return solved ? boardCopy : null;
 }
 
@@ -51,9 +53,10 @@ export function getSolution(board) {
  * Used to verify puzzle has a unique solution
  * @param {number[][]} board - The sudoku board
  * @param {number} limit - Maximum solutions to count (default: 2)
+ * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {number} - Number of solutions found (capped at limit)
  */
-export function countSolutions(board, limit = 2) {
+export function countSolutions(board, limit = 2, sudokuType = 'CLASSIC') {
   let count = 0;
 
   function solve(currentBoard) {
@@ -76,7 +79,7 @@ export function countSolutions(board, limit = 2) {
     for (let num = 1; num <= GRID_SIZE; num++) {
       if (count >= limit) break;
 
-      if (isValidMove(currentBoard, row, col, num)) {
+      if (isValidMove(currentBoard, row, col, num, sudokuType)) {
         currentBoard[row][col] = num;
         solve(currentBoard);
         currentBoard[row][col] = EMPTY_CELL;
@@ -92,8 +95,9 @@ export function countSolutions(board, limit = 2) {
 /**
  * Check if the puzzle has a unique solution
  * @param {number[][]} board - The sudoku board
+ * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {boolean} - True if puzzle has exactly one solution
  */
-export function hasUniqueSolution(board) {
-  return countSolutions(board, 2) === 1;
+export function hasUniqueSolution(board, sudokuType = 'CLASSIC') {
+  return countSolutions(board, 2, sudokuType) === 1;
 }

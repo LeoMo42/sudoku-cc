@@ -6,6 +6,7 @@ import { Board } from '../Board/Board';
 import { Timer } from '../Controls/Timer';
 import { NumberPad } from '../Controls/NumberPad';
 import { DifficultySelector } from '../Controls/DifficultySelector';
+import { SudokuTypeSelector } from '../Controls/SudokuTypeSelector';
 import { GameControls } from '../Controls/GameControls';
 import { LanguageSwitcher } from '../UI/LanguageSwitcher';
 import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constants';
@@ -23,7 +24,7 @@ export function GameContainer() {
   // Auto-start game if status is IDLE
   useEffect(() => {
     if (state.gameStatus === GAME_STATUS.IDLE) {
-      actions.newGame(state.difficulty);
+      actions.newGame(state.difficulty, state.sudokuType);
     }
   }, []); // Only run on mount
 
@@ -121,14 +122,21 @@ export function GameContainer() {
   }, [state.selectedCell, state.gameStatus, actions]);
 
   const handleNewGame = useCallback(() => {
-    actions.newGame(state.difficulty);
-  }, [state.difficulty, actions]);
+    actions.newGame(state.difficulty, state.sudokuType);
+  }, [state.difficulty, state.sudokuType, actions]);
 
   const handleDifficultyChange = useCallback(
     (difficulty) => {
-      actions.newGame(difficulty);
+      actions.newGame(difficulty, state.sudokuType);
     },
-    [actions]
+    [state.sudokuType, actions]
+  );
+
+  const handleTypeChange = useCallback(
+    (sudokuType) => {
+      actions.newGame(state.difficulty, sudokuType);
+    },
+    [state.difficulty, actions]
   );
 
   const maxHints = DIFFICULTY_LEVELS[state.difficulty].maxHints;
@@ -145,8 +153,20 @@ export function GameContainer() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
-          {/* Left side - Board with Difficulty */}
+          {/* Left side - Board with Type and Difficulty */}
           <div className="flex flex-col gap-4">
+            {/* Sudoku Type Selector */}
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <h3 className="text-sm font-medium text-gray-600 mb-3">
+                {t('game.type', 'Тип:')}
+              </h3>
+              <SudokuTypeSelector
+                currentType={state.sudokuType}
+                onTypeChange={handleTypeChange}
+                disabled={false}
+              />
+            </div>
+
             {/* Difficulty Selector */}
             <div className="bg-white rounded-lg shadow-md p-4">
               <h3 className="text-sm font-medium text-gray-600 mb-3">
@@ -155,7 +175,7 @@ export function GameContainer() {
               <DifficultySelector
                 currentDifficulty={state.difficulty}
                 onDifficultyChange={handleDifficultyChange}
-                disabled={state.gameStatus === GAME_STATUS.PLAYING}
+                disabled={false}
               />
             </div>
 
@@ -167,6 +187,7 @@ export function GameContainer() {
                 selectedCell={state.selectedCell}
                 errors={state.errors}
                 notes={state.notes}
+                sudokuType={state.sudokuType}
                 onCellClick={handleCellClick}
               />
             </div>

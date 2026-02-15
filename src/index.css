@@ -28,4 +28,16 @@
   .cell-highlighted {
     @apply bg-blue-50;
   }
+
+  .cell-diagonal {
+    @apply bg-purple-100;
+  }
+
+  .cell-diagonal.cell-initial {
+    @apply bg-purple-200;
+  }
+
+  .cell-diagonal.cell-highlighted {
+    @apply bg-purple-100;
+  }
 }

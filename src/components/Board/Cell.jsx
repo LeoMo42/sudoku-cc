@@ -12,10 +12,11 @@ export const Cell = memo(function Cell({
   isSelected,
   isHighlighted,
   isError,
+  isOnDiagonal,
   notes,
   onClick,
 }) {
-  const baseStyles = 'w-full h-full flex items-center justify-center text-xl font-medium cursor-pointer select-none transition-colors';
+  const baseStyles = 'w-full h-full flex items-center justify-center text-xl font-medium cursor-pointer select-none transition-colors relative';
 
   let cellStyles = '';
   if (isError) {
@@ -24,6 +25,11 @@ export const Cell = memo(function Cell({
     cellStyles = 'cell-initial';
   } else {
     cellStyles = 'cell-user';
+  }
+
+  // Add diagonal highlight background
+  if (isOnDiagonal && !isError) {
+    cellStyles += ' cell-diagonal';
   }
 
   if (isSelected) {
@@ -79,6 +85,7 @@ export const Cell = memo(function Cell({
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isError === nextProps.isError &&
+    prevProps.isOnDiagonal === nextProps.isOnDiagonal &&
     prevProps.notes === nextProps.notes
   );
 });
