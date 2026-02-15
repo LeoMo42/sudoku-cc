@@ -1,4 +1,4 @@
-import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, DIFFICULTY_LEVELS } from './constants';
+import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, DIFFICULTY_LEVELS, WINDOKU_WINDOWS, KING_MOVES } from './constants';
 import { isValidMove, copyBoard } from './sudokuValidator';
 import { solveSudoku, hasUniqueSolution } from './sudokuSolver';
 
@@ -190,6 +190,30 @@ const BASE_X_SUDOKU = [
 ];
 
 /**
+ * Check if all Windoku windows are valid (contain all digits 1-9)
+ * @param {number[][]} board - The board to check
+ * @returns {boolean} - True if all windows are valid
+ */
+function areWindowsValid(board) {
+  for (const window of WINDOKU_WINDOWS) {
+    const digits = new Set();
+    for (let i = 0; i < BOX_SIZE; i++) {
+      for (let j = 0; j < BOX_SIZE; j++) {
+        const value = board[window.row + i][window.col + j];
+        if (value === EMPTY_CELL || digits.has(value)) {
+          return false;
+        }
+        digits.add(value);
+      }
+    }
+    if (digits.size !== GRID_SIZE) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Generate X-Sudoku by permuting digits in the base template
  * @returns {number[][]} - Valid X-Sudoku board
  */
@@ -215,6 +239,111 @@ function generateXSudoku() {
 }
 
 /**
+ * Generate Windoku by trying classic sudoku until windows are valid
+ * @returns {number[][]} - Valid Windoku board
+ */
+function generateWindoku() {
+  console.log('🎲 Generating Windoku...');
+
+  const maxAttempts = 100;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Generate a classic sudoku
+    const board = createEmptyBoard();
+    fillDiagonal(board);
+    fillRemaining(board, 0, BOX_SIZE, 'CLASSIC', { count: 0 });
+
+    // Check if windows are valid
+    if (areWindowsValid(board)) {
+      console.log(`✅ Windoku generated successfully on attempt ${attempt + 1}`);
+      return board;
+    }
+  }
+
+  console.warn(`❌ Could not generate valid Windoku after ${maxAttempts} attempts, using classic`);
+  // Fallback to classic
+  const board = createEmptyBoard();
+  fillDiagonal(board);
+  fillRemaining(board, 0, BOX_SIZE, 'CLASSIC', { count: 0 });
+  return board;
+}
+
+/**
+ * Generate Anti-Knight Sudoku using backtracking with knight constraints
+ * @returns {number[][]} - Valid Anti-Knight board
+ */
+function generateAntiKnight() {
+  console.log('🎲 Generating Anti-Knight Sudoku...');
+
+  const maxAttempts = 50;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const board = createEmptyBoard();
+    fillDiagonal(board);
+
+    // Try to fill with anti-knight constraints
+    if (fillRemaining(board, 0, BOX_SIZE, 'ANTI_KNIGHT', { count: 0 })) {
+      console.log(`✅ Anti-Knight Sudoku generated successfully on attempt ${attempt + 1}`);
+      return board;
+    }
+  }
+
+  console.warn(`❌ Could not generate valid Anti-Knight after ${maxAttempts} attempts, using classic`);
+  // Fallback to classic
+  const board = createEmptyBoard();
+  fillDiagonal(board);
+  fillRemaining(board, 0, BOX_SIZE, 'CLASSIC', { count: 0 });
+  return board;
+}
+
+/**
+ * Base Anti-King Sudoku template (verified valid)
+ * Source: sortedpuzzles.com
+ */
+const BASE_ANTI_KING_SUDOKU = [
+  [7, 8, 4, 3, 9, 5, 1, 2, 6],
+  [6, 9, 5, 2, 1, 7, 3, 4, 8],
+  [2, 3, 1, 4, 6, 8, 5, 9, 7],
+  [8, 7, 9, 5, 2, 4, 6, 3, 1],
+  [1, 5, 6, 8, 3, 9, 2, 7, 4],
+  [3, 4, 2, 1, 7, 6, 8, 5, 9],
+  [5, 6, 7, 9, 8, 3, 4, 1, 2],
+  [9, 2, 3, 6, 4, 1, 7, 8, 5],
+  [4, 1, 8, 7, 5, 2, 9, 6, 3]
+];
+
+/**
+ * Generate Anti-King Sudoku using template-based approach with digit permutations
+ * @returns {number[][]} - Valid Anti-King board
+ */
+function generateAntiKing() {
+  console.log('🎲 Generating Anti-King Sudoku...');
+
+  // Create a deep copy of the base template
+  const board = BASE_ANTI_KING_SUDOKU.map(row => [...row]);
+
+  // Apply random digit permutations
+  const digits = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const shuffledDigits = shuffle([...digits]);
+
+  // Create permutation mapping
+  const permutation = {};
+  for (let i = 0; i < 9; i++) {
+    permutation[digits[i]] = shuffledDigits[i];
+  }
+
+  // Apply permutation to the board
+  for (let row = 0; row < GRID_SIZE; row++) {
+    for (let col = 0; col < GRID_SIZE; col++) {
+      board[row][col] = permutation[board[row][col]];
+    }
+  }
+
+  console.log('✅ Anti-King Sudoku generated using template with digit permutation');
+  return board;
+}
+
+/**
  * Generate a fully filled valid sudoku board
  * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {number[][]} - Complete sudoku board
@@ -222,6 +351,18 @@ function generateXSudoku() {
 export function generateFullBoard(sudokuType = 'CLASSIC') {
   if (sudokuType === 'DIAGONAL') {
     return generateXSudoku();
+  }
+
+  if (sudokuType === 'WINDOKU') {
+    return generateWindoku();
+  }
+
+  if (sudokuType === 'ANTI_KNIGHT') {
+    return generateAntiKnight();
+  }
+
+  if (sudokuType === 'ANTI_KING') {
+    return generateAntiKing();
   }
 
   // Classic sudoku generation
@@ -298,10 +439,43 @@ function fillRemaining(board, row, col, sudokuType = 'CLASSIC', counter = { coun
 }
 
 /**
+ * Generate odd/even markers for Odd-Even Sudoku
+ * @param {number[][]} solution - The solution board
+ * @param {number} markerPercentage - Percentage of cells to mark (0-1)
+ * @returns {Map<string, string>} - Map of cell positions to 'odd' or 'even'
+ */
+function generateOddEvenMarkers(solution, markerPercentage = 0.35) {
+  const markers = new Map();
+  const totalCells = GRID_SIZE * GRID_SIZE;
+  const cellsToMark = Math.floor(totalCells * markerPercentage);
+
+  // Create array of all cell positions
+  const positions = [];
+  for (let row = 0; row < GRID_SIZE; row++) {
+    for (let col = 0; col < GRID_SIZE; col++) {
+      positions.push({ row, col });
+    }
+  }
+
+  // Shuffle and select cells to mark
+  const shuffled = shuffle(positions);
+  const selectedCells = shuffled.slice(0, cellsToMark);
+
+  // Assign markers based on solution value
+  for (const { row, col } of selectedCells) {
+    const value = solution[row][col];
+    const marker = value % 2 === 0 ? 'even' : 'odd';
+    markers.set(`${row},${col}`, marker);
+  }
+
+  return markers;
+}
+
+/**
  * Create a puzzle by removing numbers from a full board
  * @param {string} difficulty - Difficulty level key (EASY, MEDIUM, HARD, EXPERT)
  * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
- * @returns {{puzzle: number[][], solution: number[][]}} - Puzzle and its solution
+ * @returns {{puzzle: number[][], solution: number[][], oddEvenMarkers?: Map<string, string>}} - Puzzle and its solution
  */
 export function createPuzzle(difficulty = 'MEDIUM', sudokuType = 'CLASSIC') {
   const solution = generateFullBoard(sudokuType);
@@ -330,9 +504,13 @@ export function createPuzzle(difficulty = 'MEDIUM', sudokuType = 'CLASSIC') {
   let attempts = 0;
   const maxAttempts = GRID_SIZE * GRID_SIZE * 2;
 
-  // For X-Sudoku, uniqueness checking is very slow, so we skip it
+  // For special sudoku types, uniqueness checking is very slow, so we skip it
   // and just remove the target number of cells
-  const skipUniquenessCheck = sudokuType === 'DIAGONAL';
+  const skipUniquenessCheck = sudokuType === 'DIAGONAL' ||
+                               sudokuType === 'WINDOKU' ||
+                               sudokuType === 'ANTI_KNIGHT' ||
+                               sudokuType === 'ANTI_KING' ||
+                               sudokuType === 'ODD_EVEN';
 
   // Remove cells while maintaining unique solution
   for (const { row, col } of shuffledPositions) {
@@ -346,7 +524,7 @@ export function createPuzzle(difficulty = 'MEDIUM', sudokuType = 'CLASSIC') {
     puzzle[row][col] = EMPTY_CELL;
 
     if (skipUniquenessCheck) {
-      // For X-Sudoku, just remove cells without checking uniqueness
+      // For special sudoku types, just remove cells without checking uniqueness
       removed++;
     } else {
       // Check if puzzle still has unique solution
@@ -362,7 +540,13 @@ export function createPuzzle(difficulty = 'MEDIUM', sudokuType = 'CLASSIC') {
     }
   }
 
-  return { puzzle, solution };
+  // Generate odd/even markers for ODD_EVEN type
+  let oddEvenMarkers = null;
+  if (sudokuType === 'ODD_EVEN') {
+    oddEvenMarkers = generateOddEvenMarkers(solution);
+  }
+
+  return { puzzle, solution, oddEvenMarkers };
 }
 
 /**

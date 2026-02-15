@@ -95,3 +95,71 @@ export const WithNotes = {
     onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),
   },
 };
+
+export const DiagonalSudoku = {
+  args: {
+    board: samplePuzzle,
+    initialBoard: samplePuzzle,
+    selectedCell: null,
+    errors: new Set(),
+    notes: new Map(),
+    sudokuType: 'DIAGONAL',
+    onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),
+  },
+};
+
+export const Windoku = {
+  args: {
+    board: samplePuzzle,
+    initialBoard: samplePuzzle,
+    selectedCell: null,
+    errors: new Set(),
+    notes: new Map(),
+    sudokuType: 'WINDOKU',
+    onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),
+  },
+};
+
+export const AntiKnight = {
+  args: {
+    board: samplePuzzle,
+    initialBoard: samplePuzzle,
+    selectedCell: null,
+    errors: new Set(),
+    notes: new Map(),
+    sudokuType: 'ANTI_KNIGHT',
+    onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),
+  },
+};
+
+export const OddEven = {
+  args: {
+    board: samplePuzzle,
+    initialBoard: samplePuzzle,
+    selectedCell: null,
+    errors: new Set(),
+    notes: new Map(),
+    sudokuType: 'ODD_EVEN',
+    oddEvenMarkers: new Map([
+      ['0,0', 'odd'],
+      ['0,2', 'even'],
+      ['1,1', 'odd'],
+      ['2,0', 'even'],
+      ['3,3', 'odd'],
+      ['4,4', 'even'],
+    ]),
+    onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),
+  },
+};
+
+export const AntiKing = {
+  args: {
+    board: samplePuzzle,
+    initialBoard: samplePuzzle,
+    selectedCell: null,
+    errors: new Set(),
+    notes: new Map(),
+    sudokuType: 'ANTI_KING',
+    onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),
+  },
+};

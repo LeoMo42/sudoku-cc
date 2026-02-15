@@ -116,4 +116,150 @@ describe('Sudoku Validator', () => {
       expect(validBoard[0][0]).not.toBe(999);
     });
   });
+
+  describe('Anti-King Sudoku', () => {
+    // Valid Anti-King Sudoku from sortedpuzzles.com
+    const validAntiKingBoard = [
+      [7, 8, 4, 3, 9, 5, 1, 2, 6],
+      [6, 9, 5, 2, 1, 7, 3, 4, 8],
+      [2, 3, 1, 4, 6, 8, 5, 9, 7],
+      [8, 7, 9, 5, 2, 4, 6, 3, 1],
+      [1, 5, 6, 8, 3, 9, 2, 7, 4],
+      [3, 4, 2, 1, 7, 6, 8, 5, 9],
+      [5, 6, 7, 9, 8, 3, 4, 1, 2],
+      [9, 2, 3, 6, 4, 1, 7, 8, 5],
+      [4, 1, 8, 7, 5, 2, 9, 6, 3]
+    ];
+
+    it('should validate Anti-King board correctly', () => {
+      const conflicts = findConflicts(validAntiKingBoard, 'ANTI_KING');
+      expect(conflicts.size).toBe(0);
+    });
+
+    it('should detect invalid Anti-King move (adjacent same digits)', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      // Place 5 at [0,0]
+      board[0][0] = 5;
+
+      // Try to place 5 at adjacent cell [0,1] (should be invalid)
+      expect(isValidMove(board, 0, 1, 5, 'ANTI_KING')).toBe(false);
+
+      // Try to place 5 at diagonal adjacent cell [1,1] (should be invalid)
+      expect(isValidMove(board, 1, 1, 5, 'ANTI_KING')).toBe(false);
+    });
+
+    it('should allow valid Anti-King move (non-adjacent cells)', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      // Place 5 at [0,0]
+      board[0][0] = 5;
+
+      // Try to place 5 at non-adjacent cell [3,3] (should be valid for Anti-King, but check other rules)
+      // Since it's in a different 3x3 box, row, and column, it should be valid
+      expect(isValidMove(board, 3, 3, 5, 'ANTI_KING')).toBe(true);
+    });
+
+    it('should detect all 8 adjacent positions in Anti-King constraint', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      // Place 5 at center [4,4]
+      board[4][4] = 5;
+
+      // Check all 8 adjacent cells - all should be invalid for digit 5
+      const adjacentCells = [
+        [3, 3], [3, 4], [3, 5],
+        [4, 3],         [4, 5],
+        [5, 3], [5, 4], [5, 5]
+      ];
+
+      adjacentCells.forEach(([row, col]) => {
+        expect(isValidMove(board, row, col, 5, 'ANTI_KING')).toBe(false);
+      });
+    });
+
+    it('should find conflicts in invalid Anti-King board', () => {
+      const invalidBoard = copyBoard(validAntiKingBoard);
+      // Make two adjacent cells have the same digit
+      invalidBoard[0][0] = invalidBoard[0][1];
+
+      const conflicts = findConflicts(invalidBoard, 'ANTI_KING');
+      expect(conflicts.size).toBeGreaterThan(0);
+      expect(conflicts.has('0,0') || conflicts.has('0,1')).toBe(true);
+    });
+  });
+
+  describe('Diagonal Sudoku (X-Sudoku)', () => {
+    it('should detect invalid diagonal move', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      // Place 5 at [0,0] (on main diagonal)
+      board[0][0] = 5;
+
+      // Try to place 5 at [4,4] (also on main diagonal) - should be invalid
+      expect(isValidMove(board, 4, 4, 5, 'DIAGONAL')).toBe(false);
+    });
+
+    it('should detect invalid anti-diagonal move', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      // Place 5 at [0,8] (on anti-diagonal)
+      board[0][8] = 5;
+
+      // Try to place 5 at [4,4] (also on anti-diagonal) - should be invalid
+      expect(isValidMove(board, 4, 4, 5, 'DIAGONAL')).toBe(false);
+    });
+
+    it('should allow non-diagonal cells with same digit', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      // Place 5 at [0,0] (on diagonal)
+      board[0][0] = 5;
+
+      // Try to place 5 at [0,1] (not on diagonal) - should be valid (ignoring other rules)
+      expect(isValidMove(board, 3, 4, 5, 'DIAGONAL')).toBe(true);
+    });
+  });
+
+  describe('Odd-Even Sudoku', () => {
+    it('should enforce odd marker constraint', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      const oddEvenMarkers = new Map([['0,0', 'odd']]);
+
+      // Try to place even number in odd-marked cell - should be invalid
+      expect(isValidMove(board, 0, 0, 2, 'ODD_EVEN', oddEvenMarkers)).toBe(false);
+
+      // Try to place odd number in odd-marked cell - should be valid
+      expect(isValidMove(board, 0, 0, 3, 'ODD_EVEN', oddEvenMarkers)).toBe(true);
+    });
+
+    it('should enforce even marker constraint', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      const oddEvenMarkers = new Map([['0,0', 'even']]);
+
+      // Try to place odd number in even-marked cell - should be invalid
+      expect(isValidMove(board, 0, 0, 3, 'ODD_EVEN', oddEvenMarkers)).toBe(false);
+
+      // Try to place even number in even-marked cell - should be valid
+      expect(isValidMove(board, 0, 0, 4, 'ODD_EVEN', oddEvenMarkers)).toBe(true);
+    });
+  });
 });

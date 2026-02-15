@@ -1,5 +1,5 @@
 import { Cell } from './Cell';
-import { GRID_SIZE, EMPTY_CELL } from '../../utils/constants';
+import { GRID_SIZE, EMPTY_CELL, WINDOKU_WINDOWS } from '../../utils/constants';
 
 /**
  * Sudoku board component (9x9 grid)
@@ -11,12 +11,13 @@ export function Board({
   errors,
   notes,
   sudokuType = 'CLASSIC',
+  oddEvenMarkers = null,
   onCellClick,
 }) {
   return (
     <div className="inline-block bg-gray-800 p-2 rounded-lg shadow-2xl">
       <div
-        className="grid grid-cols-9 gap-0 bg-white relative"
+        className="grid grid-cols-9 grid-rows-9 gap-0 bg-white relative"
         style={{ width: '450px', height: '450px' }}
       >
         {board.map((row, rowIndex) =>
@@ -43,6 +44,19 @@ export function Board({
             const isOnDiagonal = sudokuType === 'DIAGONAL' &&
               (rowIndex === colIndex || rowIndex + colIndex === GRID_SIZE - 1);
 
+            // Check if cell is in a Windoku window
+            const isInWindow = sudokuType === 'WINDOKU' &&
+              WINDOKU_WINDOWS.some(
+                (window) =>
+                  rowIndex >= window.row &&
+                  rowIndex < window.row + 3 &&
+                  colIndex >= window.col &&
+                  colIndex < window.col + 3
+              );
+
+            // Get odd/even marker for this cell
+            const oddEvenMarker = oddEvenMarkers?.get(`${rowIndex},${colIndex}`) || null;
+
             return (
               <Cell
                 key={`${rowIndex}-${colIndex}`}
@@ -54,6 +68,8 @@ export function Board({
                 isHighlighted={isHighlighted}
                 isError={isError}
                 isOnDiagonal={isOnDiagonal}
+                isInWindow={isInWindow}
+                oddEvenMarker={oddEvenMarker}
                 notes={cellNotes}
                 onClick={onCellClick}
               />

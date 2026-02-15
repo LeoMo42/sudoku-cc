@@ -40,4 +40,16 @@
   .cell-diagonal.cell-highlighted {
     @apply bg-purple-100;
   }
+
+  .cell-window {
+    @apply bg-green-100;
+  }
+
+  .cell-window.cell-initial {
+    @apply bg-green-200;
+  }
+
+  .cell-window.cell-highlighted {
+    @apply bg-green-100;
+  }
 }

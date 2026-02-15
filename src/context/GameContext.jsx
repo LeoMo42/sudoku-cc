@@ -34,6 +34,7 @@ const initialState = {
   errors: new Set(),
   notesMode: false,
   notes: new Map(),
+  oddEvenMarkers: null,
 };
 
 // Reducer
@@ -41,7 +42,7 @@ function gameReducer(state, action) {
   switch (action.type) {
     case Actions.NEW_GAME: {
       const { difficulty, sudokuType } = action.payload;
-      const { puzzle, solution } = createPuzzle(difficulty, sudokuType);
+      const { puzzle, solution, oddEvenMarkers } = createPuzzle(difficulty, sudokuType);
 
       return {
         ...initialState,
@@ -52,6 +53,7 @@ function gameReducer(state, action) {
         sudokuType,
         gameStatus: GAME_STATUS.PLAYING,
         notes: new Map(),
+        oddEvenMarkers: oddEvenMarkers || null,
       };
     }
 
@@ -67,7 +69,7 @@ function gameReducer(state, action) {
       newBoard[row][col] = value;
 
       // Check for errors
-      const errors = findConflicts(newBoard, state.sudokuType);
+      const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers);
 
       // Check if puzzle is solved
       let gameStatus = state.gameStatus;
@@ -99,7 +101,7 @@ function gameReducer(state, action) {
     }
 
     case Actions.CHECK_SOLUTION: {
-      const errors = findConflicts(state.board, state.sudokuType);
+      const errors = findConflicts(state.board, state.sudokuType, state.oddEvenMarkers);
       const solved = isSolved(state.board);
 
       return {
@@ -125,7 +127,7 @@ function gameReducer(state, action) {
       const newBoard = copyBoard(state.board);
       newBoard[hint.row][hint.col] = hint.value;
 
-      const errors = findConflicts(newBoard, state.sudokuType);
+      const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers);
       const solved = isSolved(newBoard);
 
       // Clear notes for the hinted cell
@@ -210,6 +212,7 @@ function gameReducer(state, action) {
         ...action.payload,
         errors: new Set(action.payload.errors || []),
         notes: new Map(action.payload.notes || []),
+        oddEvenMarkers: action.payload.oddEvenMarkers ? new Map(action.payload.oddEvenMarkers) : null,
       };
     }
 
@@ -229,6 +232,7 @@ export function GameProvider({ children }) {
         ...state,
         errors: Array.from(state.errors),
         notes: Array.from(state.notes.entries()),
+        oddEvenMarkers: state.oddEvenMarkers ? Array.from(state.oddEvenMarkers.entries()) : null,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
     }

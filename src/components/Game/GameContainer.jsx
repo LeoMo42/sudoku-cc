@@ -9,6 +9,7 @@ import { DifficultySelector } from '../Controls/DifficultySelector';
 import { SudokuTypeSelector } from '../Controls/SudokuTypeSelector';
 import { GameControls } from '../Controls/GameControls';
 import { LanguageSwitcher } from '../UI/LanguageSwitcher';
+import { OddEvenLegend } from '../UI/OddEvenLegend';
 import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constants';
 
 /**
@@ -180,7 +181,7 @@ export function GameContainer() {
             </div>
 
             {/* Board */}
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center">
               <Board
                 board={state.board}
                 initialBoard={state.initialBoard}
@@ -188,8 +189,12 @@ export function GameContainer() {
                 errors={state.errors}
                 notes={state.notes}
                 sudokuType={state.sudokuType}
+                oddEvenMarkers={state.oddEvenMarkers}
                 onCellClick={handleCellClick}
               />
+
+              {/* Odd-Even Legend */}
+              {state.sudokuType === 'ODD_EVEN' && <OddEvenLegend />}
             </div>
           </div>
 

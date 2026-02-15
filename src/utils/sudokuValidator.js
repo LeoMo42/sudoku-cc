@@ -1,4 +1,4 @@
-import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, SUDOKU_TYPES } from './constants';
+import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, SUDOKU_TYPES, WINDOKU_WINDOWS, KNIGHT_MOVES, KING_MOVES } from './constants';
 
 /**
  * Check if placing a number at a specific position is valid
@@ -7,9 +7,10 @@ import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, SUDOKU_TYPES } from './constants';
  * @param {number} col - Column index
  * @param {number} num - Number to place (1-9)
  * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
+ * @param {Map<string, string>} oddEvenMarkers - Map of cell positions to 'odd' or 'even' markers
  * @returns {boolean} - True if the move is valid
  */
-export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC') {
+export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC', oddEvenMarkers = null) {
   // Check row
   for (let x = 0; x < GRID_SIZE; x++) {
     if (board[row][x] === num && x !== col) {
@@ -62,6 +63,94 @@ export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC') {
     }
   }
 
+  // Additional checks for Windoku
+  if (sudokuType === 'WINDOKU') {
+    // Check if cell is in any of the 4 windows
+    for (const window of WINDOKU_WINDOWS) {
+      const inWindow =
+        row >= window.row &&
+        row < window.row + BOX_SIZE &&
+        col >= window.col &&
+        col < window.col + BOX_SIZE;
+
+      if (inWindow) {
+        // Check this window
+        for (let i = 0; i < BOX_SIZE; i++) {
+          for (let j = 0; j < BOX_SIZE; j++) {
+            const currentRow = window.row + i;
+            const currentCol = window.col + j;
+            if (
+              board[currentRow][currentCol] === num &&
+              (currentRow !== row || currentCol !== col)
+            ) {
+              return false;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Additional checks for Anti-Knight
+  if (sudokuType === 'ANTI_KNIGHT') {
+    // Check all knight moves
+    for (const move of KNIGHT_MOVES) {
+      const knightRow = row + move.row;
+      const knightCol = col + move.col;
+
+      // Check if position is within board
+      if (
+        knightRow >= 0 &&
+        knightRow < GRID_SIZE &&
+        knightCol >= 0 &&
+        knightCol < GRID_SIZE
+      ) {
+        if (board[knightRow][knightCol] === num) {
+          return false;
+        }
+      }
+    }
+  }
+
+  // Additional checks for Odd-Even
+  if (sudokuType === 'ODD_EVEN' && oddEvenMarkers) {
+    const cellKey = `${row},${col}`;
+    const marker = oddEvenMarkers.get(cellKey);
+
+    if (marker) {
+      const isOdd = num % 2 === 1;
+      const isEven = num % 2 === 0;
+
+      if (marker === 'odd' && !isOdd) {
+        return false; // Cell is marked as odd but number is even
+      }
+      if (marker === 'even' && !isEven) {
+        return false; // Cell is marked as even but number is odd
+      }
+    }
+  }
+
+  // Additional checks for Anti-King
+  if (sudokuType === 'ANTI_KING') {
+    // Check all adjacent cells (king moves)
+    for (const move of KING_MOVES) {
+      const kingRow = row + move.row;
+      const kingCol = col + move.col;
+
+      // Check if position is within board
+      if (
+        kingRow >= 0 &&
+        kingRow < GRID_SIZE &&
+        kingCol >= 0 &&
+        kingCol < GRID_SIZE
+      ) {
+        if (board[kingRow][kingCol] === num) {
+          return false;
+        }
+      }
+    }
+  }
+
   return true;
 }
 
@@ -69,9 +158,10 @@ export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC') {
  * Find all conflicts (errors) on the board
  * @param {number[][]} board - The sudoku board
  * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
+ * @param {Map<string, string>} oddEvenMarkers - Map of cell positions to 'odd' or 'even' markers
  * @returns {Set<string>} - Set of cell coordinates with conflicts (format: "row,col")
  */
-export function findConflicts(board, sudokuType = 'CLASSIC') {
+export function findConflicts(board, sudokuType = 'CLASSIC', oddEvenMarkers = null) {
   const conflicts = new Set();
 
   for (let row = 0; row < GRID_SIZE; row++) {
@@ -81,7 +171,7 @@ export function findConflicts(board, sudokuType = 'CLASSIC') {
 
       // Temporarily remove the number to check if it's valid
       board[row][col] = EMPTY_CELL;
-      if (!isValidMove(board, row, col, num, sudokuType)) {
+      if (!isValidMove(board, row, col, num, sudokuType, oddEvenMarkers)) {
         conflicts.add(`${row},${col}`);
       }
       board[row][col] = num;

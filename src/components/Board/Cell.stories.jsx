@@ -108,6 +108,62 @@ export const WithNotes = {
   },
 };
 
+export const DiagonalCell = {
+  args: {
+    value: 5,
+    row: 0,
+    col: 0,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    isOnDiagonal: true,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const WindowCell = {
+  args: {
+    value: 7,
+    row: 1,
+    col: 1,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    isInWindow: true,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const OddMarkerCell = {
+  args: {
+    value: 0,
+    row: 2,
+    col: 2,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    oddEvenMarker: 'odd',
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const EvenMarkerCell = {
+  args: {
+    value: 0,
+    row: 3,
+    col: 3,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    oddEvenMarker: 'even',
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
 export const AllStates = () => (
   <div className="grid grid-cols-4 gap-4">
     <div style={{ width: '50px', height: '50px' }}>

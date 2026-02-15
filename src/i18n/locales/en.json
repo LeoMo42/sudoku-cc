@@ -25,6 +25,10 @@
   "controls": {
     "keyboard": "Use keys 1-9, arrows for navigation, Backspace to clear, N for notes"
   },
+  "oddEven": {
+    "odd": "Odd",
+    "even": "Even"
+  },
   "sudokuTypes": {
     "CLASSIC": {
       "name": "Classic",
@@ -33,6 +37,22 @@
     "DIAGONAL": {
       "name": "Diagonal (X-Sudoku)",
       "description": "Classic rules + both diagonals contain 1-9"
+    },
+    "WINDOKU": {
+      "name": "Windoku",
+      "description": "Classic rules + 4 additional 3×3 windows contain 1-9"
+    },
+    "ANTI_KNIGHT": {
+      "name": "Anti-Knight",
+      "description": "Classic rules + same digits cannot be a knight's move apart"
+    },
+    "ODD_EVEN": {
+      "name": "Odd-Even",
+      "description": "Classic rules + marked cells must contain odd or even digits"
+    },
+    "ANTI_KING": {
+      "name": "Anti-King",
+      "description": "Classic rules + same digits cannot be adjacent (king's move)"
     }
   }
 }
