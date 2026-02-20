@@ -14,6 +14,9 @@ export const Cell = memo(function Cell({
   isError,
   isOnDiagonal,
   isInWindow,
+  isKnightTarget,
+  isKingDiagonal,
+  isNonConsec,
   oddEvenMarker,
   notes,
   onClick,
@@ -37,6 +40,13 @@ export const Cell = memo(function Cell({
   // Add window highlight background
   if (isInWindow && !isError) {
     cellStyles += ' cell-window';
+  }
+
+  if (isKnightTarget && !isError) {
+    cellStyles += ' cell-knight-target';
+  }
+  if (isKingDiagonal && !isError) {
+    cellStyles += ' cell-king-diagonal';
   }
 
   if (isSelected) {
@@ -68,6 +78,15 @@ export const Cell = memo(function Cell({
       tabIndex={0}
       aria-label={`Cell row ${row + 1} column ${col + 1}`}
     >
+      {/* Non-Consecutive: dot on right border (except outer edge) */}
+      {isNonConsec && col < 8 && (
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-400 opacity-70 z-10 pointer-events-none" />
+      )}
+      {/* Non-Consecutive: dot on bottom border (except outer edge) */}
+      {isNonConsec && row < 8 && (
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-1.5 h-1.5 rounded-full bg-orange-400 opacity-70 z-10 pointer-events-none" />
+      )}
+
       {/* Odd/Even marker */}
       {oddEvenMarker && (
         <div className="absolute top-0.5 left-0.5 w-3 h-3">
@@ -105,6 +124,9 @@ export const Cell = memo(function Cell({
     prevProps.isError === nextProps.isError &&
     prevProps.isOnDiagonal === nextProps.isOnDiagonal &&
     prevProps.isInWindow === nextProps.isInWindow &&
+    prevProps.isKnightTarget === nextProps.isKnightTarget &&
+    prevProps.isKingDiagonal === nextProps.isKingDiagonal &&
+    prevProps.isNonConsec === nextProps.isNonConsec &&
     prevProps.oddEvenMarker === nextProps.oddEvenMarker &&
     prevProps.notes === nextProps.notes
   );

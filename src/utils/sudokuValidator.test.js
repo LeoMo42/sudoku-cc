@@ -262,4 +262,64 @@ describe('Sudoku Validator', () => {
       expect(isValidMove(board, 0, 0, 4, 'ODD_EVEN', oddEvenMarkers)).toBe(true);
     });
   });
+
+  describe('Non-Consecutive Sudoku', () => {
+    it('should detect invalid move when adjacent cells differ by 1', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      // Place 5 at [0,0]
+      board[0][0] = 5;
+
+      // Try to place 4 at adjacent cell [0,1] - should be invalid (differs by 1)
+      expect(isValidMove(board, 0, 1, 4, 'NON_CONSECUTIVE')).toBe(false);
+
+      // Try to place 6 at adjacent cell [1,0] - should be invalid (differs by 1)
+      expect(isValidMove(board, 1, 0, 6, 'NON_CONSECUTIVE')).toBe(false);
+    });
+
+    it('should allow valid move when adjacent cells do not differ by 1', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      // Place 5 at [0,0]
+      board[0][0] = 5;
+
+      // Try to place 3 at adjacent cell [0,1] - should be valid (differs by 2)
+      expect(isValidMove(board, 0, 1, 3, 'NON_CONSECUTIVE')).toBe(true);
+
+      // Try to place 7 at adjacent cell [1,0] - should be valid (differs by 2)
+      expect(isValidMove(board, 1, 0, 7, 'NON_CONSECUTIVE')).toBe(true);
+    });
+
+    it('should check all 4 orthogonal directions', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      // Place 5 at center [4,4]
+      board[4][4] = 5;
+
+      // Check all 4 adjacent cells - all should be invalid for 4 or 6
+      expect(isValidMove(board, 4, 3, 4, 'NON_CONSECUTIVE')).toBe(false); // left
+      expect(isValidMove(board, 4, 5, 4, 'NON_CONSECUTIVE')).toBe(false); // right
+      expect(isValidMove(board, 3, 4, 6, 'NON_CONSECUTIVE')).toBe(false); // up
+      expect(isValidMove(board, 5, 4, 6, 'NON_CONSECUTIVE')).toBe(false); // down
+    });
+
+    it('should not check diagonal cells', () => {
+      const board = Array(9)
+        .fill(null)
+        .map(() => Array(9).fill(EMPTY_CELL));
+
+      // Place 5 at [0,0]
+      board[0][0] = 5;
+
+      // Try to place 4 or 6 at diagonal cell [1,1] - should be valid (diagonals not checked)
+      expect(isValidMove(board, 1, 1, 4, 'NON_CONSECUTIVE')).toBe(true);
+      expect(isValidMove(board, 1, 1, 6, 'NON_CONSECUTIVE')).toBe(true);
+    });
+  });
 });

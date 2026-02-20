@@ -65,6 +65,11 @@ export const SUDOKU_TYPES = {
     name: 'Anti-King Sudoku',
     description: 'Classic rules + same digits cannot be adjacent (king\'s move)',
   },
+  NON_CONSECUTIVE: {
+    id: 'NON_CONSECUTIVE',
+    name: 'Non-Consecutive Sudoku',
+    description: 'Classic rules + adjacent cells cannot differ by 1',
+  },
 };
 
 // Windoku window positions (top-left corners)

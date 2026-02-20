@@ -57,6 +57,14 @@ export const AntiKingSelected = {
   },
 };
 
+export const NonConsecutiveSelected = {
+  args: {
+    currentType: 'NON_CONSECUTIVE',
+    onTypeChange: (type) => console.log('Type changed to:', type),
+    disabled: false,
+  },
+};
+
 export const Disabled = {
   args: {
     currentType: 'CLASSIC',

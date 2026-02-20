@@ -52,4 +52,20 @@
   .cell-window.cell-highlighted {
     @apply bg-green-100;
   }
+
+  .cell-knight-target {
+    @apply bg-amber-100;
+  }
+
+  .cell-knight-target.cell-initial {
+    @apply bg-amber-200;
+  }
+
+  .cell-king-diagonal {
+    @apply bg-teal-100;
+  }
+
+  .cell-king-diagonal.cell-initial {
+    @apply bg-teal-200;
+  }
 }

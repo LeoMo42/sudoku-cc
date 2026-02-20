@@ -344,6 +344,53 @@ function generateAntiKing() {
 }
 
 /**
+ * Base Non-Consecutive Sudoku template (generated via Python)
+ * Adjacent cells do not differ by 1
+ */
+const BASE_NON_CONSECUTIVE_SUDOKU = [
+  [6, 8, 5, 2, 9, 3, 1, 7, 4],
+  [9, 3, 1, 6, 4, 7, 5, 2, 8],
+  [2, 7, 4, 1, 8, 5, 9, 6, 3],
+  [5, 2, 7, 4, 1, 8, 3, 9, 6],
+  [8, 6, 3, 9, 5, 2, 7, 4, 1],
+  [1, 4, 9, 7, 3, 6, 2, 8, 5],
+  [4, 9, 6, 3, 7, 1, 8, 5, 2],
+  [7, 1, 8, 5, 2, 4, 6, 3, 9],
+  [3, 5, 2, 8, 6, 9, 4, 1, 7],
+];
+
+/**
+ * Generate Non-Consecutive Sudoku using template-based approach with digit permutations
+ * @returns {number[][]} - Valid Non-Consecutive board
+ */
+function generateNonConsecutive() {
+  console.log('🎲 Generating Non-Consecutive Sudoku...');
+
+  // Create a deep copy of the base template
+  const board = BASE_NON_CONSECUTIVE_SUDOKU.map(row => [...row]);
+
+  // Apply random digit permutations
+  const digits = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const shuffledDigits = shuffle([...digits]);
+
+  // Create permutation mapping
+  const permutation = {};
+  for (let i = 0; i < 9; i++) {
+    permutation[digits[i]] = shuffledDigits[i];
+  }
+
+  // Apply permutation to the board
+  for (let row = 0; row < GRID_SIZE; row++) {
+    for (let col = 0; col < GRID_SIZE; col++) {
+      board[row][col] = permutation[board[row][col]];
+    }
+  }
+
+  console.log('✅ Non-Consecutive Sudoku generated using template with digit permutation');
+  return board;
+}
+
+/**
  * Generate a fully filled valid sudoku board
  * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {number[][]} - Complete sudoku board
@@ -363,6 +410,10 @@ export function generateFullBoard(sudokuType = 'CLASSIC') {
 
   if (sudokuType === 'ANTI_KING') {
     return generateAntiKing();
+  }
+
+  if (sudokuType === 'NON_CONSECUTIVE') {
+    return generateNonConsecutive();
   }
 
   // Classic sudoku generation
@@ -510,7 +561,8 @@ export function createPuzzle(difficulty = 'MEDIUM', sudokuType = 'CLASSIC') {
                                sudokuType === 'WINDOKU' ||
                                sudokuType === 'ANTI_KNIGHT' ||
                                sudokuType === 'ANTI_KING' ||
-                               sudokuType === 'ODD_EVEN';
+                               sudokuType === 'ODD_EVEN' ||
+                               sudokuType === 'NON_CONSECUTIVE';
 
   // Remove cells while maintaining unique solution
   for (const { row, col } of shuffledPositions) {

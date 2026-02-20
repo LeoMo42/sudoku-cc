@@ -53,6 +53,10 @@
     "ANTI_KING": {
       "name": "Anti-King",
       "description": "Classic rules + same digits cannot be adjacent (king's move)"
+    },
+    "NON_CONSECUTIVE": {
+      "name": "Non-Consecutive",
+      "description": "Classic rules + adjacent cells cannot differ by 1"
     }
   }
 }

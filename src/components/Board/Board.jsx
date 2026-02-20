@@ -54,6 +54,28 @@ export function Board({
                   colIndex < window.col + 3
               );
 
+            // Anti-Knight: highlight cells a knight's move from selected cell
+            const isKnightTarget =
+              sudokuType === 'ANTI_KNIGHT' &&
+              selectedCell &&
+              !isSelected &&
+              (() => {
+                const dr = Math.abs(rowIndex - selectedCell.row);
+                const dc = Math.abs(colIndex - selectedCell.col);
+                return (dr === 1 && dc === 2) || (dr === 2 && dc === 1);
+              })();
+
+            // Anti-King: highlight diagonal neighbours of selected cell
+            const isKingDiagonal =
+              sudokuType === 'ANTI_KING' &&
+              selectedCell &&
+              !isSelected &&
+              Math.abs(rowIndex - selectedCell.row) === 1 &&
+              Math.abs(colIndex - selectedCell.col) === 1;
+
+            // Non-Consecutive: flag for static border dot markers
+            const isNonConsec = sudokuType === 'NON_CONSECUTIVE';
+
             // Get odd/even marker for this cell
             const oddEvenMarker = oddEvenMarkers?.get(`${rowIndex},${colIndex}`) || null;
 
@@ -69,6 +91,9 @@ export function Board({
                 isError={isError}
                 isOnDiagonal={isOnDiagonal}
                 isInWindow={isInWindow}
+                isKnightTarget={isKnightTarget}
+                isKingDiagonal={isKingDiagonal}
+                isNonConsec={isNonConsec}
                 oddEvenMarker={oddEvenMarker}
                 notes={cellNotes}
                 onClick={onCellClick}

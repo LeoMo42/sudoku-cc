@@ -163,3 +163,15 @@ export const AntiKing = {
     onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),
   },
 };
+
+export const NonConsecutive = {
+  args: {
+    board: samplePuzzle,
+    initialBoard: samplePuzzle,
+    selectedCell: null,
+    errors: new Set(),
+    notes: new Map(),
+    sudokuType: 'NON_CONSECUTIVE',
+    onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),
+  },
+};

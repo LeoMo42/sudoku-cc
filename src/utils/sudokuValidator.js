@@ -151,6 +151,36 @@ export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC', oddEve
     }
   }
 
+  // Additional checks for Non-Consecutive
+  if (sudokuType === 'NON_CONSECUTIVE') {
+    // Check orthogonally adjacent cells (up, down, left, right)
+    const adjacentOffsets = [
+      { row: -1, col: 0 },  // up
+      { row: 1, col: 0 },   // down
+      { row: 0, col: -1 },  // left
+      { row: 0, col: 1 }    // right
+    ];
+
+    for (const offset of adjacentOffsets) {
+      const adjRow = row + offset.row;
+      const adjCol = col + offset.col;
+
+      // Check if position is within board
+      if (
+        adjRow >= 0 &&
+        adjRow < GRID_SIZE &&
+        adjCol >= 0 &&
+        adjCol < GRID_SIZE
+      ) {
+        const adjValue = board[adjRow][adjCol];
+        // Adjacent cells cannot differ by exactly 1
+        if (adjValue !== EMPTY_CELL && Math.abs(adjValue - num) === 1) {
+          return false;
+        }
+      }
+    }
+  }
+
   return true;
 }
 
