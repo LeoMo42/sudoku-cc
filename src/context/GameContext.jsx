@@ -35,6 +35,12 @@ const initialState = {
   notesMode: false,
   notes: new Map(),
   oddEvenMarkers: null,
+  kropkiDots: null,
+  killerCages: null,
+  littleKillerClues: null,
+  greaterThanSigns: null,
+  thermos: null,
+  sandwichClues: null,
 };
 
 // Reducer
@@ -42,7 +48,7 @@ function gameReducer(state, action) {
   switch (action.type) {
     case Actions.NEW_GAME: {
       const { difficulty, sudokuType } = action.payload;
-      const { puzzle, solution, oddEvenMarkers } = createPuzzle(difficulty, sudokuType);
+      const { puzzle, solution, oddEvenMarkers, kropkiDots, killerCages, littleKillerClues, greaterThanSigns, thermos, sandwichClues } = createPuzzle(difficulty, sudokuType);
 
       return {
         ...initialState,
@@ -54,6 +60,12 @@ function gameReducer(state, action) {
         gameStatus: GAME_STATUS.PLAYING,
         notes: new Map(),
         oddEvenMarkers: oddEvenMarkers || null,
+        kropkiDots: kropkiDots || null,
+        killerCages: killerCages || null,
+        littleKillerClues: littleKillerClues || null,
+        greaterThanSigns: greaterThanSigns || null,
+        thermos: thermos || null,
+        sandwichClues: sandwichClues || null,
       };
     }
 
@@ -69,11 +81,11 @@ function gameReducer(state, action) {
       newBoard[row][col] = value;
 
       // Check for errors
-      const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers);
+      const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
 
       // Check if puzzle is solved
       let gameStatus = state.gameStatus;
-      if (isSolved(newBoard)) {
+      if (isSolved(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues)) {
         gameStatus = GAME_STATUS.COMPLETED;
       }
 
@@ -101,8 +113,8 @@ function gameReducer(state, action) {
     }
 
     case Actions.CHECK_SOLUTION: {
-      const errors = findConflicts(state.board, state.sudokuType, state.oddEvenMarkers);
-      const solved = isSolved(state.board);
+      const errors = findConflicts(state.board, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
+      const solved = isSolved(state.board, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
 
       return {
         ...state,
@@ -127,8 +139,8 @@ function gameReducer(state, action) {
       const newBoard = copyBoard(state.board);
       newBoard[hint.row][hint.col] = hint.value;
 
-      const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers);
-      const solved = isSolved(newBoard);
+      const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
+      const solved = isSolved(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
 
       // Clear notes for the hinted cell
       const newNotes = new Map(state.notes);
@@ -213,6 +225,12 @@ function gameReducer(state, action) {
         errors: new Set(action.payload.errors || []),
         notes: new Map(action.payload.notes || []),
         oddEvenMarkers: action.payload.oddEvenMarkers ? new Map(action.payload.oddEvenMarkers) : null,
+        kropkiDots: action.payload.kropkiDots ? new Map(action.payload.kropkiDots) : null,
+        killerCages: action.payload.killerCages || null,
+        littleKillerClues: action.payload.littleKillerClues || null,
+        greaterThanSigns: action.payload.greaterThanSigns ? new Map(action.payload.greaterThanSigns) : null,
+        thermos: action.payload.thermos || null,
+        sandwichClues: action.payload.sandwichClues || null,
       };
     }
 
@@ -233,6 +251,12 @@ export function GameProvider({ children }) {
         errors: Array.from(state.errors),
         notes: Array.from(state.notes.entries()),
         oddEvenMarkers: state.oddEvenMarkers ? Array.from(state.oddEvenMarkers.entries()) : null,
+        kropkiDots: state.kropkiDots ? Array.from(state.kropkiDots.entries()) : null,
+        killerCages: state.killerCages,
+        littleKillerClues: state.littleKillerClues,
+        greaterThanSigns: state.greaterThanSigns ? Array.from(state.greaterThanSigns.entries()) : null,
+        thermos: state.thermos,
+        sandwichClues: state.sandwichClues,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
     }

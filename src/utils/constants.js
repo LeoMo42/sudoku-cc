@@ -70,6 +70,36 @@ export const SUDOKU_TYPES = {
     name: 'Non-Consecutive Sudoku',
     description: 'Classic rules + adjacent cells cannot differ by 1',
   },
+  KROPKI: {
+    id: 'KROPKI',
+    name: 'Kropki Sudoku',
+    description: 'Classic rules + white dot=diff 1, black dot=×2 between neighbours',
+  },
+  KILLER: {
+    id: 'KILLER',
+    name: 'Killer Sudoku',
+    description: 'Classic rules + cages with target sums, no digit repeats in cage',
+  },
+  LITTLE_KILLER: {
+    id: 'LITTLE_KILLER',
+    name: 'Little Killer Sudoku',
+    description: 'Classic rules + diagonal sum clues on the outside of the grid (digits may repeat)',
+  },
+  GREATER_THAN: {
+    id: 'GREATER_THAN',
+    name: 'Greater Than Sudoku',
+    description: 'Classic rules + inequality signs between adjacent cells must be satisfied',
+  },
+  THERMO: {
+    id: 'THERMO',
+    name: 'Thermo Sudoku',
+    description: 'Classic rules + digits must strictly increase along each thermometer from bulb to tip',
+  },
+  SANDWICH: {
+    id: 'SANDWICH',
+    name: 'Sandwich Sudoku',
+    description: 'Classic rules + clues outside the grid show the sum of digits between 1 and 9 in each row/column',
+  },
 };
 
 // Windoku window positions (top-left corners)

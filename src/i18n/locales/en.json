@@ -57,6 +57,30 @@
     "NON_CONSECUTIVE": {
       "name": "Non-Consecutive",
       "description": "Classic rules + adjacent cells cannot differ by 1"
+    },
+    "KROPKI": {
+      "name": "Kropki",
+      "description": "Classic rules + white dot=diff 1, black dot=×2 between neighbours"
+    },
+    "KILLER": {
+      "name": "Killer",
+      "description": "Classic rules + cages with target sums, no digit repeats in cage"
+    },
+    "LITTLE_KILLER": {
+      "name": "Little Killer",
+      "description": "Classic rules + diagonal sums shown outside the grid (digits may repeat)"
+    },
+    "GREATER_THAN": {
+      "name": "Greater Than",
+      "description": "Classic rules + inequality signs between adjacent cells must be satisfied"
+    },
+    "THERMO": {
+      "name": "Thermo",
+      "description": "Classic rules + digits must strictly increase along each thermometer from bulb to tip"
+    },
+    "SANDWICH": {
+      "name": "Sandwich",
+      "description": "Classic rules + clues outside the grid show the sum of digits sandwiched between 1 and 9"
     }
   }
 }

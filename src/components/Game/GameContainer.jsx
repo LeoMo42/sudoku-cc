@@ -190,6 +190,12 @@ export function GameContainer() {
                 notes={state.notes}
                 sudokuType={state.sudokuType}
                 oddEvenMarkers={state.oddEvenMarkers}
+                kropkiDots={state.kropkiDots}
+                killerCages={state.killerCages}
+                littleKillerClues={state.littleKillerClues}
+                greaterThanSigns={state.greaterThanSigns}
+                thermos={state.thermos}
+                sandwichClues={state.sandwichClues}
                 onCellClick={handleCellClick}
               />
 

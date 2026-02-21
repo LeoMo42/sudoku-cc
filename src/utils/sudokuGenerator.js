@@ -490,6 +490,218 @@ function fillRemaining(board, row, col, sudokuType = 'CLASSIC', counter = { coun
 }
 
 /**
+ * Generate Killer Sudoku cages from a completed solution
+ * @param {number[][]} solution - The solution board
+ * @returns {Array<{id: number, cells: Array<{row: number, col: number}>, sum: number}>} - Cages
+ */
+function generateKillerCages(solution) {
+  const assigned = Array(9).fill(null).map(() => Array(9).fill(false));
+  const cages = [];
+  const allCells = [];
+  for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) allCells.push({ r, c });
+  const cells = shuffle(allCells);
+
+  for (const { r, c } of cells) {
+    if (assigned[r][c]) continue;
+    const targetSize = 2 + Math.floor(Math.random() * 4); // 2-5
+    const cageCells = [{ row: r, col: c }];
+    assigned[r][c] = true;
+
+    while (cageCells.length < targetSize) {
+      const candidates = [];
+      for (const { row, col } of cageCells) {
+        for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+          const nr = row+dr, nc = col+dc;
+          if (nr>=0 && nr<9 && nc>=0 && nc<9 && !assigned[nr][nc])
+            candidates.push({ row: nr, col: nc });
+        }
+      }
+      if (!candidates.length) break;
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      cageCells.push(pick);
+      assigned[pick.row][pick.col] = true;
+    }
+
+    const sum = cageCells.reduce((s, { row, col }) => s + solution[row][col], 0);
+    cages.push({ id: cages.length, cells: cageCells, sum });
+  }
+  return cages;
+}
+
+/**
+ * Generate Little Killer diagonal sum clues from a completed solution.
+ * Each clue describes a diagonal of cells outside→inside the board with an arrow and target sum.
+ * @param {number[][]} solution - The solution board
+ * @returns {Array<{labelRow, labelCol, dr, dc, cells, sum}>}
+ */
+function generateLittleKillerClues(solution) {
+  const directions = [
+    { dr: 1, dc: 1 },
+    { dr: 1, dc: -1 },
+    { dr: -1, dc: 1 },
+    { dr: -1, dc: -1 },
+  ];
+
+  const allDiagonals = [];
+
+  for (const { dr, dc } of directions) {
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        // (r, c) is a valid starting cell if the previous step is outside the board
+        const prevR = r - dr;
+        const prevC = c - dc;
+        const prevOutside = prevR < 0 || prevR >= GRID_SIZE || prevC < 0 || prevC >= GRID_SIZE;
+        if (!prevOutside) continue;
+
+        // Collect all cells along this diagonal
+        const cells = [];
+        let nr = r, nc = c;
+        while (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+          cells.push({ row: nr, col: nc });
+          nr += dr;
+          nc += dc;
+        }
+
+        if (cells.length < 2) continue;
+
+        const sum = cells.reduce((s, { row, col }) => s + solution[row][col], 0);
+        allDiagonals.push({ labelRow: r - dr, labelCol: c - dc, dr, dc, cells, sum });
+      }
+    }
+  }
+
+  // Pick a random subset of ~10 clues
+  const shuffled = shuffle(allDiagonals);
+  return shuffled.slice(0, 10);
+}
+
+/**
+ * Generate Kropki dots from a completed solution
+ * @param {number[][]} solution - The solution board
+ * @returns {Map<string, 'white'|'black'>} - Map of edge keys to dot types
+ */
+function generateKropkiDots(solution) {
+  const dots = new Map();
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const v = solution[r][c];
+      if (c < 8) {
+        const v2 = solution[r][c + 1];
+        if (Math.abs(v - v2) === 1)        dots.set(`${r},${c},r`, 'white');
+        else if (v === 2*v2 || v2 === 2*v) dots.set(`${r},${c},r`, 'black');
+      }
+      if (r < 8) {
+        const v2 = solution[r + 1][c];
+        if (Math.abs(v - v2) === 1)        dots.set(`${r},${c},b`, 'white');
+        else if (v === 2*v2 || v2 === 2*v) dots.set(`${r},${c},b`, 'black');
+      }
+    }
+  }
+  return dots;
+}
+
+/**
+ * Generate Sandwich clues from a completed solution.
+ * For each row/col: sum of digits strictly between the positions of 1 and 9.
+ * @param {number[][]} solution - The solution board
+ * @returns {{ rows: number[], cols: number[] }} - 9 row sums and 9 col sums
+ */
+function generateSandwichClues(solution) {
+  const rows = [];
+  const cols = [];
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    const row = solution[r];
+    const pos1 = row.indexOf(1);
+    const pos9 = row.indexOf(9);
+    const lo = Math.min(pos1, pos9);
+    const hi = Math.max(pos1, pos9);
+    let sum = 0;
+    for (let c = lo + 1; c < hi; c++) sum += row[c];
+    rows.push(sum);
+  }
+
+  for (let c = 0; c < GRID_SIZE; c++) {
+    const col = solution.map(r => r[c]);
+    const pos1 = col.indexOf(1);
+    const pos9 = col.indexOf(9);
+    const lo = Math.min(pos1, pos9);
+    const hi = Math.max(pos1, pos9);
+    let sum = 0;
+    for (let r = lo + 1; r < hi; r++) sum += col[r];
+    cols.push(sum);
+  }
+
+  return { rows, cols };
+}
+
+/**
+ * Generate thermometer chains from a completed solution.
+ * Each thermo is an ordered array of orthogonally-adjacent cells with strictly increasing values.
+ * @param {number[][]} solution - The solution board
+ * @returns {Array<Array<{row, col}>>} - Array of thermos (each thermo is ordered from bulb to tip)
+ */
+function generateThermos(solution) {
+  const usedCells = new Set();
+  const thermos = [];
+  const maxAttempts = 400;
+  const targetCount = 6;
+
+  for (let attempt = 0; attempt < maxAttempts && thermos.length < targetCount; attempt++) {
+    const startR = Math.floor(Math.random() * GRID_SIZE);
+    const startC = Math.floor(Math.random() * GRID_SIZE);
+    if (usedCells.has(`${startR},${startC}`)) continue;
+
+    const thermo = [{ row: startR, col: startC }];
+
+    for (let step = 0; step < 5; step++) {
+      const { row, col } = thermo[thermo.length - 1];
+      const currentVal = solution[row][col];
+      const candidates = [];
+      for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const nr = row + dr, nc = col + dc;
+        if (nr < 0 || nr >= GRID_SIZE || nc < 0 || nc >= GRID_SIZE) continue;
+        if (usedCells.has(`${nr},${nc}`)) continue;
+        if (thermo.some(c => c.row === nr && c.col === nc)) continue;
+        if (solution[nr][nc] > currentVal) candidates.push({ row: nr, col: nc });
+      }
+      if (!candidates.length) break;
+      thermo.push(candidates[Math.floor(Math.random() * candidates.length)]);
+    }
+
+    if (thermo.length >= 3) {
+      for (const cell of thermo) usedCells.add(`${cell.row},${cell.col}`);
+      thermos.push(thermo);
+    }
+  }
+
+  return thermos;
+}
+
+/**
+ * Generate Greater Than inequality signs from a completed solution.
+ * Sign key "row,col,r" = right border of cell (row,col) vs (row,col+1).
+ * Sign key "row,col,b" = bottom border of cell (row,col) vs (row+1,col).
+ * Value '>' means left/top cell > right/bottom cell; '<' means left/top < right/bottom.
+ * @param {number[][]} solution - The solution board
+ * @returns {Map<string, '>'|'<'>} - All 144 internal edge signs
+ */
+function generateGreaterThanSigns(solution) {
+  const signs = new Map();
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE - 1; c++) {
+      signs.set(`${r},${c},r`, solution[r][c] > solution[r][c + 1] ? '>' : '<');
+    }
+  }
+  for (let r = 0; r < GRID_SIZE - 1; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      signs.set(`${r},${c},b`, solution[r][c] > solution[r + 1][c] ? '>' : '<');
+    }
+  }
+  return signs;
+}
+
+/**
  * Generate odd/even markers for Odd-Even Sudoku
  * @param {number[][]} solution - The solution board
  * @param {number} markerPercentage - Percentage of cells to mark (0-1)
@@ -530,6 +742,13 @@ function generateOddEvenMarkers(solution, markerPercentage = 0.35) {
  */
 export function createPuzzle(difficulty = 'MEDIUM', sudokuType = 'CLASSIC') {
   const solution = generateFullBoard(sudokuType);
+
+  // Killer Sudoku: empty board + cages, no cell removal needed
+  if (sudokuType === 'KILLER') {
+    const killerCages = generateKillerCages(solution);
+    return { puzzle: createEmptyBoard(), solution, oddEvenMarkers: null, kropkiDots: null, killerCages, littleKillerClues: null, greaterThanSigns: null, thermos: null, sandwichClues: null };
+  }
+
   const puzzle = copyBoard(solution);
 
   const difficultyConfig = DIFFICULTY_LEVELS[difficulty];
@@ -562,7 +781,13 @@ export function createPuzzle(difficulty = 'MEDIUM', sudokuType = 'CLASSIC') {
                                sudokuType === 'ANTI_KNIGHT' ||
                                sudokuType === 'ANTI_KING' ||
                                sudokuType === 'ODD_EVEN' ||
-                               sudokuType === 'NON_CONSECUTIVE';
+                               sudokuType === 'NON_CONSECUTIVE' ||
+                               sudokuType === 'KROPKI' ||
+                               sudokuType === 'KILLER' ||
+                               sudokuType === 'LITTLE_KILLER' ||
+                               sudokuType === 'GREATER_THAN' ||
+                               sudokuType === 'THERMO' ||
+                               sudokuType === 'SANDWICH';
 
   // Remove cells while maintaining unique solution
   for (const { row, col } of shuffledPositions) {
@@ -598,7 +823,37 @@ export function createPuzzle(difficulty = 'MEDIUM', sudokuType = 'CLASSIC') {
     oddEvenMarkers = generateOddEvenMarkers(solution);
   }
 
-  return { puzzle, solution, oddEvenMarkers };
+  // Generate Kropki dots for KROPKI type
+  let kropkiDots = null;
+  if (sudokuType === 'KROPKI') {
+    kropkiDots = generateKropkiDots(solution);
+  }
+
+  // Generate Little Killer diagonal clues for LITTLE_KILLER type
+  let littleKillerClues = null;
+  if (sudokuType === 'LITTLE_KILLER') {
+    littleKillerClues = generateLittleKillerClues(solution);
+  }
+
+  // Generate Greater Than inequality signs for GREATER_THAN type
+  let greaterThanSigns = null;
+  if (sudokuType === 'GREATER_THAN') {
+    greaterThanSigns = generateGreaterThanSigns(solution);
+  }
+
+  // Generate thermometers for THERMO type
+  let thermos = null;
+  if (sudokuType === 'THERMO') {
+    thermos = generateThermos(solution);
+  }
+
+  // Generate sandwich clues for SANDWICH type
+  let sandwichClues = null;
+  if (sudokuType === 'SANDWICH') {
+    sandwichClues = generateSandwichClues(solution);
+  }
+
+  return { puzzle, solution, oddEvenMarkers, kropkiDots, killerCages: null, littleKillerClues, greaterThanSigns, thermos, sandwichClues };
 }
 
 /**

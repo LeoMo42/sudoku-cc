@@ -55,6 +55,12 @@ def solve(
     board: list[list[int]],
     sudoku_type: str = 'CLASSIC',
     odd_even_mask: list[list[str]] | None = None,
+    killer_cages: list[dict] | None = None,
+    kropki_dots: dict[str, str] | None = None,
+    greater_than_signs: dict[str, str] | None = None,
+    thermos: list[list[tuple[int, int]]] | None = None,
+    sandwich_clues: dict | None = None,
+    little_killer_clues: list[dict] | None = None,
     max_steps: int = 1000,
 ) -> SolveResult:
     """
@@ -65,13 +71,28 @@ def solve(
     board : 9×9 grid, 0 = empty
     sudoku_type : variant id
     odd_even_mask : required for ODD_EVEN type
+    killer_cages : required for KILLER type
+    kropki_dots : required for KROPKI type
+    greater_than_signs : required for GREATER_THAN type
+    thermos : required for THERMO type
+    sandwich_clues : required for SANDWICH type
+    little_killer_clues : required for LITTLE_KILLER type
     max_steps : safety limit to prevent infinite loops
 
     Returns
     -------
     SolveResult (check .solved to know if puzzle was solvable without backtracking)
     """
-    cg = CandidateGrid(board, sudoku_type, odd_even_mask)
+    cg = CandidateGrid(
+        board, sudoku_type,
+        odd_even_mask=odd_even_mask,
+        killer_cages=killer_cages,
+        kropki_dots=kropki_dots,
+        greater_than_signs=greater_than_signs,
+        thermos=thermos,
+        sandwich_clues=sandwich_clues,
+        little_killer_clues=little_killer_clues,
+    )
 
     if cg.has_contradiction():
         return SolveResult(solved=False)
