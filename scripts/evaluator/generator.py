@@ -28,6 +28,7 @@ variant-specific data is derived from the complete solution.
 """
 
 import json
+import logging
 import random
 import sys
 import time
@@ -36,6 +37,8 @@ from pathlib import Path
 
 from candidates import CandidateGrid, DIGIT_BIT, _bits_to_digits, _popcount
 from solver import solve, SolveResult
+
+log = logging.getLogger(__name__)
 
 # When to start running the technique solver (skip it when puzzle has too many
 # givens — at that point it's trivially EASY and evaluation is pointless).
@@ -534,6 +537,17 @@ _SCAN_START = {
 
 
 def _make_puzzle_dive(full_board, sudoku_type, target_difficulty, variant_kwargs):
+    """Remove cells until uniqueness is lost, then pick the best snapshot.
+
+    Strategy (givens-based with technique preference):
+      1. Collect snapshots once the board drops to ≤ scan_start givens.
+      2. Walk snapshots from fewest givens (hardest) toward more givens (easier).
+      3. Return the first snapshot whose technique difficulty matches the target.
+      4. If no exact match exists, return the snapshot with the fewest givens
+         that the technique solver can still fully solve (fallback).
+    This guarantees we always produce *something* even when the target technique
+    level is never hit, trading exact difficulty label for faster generation.
+    """
     scan_start = _SCAN_START[target_difficulty]
     puzzle = [row[:] for row in full_board]
     positions = [(r, c) for r in range(9) for c in range(9)]
@@ -556,12 +570,23 @@ def _make_puzzle_dive(full_board, sudoku_type, target_difficulty, variant_kwargs
         if givens <= scan_start:
             snapshots.append((givens, [row[:] for row in puzzle]))
 
+    # Walk from fewest givens (hardest) to most givens (easiest).
+    # Prefer exact technique match; otherwise keep the hardest solvable state.
+    fallback = None
     for _, state in reversed(snapshots):
         result = solve(state, sudoku_type, **variant_kwargs)
-        if result.solved and result.difficulty == target_difficulty:
+        if not result.solved:
+            continue
+        if result.difficulty == target_difficulty:
             return (state, result)
+        if fallback is None:
+            # Record the hardest state the technique solver can handle.
+            fallback = (state, result)
 
-    return None
+    if fallback is not None:
+        log.debug('dive: no exact %s match — returning fallback difficulty=%s',
+                  target_difficulty, fallback[1].difficulty)
+    return fallback
 
 
 def _level_index(level: str) -> int:
@@ -595,25 +620,48 @@ def generate_puzzles(
     board_failures = 0
     t_start = time.time()
 
+    log.info('start  type=%s  difficulty=%s  count=%d', sudoku_type, target_difficulty, count)
+
+    if sudoku_type == 'KILLER' and target_difficulty in ('HARD', 'EXPERT'):
+        log.warning(
+            'KILLER difficulty is always EASY/score=0 for the technique solver '
+            '(cage-only board). Target=%s will be ignored; all puzzles accepted as-is.',
+            target_difficulty,
+        )
+
     while len(results) < count and attempts < max_attempts:
         attempts += 1
+        log.debug('[%d] attempt %d/%d  accepted=%d',
+                  attempts, attempts, max_attempts, len(results))
 
         # 1. Generate complete board
         full_board = generate_complete_board(sudoku_type, odd_even_mask)
         if full_board is None:
             board_failures += 1
+            log.debug('[%d] board generation failed  (total failures=%d)',
+                      attempts, board_failures)
             continue
+        log.debug('[%d] board generated', attempts)
 
         # 2. Derive variant-specific data from the solution
         variant_data = _generate_variant_data(full_board, sudoku_type)
         if sudoku_type == 'ODD_EVEN' and odd_even_mask:
             variant_data['odd_even_mask'] = odd_even_mask
+        if variant_data:
+            summary = {k: (len(v) if hasattr(v, '__len__') else v)
+                       for k, v in variant_data.items()}
+            log.debug('[%d] variant data: %s', attempts, summary)
 
         # 3. Create puzzle at target difficulty
-        # KILLER: puzzle is always an empty board — cages alone constrain the solution
+        # KILLER: puzzle is always an empty board — cages alone constrain the solution.
+        # The technique solver cannot evaluate cage-only puzzles well, so difficulty
+        # is always reported as EASY/score=0 regardless of the target.
         if sudoku_type == 'KILLER':
             puzzle = [[0] * 9 for _ in range(9)]
             solve_result = solve(puzzle, sudoku_type, **variant_data)
+            log.debug('[%d] KILLER solve: solved=%s  difficulty=%s  score=%d',
+                      attempts, solve_result.solved, solve_result.difficulty,
+                      solve_result.total_score)
         else:
             n_orders = 5 if target_difficulty in ('HARD', 'EXPERT') else 1
             outcome = make_puzzle(
@@ -623,8 +671,15 @@ def generate_puzzles(
                 **variant_data,
             )
             if outcome is None:
+                log.debug('[%d] make_puzzle returned None  (target=%s not reached)',
+                          attempts, target_difficulty)
                 continue
             puzzle, solve_result = outcome
+            givens = sum(v != 0 for row in puzzle for v in row)
+            log.debug('[%d] puzzle made: givens=%d  difficulty=%s  score=%d  techniques=%s',
+                      attempts, givens, solve_result.difficulty,
+                      solve_result.total_score, solve_result.technique_counts())
+
         record = {
             'puzzle':      puzzle,
             'solution':    full_board,
@@ -635,33 +690,24 @@ def generate_puzzles(
         }
         record.update(variant_data)
         results.append(record)
+        log.info('[%d] accepted #%d  difficulty=%s  score=%d',
+                 attempts, len(results), solve_result.difficulty, solve_result.total_score)
 
-        if verbose and len(results) % 50 == 0:
+        if len(results) % 50 == 0:
             elapsed = time.time() - t_start
             rate = len(results) / elapsed if elapsed > 0 else 0
             accept = len(results) / attempts
             eta = (count - len(results)) / rate if rate > 0 else float('inf')
-            print(
-                f'  [{sudoku_type} / {target_difficulty}] '
-                f'{len(results)}/{count}  '
-                f'attempts={attempts}  '
-                f'accept={accept:.1%}  '
-                f'speed={rate:.1f}/s  '
-                f'ETA={eta:.0f}s'
-            )
+            log.info('progress  %d/%d  attempts=%d  accept=%.1f%%  speed=%.1f/s  ETA=%.0fs',
+                     len(results), count, attempts, accept * 100, rate, eta)
 
         if output_dir and len(results) % 100 == 0:
             _save_json(results, sudoku_type, target_difficulty, output_dir, partial=True)
 
-    if verbose:
-        elapsed = time.time() - t_start
-        print(
-            f'  Done: {len(results)}/{count} puzzles  '
-            f'attempts={attempts}  '
-            f'board_failures={board_failures}  '
-            f'accept={len(results)/attempts:.1%}  '
-            f'total={elapsed:.1f}s'
-        )
+    elapsed = time.time() - t_start
+    log.info('done  accepted=%d/%d  attempts=%d  board_failures=%d  accept=%.1f%%  total=%.1fs',
+             len(results), count, attempts, board_failures,
+             len(results) / attempts * 100 if attempts else 0, elapsed)
 
     if output_dir:
         _save_json(results, sudoku_type, target_difficulty, output_dir, partial=False)
@@ -680,8 +726,20 @@ def _save_json(
     path.mkdir(parents=True, exist_ok=True)
     suffix = '_partial' if partial else ''
     fname = path / f'{sudoku_type.lower()}_{difficulty.lower()}{suffix}.json'
+
+    # Final saves append to any existing file; partial saves overwrite (checkpoint only).
+    combined = results
+    if not partial and fname.exists():
+        try:
+            with open(fname) as f:
+                existing = json.load(f)
+            combined = existing + results
+            log.debug('append: loaded %d existing puzzles from %s', len(existing), fname)
+        except (json.JSONDecodeError, OSError):
+            log.warning('append: could not read existing %s — overwriting', fname)
+
     with open(fname, 'w') as f:
-        json.dump(results, f)
+        json.dump(combined, f)
 
 
 # ---------------------------------------------------------------------------
@@ -697,22 +755,37 @@ if __name__ == '__main__':
         'ODD_EVEN',
         'KILLER', 'KROPKI', 'GREATER_THAN', 'THERMO', 'SANDWICH', 'LITTLE_KILLER',
     ]
+    ALL_DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD', 'EXPERT']
 
     parser = argparse.ArgumentParser(description='Generate sudoku puzzles')
-    parser.add_argument('--type',       default='CLASSIC', choices=ALL_TYPES)
+    parser.add_argument('--type',       default='CLASSIC',
+                        choices=ALL_TYPES + ['ALL'])
     parser.add_argument('--difficulty', default='MEDIUM',
-                        choices=['EASY', 'MEDIUM', 'HARD', 'EXPERT'])
+                        choices=ALL_DIFFICULTIES + ['ALL'])
     parser.add_argument('--count',      type=int, default=100)
     parser.add_argument('--out',        default='puzzles/')
+    parser.add_argument('--log-level',  default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+                        help='Logging verbosity (DEBUG shows every attempt)')
     args = parser.parse_args()
 
-    print(f'Generating {args.count} {args.type} / {args.difficulty} puzzles...')
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format='%(asctime)s  %(levelname)-7s  %(message)s',
+        datefmt='%H:%M:%S',
+    )
+
+    types = ALL_TYPES if args.type == 'ALL' else [args.type]
+    difficulties = ALL_DIFFICULTIES if args.difficulty == 'ALL' else [args.difficulty]
+
     sys.path.insert(0, str(Path(__file__).parent))
 
-    puzzles = generate_puzzles(
-        sudoku_type=args.type,
-        target_difficulty=args.difficulty,
-        count=args.count,
-        output_dir=args.out,
-    )
-    print(f'Saved {len(puzzles)} puzzles to {args.out}')
+    for sudoku_type in types:
+        for difficulty in difficulties:
+            puzzles = generate_puzzles(
+                sudoku_type=sudoku_type,
+                target_difficulty=difficulty,
+                count=args.count,
+                output_dir=args.out,
+            )
+            log.info('saved %d puzzles → %s', len(puzzles), args.out)
