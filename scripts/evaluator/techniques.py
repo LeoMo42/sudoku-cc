@@ -44,40 +44,48 @@ class Step:
 # ---------------------------------------------------------------------------
 
 SCORES = {
-    'NAKED_SINGLE':      1,    # trivial, low score so they don't dominate
-    'HIDDEN_SINGLE':     10,
-    'LOCKED_CANDIDATES': 30,
-    'NAKED_PAIR':        40,
-    'HIDDEN_PAIR':       50,
-    'NAKED_TRIPLE':      80,
-    'HIDDEN_TRIPLE':     90,
-    'NAKED_QUAD':       110,
-    'HIDDEN_QUAD':      120,
-    'X_WING':           150,
-    'SWORDFISH':        200,
-    'JELLYFISH':        250,
-    'XY_WING':          200,
-    'SIMPLE_COLORING':  350,
+    'NAKED_SINGLE':        1,    # trivial, low score so they don't dominate
+    'HIDDEN_SINGLE':      10,
+    'LOCKED_CANDIDATES':  30,
+    'NAKED_PAIR':         40,
+    'HIDDEN_PAIR':        50,
+    'NAKED_TRIPLE':       80,
+    'HIDDEN_TRIPLE':      90,
+    'NAKED_QUAD':        110,
+    'HIDDEN_QUAD':       120,
+    'X_WING':            150,
+    'SWORDFISH':         200,
+    'JELLYFISH':         250,
+    'XY_WING':           200,
+    'XYZ_WING':          250,
+    'W_WING':            280,
+    'UNIQUE_RECTANGLE_1': 300,
+    'SIMPLE_COLORING':   350,
+    'UNIQUE_RECTANGLE_2': 400,
 }
 
 # Difficulty level of each technique.
 # PRIMARY basis for difficulty classification — the hardest technique
 # required to solve a puzzle determines its minimum difficulty level.
 TECHNIQUE_LEVEL = {
-    'NAKED_SINGLE':      'EASY',
-    'HIDDEN_SINGLE':     'MEDIUM',   # requires scanning houses, not trivial
-    'LOCKED_CANDIDATES': 'MEDIUM',
-    'NAKED_PAIR':        'MEDIUM',
-    'HIDDEN_PAIR':       'MEDIUM',
-    'NAKED_TRIPLE':      'HARD',
-    'HIDDEN_TRIPLE':     'HARD',
-    'NAKED_QUAD':        'HARD',
-    'HIDDEN_QUAD':       'HARD',
-    'X_WING':            'HARD',
-    'SWORDFISH':         'HARD',
-    'JELLYFISH':         'HARD',
-    'XY_WING':           'HARD',
-    'SIMPLE_COLORING':   'EXPERT',
+    'NAKED_SINGLE':        'EASY',
+    'HIDDEN_SINGLE':       'MEDIUM',   # requires scanning houses, not trivial
+    'LOCKED_CANDIDATES':   'MEDIUM',
+    'NAKED_PAIR':          'MEDIUM',
+    'HIDDEN_PAIR':         'MEDIUM',
+    'NAKED_TRIPLE':        'HARD',
+    'HIDDEN_TRIPLE':       'HARD',
+    'NAKED_QUAD':          'HARD',
+    'HIDDEN_QUAD':         'HARD',
+    'X_WING':              'HARD',
+    'SWORDFISH':           'HARD',
+    'JELLYFISH':           'HARD',
+    'XY_WING':             'HARD',
+    'XYZ_WING':            'HARD',
+    'W_WING':              'HARD',
+    'UNIQUE_RECTANGLE_1':  'HARD',
+    'SIMPLE_COLORING':     'EXPERT',
+    'UNIQUE_RECTANGLE_2':  'EXPERT',
 }
 
 # Ordered list of technique functions (defined below, registered at module end)
@@ -627,6 +635,296 @@ def simple_coloring(cg: CandidateGrid) -> Step | None:
 
 
 # ---------------------------------------------------------------------------
+# 9. XYZ-Wing
+#
+#    Pivot cell has exactly 3 candidates {X, Y, Z}.
+#    Pincer-1 and Pincer-2 are bivalue cells that each see the pivot and
+#    share exactly 2 of the 3 pivot candidates.  Together they cover all
+#    three pivot candidates (p1 | p2 == pivot).
+#    Z is the digit shared between both pincers (p1 & p2).
+#
+#    Any cell that sees ALL THREE of (pivot, pincer-1, pincer-2) cannot be Z.
+#
+#    Correctness argument:
+#      If T == Z, then T eliminates Z from pivot, p1, and p2.
+#        pivot ∈ {X, Y} (not Z) → p1 must take the non-pivot digit from {X,Z}
+#        → p1 = X; but pivot might also be X → conflict, or pivot = Y and
+#        p2 must be Z (only remaining option in {Y,Z}) → conflict with T=Z.
+#      Either branch leads to contradiction, so T ≠ Z.
+# ---------------------------------------------------------------------------
+
+def xyz_wing(cg: CandidateGrid) -> Step | None:
+    trivalue = [
+        (r, c) for r in range(9) for c in range(9)
+        if cg.is_empty(r, c) and cg.candidate_count(r, c) == 3
+    ]
+
+    for pr, pc in trivalue:
+        pivot_bits = cg.candidate_bits(pr, pc)
+        pivot_peers = cg.get_peers(pr, pc)
+
+        # Pincers: bivalue cells that see the pivot and share 2 of 3 pivot candidates
+        pincers = [
+            (r, c) for r, c in pivot_peers
+            if cg.is_empty(r, c)
+            and cg.candidate_count(r, c) == 2
+            and _popcount(cg.candidate_bits(r, c) & pivot_bits) == 2
+        ]
+
+        for i in range(len(pincers)):
+            p1r, p1c = pincers[i]
+            p1_bits = cg.candidate_bits(p1r, p1c)
+            for j in range(i + 1, len(pincers)):
+                p2r, p2c = pincers[j]
+                p2_bits = cg.candidate_bits(p2r, p2c)
+
+                # Together both pincers must cover all 3 pivot candidates
+                if (p1_bits | p2_bits) != pivot_bits:
+                    continue
+
+                # Z is the digit shared between both pincers (also in pivot)
+                z_bit = p1_bits & p2_bits
+                if _popcount(z_bit) != 1:
+                    continue
+
+                z_digit = _bits_to_digits(z_bit)[0]
+
+                # Eliminate Z from cells seeing all three: pivot, p1, p2
+                p1_peers = cg.get_peers(p1r, p1c)
+                p2_peers = cg.get_peers(p2r, p2c)
+                all_three_peers = pivot_peers & p1_peers & p2_peers
+
+                elims = [
+                    (r, c, z_digit) for r, c in all_three_peers
+                    if cg.is_empty(r, c) and cg.candidate_bits(r, c) & z_bit
+                ]
+
+                if elims:
+                    for r, c, d in elims:
+                        cg.eliminate(r, c, d)
+                    return Step(
+                        technique='XYZ_WING',
+                        score=SCORES['XYZ_WING'],
+                        description=(
+                            f'XYZ-Wing: pivot ({pr},{pc}) '
+                            f'pincers ({p1r},{p1c}) ({p2r},{p2c}) '
+                            f'eliminate {z_digit}'
+                        ),
+                        eliminations=elims,
+                    )
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# 10. W-Wing
+#
+#    Two bivalue cells C1 and C2 share the same candidate pair {A, B}.
+#    They are connected by a strong link on A: a house in which A appears
+#    in exactly 2 cells X and Y, where C1 sees X and C2 sees Y
+#    (or C1 sees Y and C2 sees X).
+#
+#    Elimination: B can be removed from any cell that sees BOTH C1 and C2.
+#
+#    Correctness:
+#      Case C1 = A: X cannot be A (C1 sees X) → Y must be A (strong link).
+#                   C2 sees Y=A → C2 ≠ A → C2 = B.
+#                   Any T seeing C2 → T ≠ B.
+#      Case C1 = B: any T seeing C1=B → T ≠ B.
+#      In both cases T ≠ B.
+# ---------------------------------------------------------------------------
+
+def w_wing(cg: CandidateGrid) -> Step | None:
+    bivalue: dict[tuple[int, int], int] = {
+        (r, c): cg.candidate_bits(r, c)
+        for r in range(9) for c in range(9)
+        if cg.is_empty(r, c) and cg.candidate_count(r, c) == 2
+    }
+    cells = list(bivalue.keys())
+
+    for i in range(len(cells)):
+        r1, c1 = cells[i]
+        bits1 = bivalue[(r1, c1)]
+        peers1 = cg.get_peers(r1, c1)
+
+        for j in range(i + 1, len(cells)):
+            r2, c2 = cells[j]
+            bits2 = bivalue[(r2, c2)]
+            if bits1 != bits2:
+                continue   # must share the same {A, B} pair
+
+            peers2 = cg.get_peers(r2, c2)
+            a_bit, b_bit = _two_bits(bits1)
+
+            # Try A as the link digit → eliminate B; then swap
+            for link_bit, elim_bit in ((a_bit, b_bit), (b_bit, a_bit)):
+                elim_digit = _bits_to_digits(elim_bit)[0]
+
+                for house in cg.get_houses():
+                    link_pos = [
+                        (r, c) for r, c in house
+                        if cg.is_empty(r, c) and cg.candidate_bits(r, c) & link_bit
+                    ]
+                    if len(link_pos) != 2:
+                        continue
+                    x, y = link_pos
+
+                    # Skip degenerate cases where X or Y is one of C1/C2
+                    if x in ((r1, c1), (r2, c2)) or y in ((r1, c1), (r2, c2)):
+                        continue
+
+                    # C1 sees X and C2 sees Y (or vice versa)
+                    if not ((x in peers1 and y in peers2) or
+                            (y in peers1 and x in peers2)):
+                        continue
+
+                    # Eliminate elim_digit from cells seeing both C1 and C2
+                    common = peers1 & peers2
+                    elims = [
+                        (r, c, elim_digit) for r, c in common
+                        if (r, c) not in ((r1, c1), (r2, c2))
+                        and cg.is_empty(r, c)
+                        and cg.candidate_bits(r, c) & elim_bit
+                    ]
+
+                    if elims:
+                        for r, c, d in elims:
+                            cg.eliminate(r, c, d)
+                        link_digit = _bits_to_digits(link_bit)[0]
+                        return Step(
+                            technique='W_WING',
+                            score=SCORES['W_WING'],
+                            description=(
+                                f'W-Wing: ({r1},{c1}) ({r2},{c2}) '
+                                f'linked on {link_digit}, eliminate {elim_digit}'
+                            ),
+                            eliminations=elims,
+                        )
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# 11. Unique Rectangle (Types 1 and 2)
+#
+#    A Unique Rectangle (UR) is 4 cells forming a rectangle in exactly
+#    2 rows, 2 columns, and exactly 2 boxes.  If two digits {A, B}
+#    appear in all 4 corners, the puzzle would have multiple solutions
+#    if those were the ONLY candidates in all 4 corners (deadly pattern).
+#    The UR techniques exploit this to make eliminations.
+#
+#    Type 1  (HARD):
+#      Three corners have only {A, B}.  The fourth "roof" corner has
+#      {A, B, X, …}.  To avoid the deadly pattern, the roof must NOT
+#      be A or B → eliminate A and B from the roof.
+#
+#    Type 2  (EXPERT):
+#      Two "floor" corners have only {A, B}.  The other two "roof"
+#      corners each have exactly one extra candidate, and it is the
+#      SAME digit X.  Since at least one roof must place X (to avoid
+#      the deadly pattern) and any cell that sees BOTH roofs loses X
+#      regardless of which roof places it → eliminate X from common
+#      peers of both roof cells.
+# ---------------------------------------------------------------------------
+
+def _ur_rectangles(cg: CandidateGrid):
+    """Yield (corners, bits_list, ab_pair) for every valid UR rectangle."""
+    for r1 in range(9):
+        for r2 in range(r1 + 1, 9):
+            for c1 in range(9):
+                for c2 in range(c1 + 1, 9):
+                    # Must span exactly 2 boxes
+                    boxes = {
+                        (r1 // 3, c1 // 3), (r1 // 3, c2 // 3),
+                        (r2 // 3, c1 // 3), (r2 // 3, c2 // 3),
+                    }
+                    if len(boxes) != 2:
+                        continue
+                    corners = ((r1, c1), (r1, c2), (r2, c1), (r2, c2))
+                    if not all(cg.is_empty(r, c) for r, c in corners):
+                        continue
+                    bits = [cg.candidate_bits(r, c) for r, c in corners]
+                    common = bits[0] & bits[1] & bits[2] & bits[3]
+                    if _popcount(common) < 2:
+                        continue
+                    for a, b in combinations(_bits_to_digits(common), 2):
+                        yield corners, bits, (a, b)
+
+
+def unique_rectangle(cg: CandidateGrid) -> Step | None:
+    """Try UR Type 1 (HARD) across all rectangles, then UR Type 2 (EXPERT)."""
+
+    type2_candidates = []   # collect for second pass
+
+    for corners, bits, (a, b) in _ur_rectangles(cg):
+        ab = DIGIT_BIT[a] | DIGIT_BIT[b]
+        extras = [bb & ~ab for bb in bits]
+        n_exact = sum(1 for e in extras if e == 0)
+
+        # --- Type 1: 3 exact {A,B} corners, eliminate A and B from roof ---
+        if n_exact == 3:
+            roof_idx = next(i for i, e in enumerate(extras) if e != 0)
+            rr, rc = corners[roof_idx]
+            elims = [
+                (rr, rc, d) for d in (a, b)
+                if cg.candidate_bits(rr, rc) & DIGIT_BIT[d]
+            ]
+            if elims:
+                for r, c, d in elims:
+                    cg.eliminate(r, c, d)
+                r1, c1 = corners[0]
+                r2, c2 = corners[3]
+                return Step(
+                    technique='UNIQUE_RECTANGLE_1',
+                    score=SCORES['UNIQUE_RECTANGLE_1'],
+                    description=(
+                        f'UR Type 1: {a},{b} rect '
+                        f'({r1},{c1})-({r2},{c2}), roof ({rr},{rc})'
+                    ),
+                    eliminations=elims,
+                )
+
+        # Collect Type 2 candidates (need a second pass to avoid returning
+        # a Type 2 before all Type 1s have been checked)
+        if n_exact == 2:
+            roof_idxs = [i for i, e in enumerate(extras) if e != 0]
+            if len(roof_idxs) == 2:
+                if extras[roof_idxs[0]] == extras[roof_idxs[1]]:
+                    x_bit = extras[roof_idxs[0]]
+                    if _popcount(x_bit) == 1:
+                        type2_candidates.append((corners, roof_idxs, x_bit, a, b))
+
+    # --- Type 2: eliminate X from common peers of both roof cells ---
+    for corners, roof_idxs, x_bit, a, b in type2_candidates:
+        x_digit = _bits_to_digits(x_bit)[0]
+        rr0, rc0 = corners[roof_idxs[0]]
+        rr1, rc1 = corners[roof_idxs[1]]
+        common_peers = cg.get_peers(rr0, rc0) & cg.get_peers(rr1, rc1)
+        elims = [
+            (r, c, x_digit) for r, c in common_peers
+            if (r, c) not in ((rr0, rc0), (rr1, rc1))
+            and cg.is_empty(r, c)
+            and cg.candidate_bits(r, c) & x_bit
+        ]
+        if elims:
+            for r, c, d in elims:
+                cg.eliminate(r, c, d)
+            r1, c1 = corners[0]
+            r2, c2 = corners[3]
+            return Step(
+                technique='UNIQUE_RECTANGLE_2',
+                score=SCORES['UNIQUE_RECTANGLE_2'],
+                description=(
+                    f'UR Type 2: {a},{b} rect '
+                    f'({r1},{c1})-({r2},{c2}), extra={x_digit}'
+                ),
+                eliminations=elims,
+            )
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Ordered technique list — the solver tries these in order
 # ---------------------------------------------------------------------------
 
@@ -644,5 +942,8 @@ TECHNIQUES = [
     swordfish,
     jellyfish,
     xy_wing,
+    xyz_wing,
+    w_wing,
+    unique_rectangle,   # Type 1 (HARD) checked first, Type 2 (EXPERT) as fallback
     simple_coloring,
 ]

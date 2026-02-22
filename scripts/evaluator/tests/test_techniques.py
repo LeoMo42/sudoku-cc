@@ -4,7 +4,10 @@ from candidates import CandidateGrid
 from techniques import (
     naked_single, hidden_single, locked_candidates,
     naked_pair, hidden_pair, naked_triple,
-    x_wing, xy_wing, simple_coloring,
+    hidden_triple, naked_quad, hidden_quad,
+    x_wing, swordfish, jellyfish,
+    xy_wing, xyz_wing, w_wing,
+    unique_rectangle, simple_coloring,
     SCORES, TECHNIQUE_LEVEL,
 )
 
@@ -344,3 +347,576 @@ class TestTechniqueConstants:
 
     def test_simple_coloring_is_expert(self):
         assert TECHNIQUE_LEVEL['SIMPLE_COLORING'] == 'EXPERT'
+
+
+# ---------------------------------------------------------------------------
+# Hidden Pair
+# ---------------------------------------------------------------------------
+
+class TestHiddenPair:
+    def _setup(self):
+        """
+        Digits 2 and 8 appear only in cells (0,2) and (0,6) of row 0.
+        Both cells have many extra candidates — the pair is "hidden".
+        """
+        cg = CandidateGrid(empty())
+        for c in range(9):
+            if c not in (2, 6):
+                cg.eliminate(0, c, 2)
+                cg.eliminate(0, c, 8)
+        return cg
+
+    def test_eliminates_extra_candidates(self):
+        cg = self._setup()
+        step = hidden_pair(cg)
+        assert step is not None
+        assert step.technique == 'HIDDEN_PAIR'
+        assert len(step.eliminations) > 0
+        # After the step, (0,2) and (0,6) must hold only {2, 8}
+        assert set(cg.candidates(0, 2)) == {2, 8}
+        assert set(cg.candidates(0, 6)) == {2, 8}
+
+    def test_only_pair_cells_changed(self):
+        cg = self._setup()
+        hidden_pair(cg)
+        for c in range(9):
+            if c not in (2, 6):
+                # Other cells in the row must still have their original candidates
+                assert 2 not in cg.candidates(0, c)
+                assert 8 not in cg.candidates(0, c)
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = hidden_pair(cg)
+        if step is not None:
+            assert step.score == SCORES['HIDDEN_PAIR']
+
+
+# ---------------------------------------------------------------------------
+# Naked Triple
+# ---------------------------------------------------------------------------
+
+class TestNakedTriple:
+    def _setup(self):
+        """
+        Cells (0,0), (0,3), (0,6) in row 0 are confined to {3, 5, 7}.
+        Other cells in row 0 still have those digits — triple must eliminate them.
+        """
+        cg = CandidateGrid(empty())
+        for c in (0, 3, 6):
+            for d in range(1, 10):
+                if d not in (3, 5, 7):
+                    cg.eliminate(0, c, d)
+        return cg
+
+    def test_finds_triple(self):
+        cg = self._setup()
+        step = naked_triple(cg)
+        assert step is not None
+        assert step.technique == 'NAKED_TRIPLE'
+
+    def test_eliminates_from_other_cells(self):
+        cg = self._setup()
+        step = naked_triple(cg)
+        assert step is not None
+        assert len(step.eliminations) > 0
+        # All eliminations must be digits 3, 5, or 7 from non-triple cells
+        triple_cells = {(0, 0), (0, 3), (0, 6)}
+        for r, c, d in step.eliminations:
+            assert d in (3, 5, 7)
+            assert (r, c) not in triple_cells
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = naked_triple(cg)
+        if step is not None:
+            assert step.score == SCORES['NAKED_TRIPLE']
+
+
+# ---------------------------------------------------------------------------
+# Hidden Triple
+# ---------------------------------------------------------------------------
+
+class TestHiddenTriple:
+    def _setup(self):
+        """
+        Digits 1, 2, 3 appear only in cells (0,0), (0,3), (0,6) of row 0.
+        Those cells also hold many other candidates — triple is hidden.
+        """
+        cg = CandidateGrid(empty())
+        for c in range(9):
+            if c not in (0, 3, 6):
+                cg.eliminate(0, c, 1)
+                cg.eliminate(0, c, 2)
+                cg.eliminate(0, c, 3)
+        return cg
+
+    def test_finds_triple(self):
+        cg = self._setup()
+        step = hidden_triple(cg)
+        assert step is not None
+        assert step.technique == 'HIDDEN_TRIPLE'
+
+    def test_strips_extra_candidates(self):
+        cg = self._setup()
+        hidden_triple(cg)
+        # After the step, triple cells should hold only {1, 2, 3}
+        for c in (0, 3, 6):
+            assert set(cg.candidates(0, c)).issubset({1, 2, 3})
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = hidden_triple(cg)
+        if step is not None:
+            assert step.score == SCORES['HIDDEN_TRIPLE']
+
+
+# ---------------------------------------------------------------------------
+# Naked Quad
+# ---------------------------------------------------------------------------
+
+class TestNakedQuad:
+    def _setup(self):
+        """
+        Cells (0,0), (0,2), (0,4), (0,6) are confined to {2, 4, 6, 8}.
+        Other cells in row 0 still carry those digits.
+        """
+        cg = CandidateGrid(empty())
+        for c in (0, 2, 4, 6):
+            for d in range(1, 10):
+                if d not in (2, 4, 6, 8):
+                    cg.eliminate(0, c, d)
+        return cg
+
+    def test_finds_quad(self):
+        cg = self._setup()
+        step = naked_quad(cg)
+        assert step is not None
+        assert step.technique == 'NAKED_QUAD'
+
+    def test_eliminates_from_other_cells(self):
+        cg = self._setup()
+        step = naked_quad(cg)
+        assert step is not None
+        quad_cells = {(0, 0), (0, 2), (0, 4), (0, 6)}
+        for r, c, d in step.eliminations:
+            assert d in (2, 4, 6, 8)
+            assert (r, c) not in quad_cells
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = naked_quad(cg)
+        if step is not None:
+            assert step.score == SCORES['NAKED_QUAD']
+
+
+# ---------------------------------------------------------------------------
+# Hidden Quad
+# ---------------------------------------------------------------------------
+
+class TestHiddenQuad:
+    def _setup(self):
+        """
+        Digits 1, 2, 3, 4 appear only in cells (0,0), (0,2), (0,4), (0,6) of row 0.
+        Those cells also have digits 5-9 — the quad is hidden.
+        """
+        cg = CandidateGrid(empty())
+        for c in range(9):
+            if c not in (0, 2, 4, 6):
+                for d in (1, 2, 3, 4):
+                    cg.eliminate(0, c, d)
+        return cg
+
+    def test_finds_quad(self):
+        cg = self._setup()
+        step = hidden_quad(cg)
+        assert step is not None
+        assert step.technique == 'HIDDEN_QUAD'
+
+    def test_strips_extra_candidates(self):
+        cg = self._setup()
+        hidden_quad(cg)
+        # After the step, quad cells should hold only subsets of {1,2,3,4}
+        for c in (0, 2, 4, 6):
+            assert set(cg.candidates(0, c)).issubset({1, 2, 3, 4})
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = hidden_quad(cg)
+        if step is not None:
+            assert step.score == SCORES['HIDDEN_QUAD']
+
+
+# ---------------------------------------------------------------------------
+# Swordfish  (3-row/col X-Wing)
+# ---------------------------------------------------------------------------
+
+class TestSwordfish:
+    def _setup(self):
+        """
+        Digit 4 in rows 0, 3, 6 is confined to columns 1, 4, 7.
+        → Swordfish eliminates 4 from those columns in all other rows.
+        """
+        cg = CandidateGrid(empty())
+        for r in (0, 3, 6):
+            for c in range(9):
+                if c not in (1, 4, 7):
+                    cg.eliminate(r, c, 4)
+        return cg
+
+    def test_finds_swordfish(self):
+        cg = self._setup()
+        step = swordfish(cg)
+        assert step is not None
+        assert step.technique == 'SWORDFISH'
+
+    def test_eliminates_correct_digit(self):
+        cg = self._setup()
+        step = swordfish(cg)
+        assert step is not None
+        for r, c, d in step.eliminations:
+            assert d == 4
+            assert r not in (0, 3, 6)   # base rows must not be touched
+            assert c in (1, 4, 7)       # only the fish columns
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = swordfish(cg)
+        if step is not None:
+            assert step.score == SCORES['SWORDFISH']
+
+
+# ---------------------------------------------------------------------------
+# Jellyfish  (4-row/col X-Wing)
+# ---------------------------------------------------------------------------
+
+class TestJellyfish:
+    def _setup(self):
+        """
+        Digit 6 in rows 0, 2, 5, 7 is confined to columns 0, 3, 5, 8.
+        → Jellyfish eliminates 6 from those columns in all other rows.
+        """
+        cg = CandidateGrid(empty())
+        for r in (0, 2, 5, 7):
+            for c in range(9):
+                if c not in (0, 3, 5, 8):
+                    cg.eliminate(r, c, 6)
+        return cg
+
+    def test_finds_jellyfish(self):
+        cg = self._setup()
+        step = jellyfish(cg)
+        assert step is not None
+        assert step.technique == 'JELLYFISH'
+
+    def test_eliminates_correct_digit(self):
+        cg = self._setup()
+        step = jellyfish(cg)
+        assert step is not None
+        for r, c, d in step.eliminations:
+            assert d == 6
+            assert r not in (0, 2, 5, 7)
+            assert c in (0, 3, 5, 8)
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = jellyfish(cg)
+        if step is not None:
+            assert step.score == SCORES['JELLYFISH']
+
+
+# ---------------------------------------------------------------------------
+# XY-Wing
+# ---------------------------------------------------------------------------
+
+class TestXYWing:
+    def _setup(self):
+        """
+        Pivot (0,0) = {1,2}.
+        Pincer-1 (0,6) = {1,3}  (shares 1=X with pivot, same row).
+        Pincer-2 (6,0) = {2,3}  (shares 2=Y with pivot, same col).
+        Z=3 must be eliminated from common peers of both pincers.
+        The only qualifying target is (6,6) which sees (0,6) via col 6
+        and (6,0) via row 6.
+        """
+        cg = CandidateGrid(empty())
+        for d in range(1, 10):
+            if d not in (1, 2): cg.eliminate(0, 0, d)
+        for d in range(1, 10):
+            if d not in (1, 3): cg.eliminate(0, 6, d)
+        for d in range(1, 10):
+            if d not in (2, 3): cg.eliminate(6, 0, d)
+        return cg
+
+    def test_finds_xy_wing(self):
+        cg = self._setup()
+        step = xy_wing(cg)
+        assert step is not None
+        assert step.technique == 'XY_WING'
+
+    def test_eliminates_z_digit(self):
+        cg = self._setup()
+        step = xy_wing(cg)
+        assert step is not None
+        for r, c, d in step.eliminations:
+            assert d == 3
+            assert (r, c) not in {(0, 0), (0, 6), (6, 0)}
+
+    def test_target_cell_loses_z(self):
+        """(6,6) sees both pincers and must lose digit 3."""
+        cg = self._setup()
+        xy_wing(cg)
+        assert 3 not in cg.candidates(6, 6)
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = xy_wing(cg)
+        if step is not None:
+            assert step.score == SCORES['XY_WING']
+
+
+# ---------------------------------------------------------------------------
+# XYZ-Wing
+# ---------------------------------------------------------------------------
+
+class TestXYZWing:
+    def _setup(self):
+        """
+        Pivot (0,0) = {1,2,3}.
+        Pincer-1 (0,4) = {1,2}  (shares 2 candidates with pivot, same row).
+        Pincer-2 (0,7) = {1,3}  (shares 2 candidates with pivot, same row).
+        p1 | p2 = {1,2,3} = pivot.  Z = p1 & p2 = {1}.
+        Cells seeing all three (the rest of row 0) must lose digit 1.
+        """
+        cg = CandidateGrid(empty())
+        for d in range(1, 10):
+            if d not in (1, 2, 3): cg.eliminate(0, 0, d)
+        for d in range(1, 10):
+            if d not in (1, 2): cg.eliminate(0, 4, d)
+        for d in range(1, 10):
+            if d not in (1, 3): cg.eliminate(0, 7, d)
+        return cg
+
+    def test_finds_xyz_wing(self):
+        cg = self._setup()
+        step = xyz_wing(cg)
+        assert step is not None
+        assert step.technique == 'XYZ_WING'
+
+    def test_eliminates_z_digit(self):
+        cg = self._setup()
+        step = xyz_wing(cg)
+        assert step is not None
+        for r, c, d in step.eliminations:
+            assert d == 1
+            assert (r, c) not in {(0, 0), (0, 4), (0, 7)}
+
+    def test_other_row0_cells_lose_1(self):
+        """All row-0 cells that see all three actors must lose 1."""
+        cg = self._setup()
+        xyz_wing(cg)
+        eliminated = {
+            (r, c) for r in range(9) for c in range(9)
+            if cg.is_empty(r, c) and 1 not in cg.candidates(r, c)
+        }
+        # Row-0 cells that saw all three should have lost 1
+        for c in (1, 2, 3, 5, 6, 8):  # row 0, not pivot/pincers
+            assert (0, c) in eliminated
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = xyz_wing(cg)
+        if step is not None:
+            assert step.score == SCORES['XYZ_WING']
+
+
+# ---------------------------------------------------------------------------
+# W-Wing
+# ---------------------------------------------------------------------------
+
+class TestWWing:
+    def _setup(self):
+        """
+        C1=(0,0)={3,7}, C2=(8,8)={3,7}.
+        Strong link on digit 3 in row 5: only (5,0) and (5,8) have 3.
+        C1 sees (5,0) via col 0; C2 sees (5,8) via col 8.
+        → eliminate 7 from common peers of C1 and C2: (0,8) and (8,0).
+        """
+        cg = CandidateGrid(empty())
+        for d in range(1, 10):
+            if d not in (3, 7): cg.eliminate(0, 0, d)
+        for d in range(1, 10):
+            if d not in (3, 7): cg.eliminate(8, 8, d)
+        # Restrict digit 3 in row 5 to cols 0 and 8 only
+        for c in range(1, 8):
+            cg.eliminate(5, c, 3)
+        return cg
+
+    def test_finds_w_wing(self):
+        cg = self._setup()
+        step = w_wing(cg)
+        assert step is not None
+        assert step.technique == 'W_WING'
+
+    def test_eliminates_b_digit(self):
+        cg = self._setup()
+        step = w_wing(cg)
+        assert step is not None
+        for r, c, d in step.eliminations:
+            assert d == 7
+            assert (r, c) not in {(0, 0), (8, 8)}
+
+    def test_target_cells_lose_7(self):
+        """(0,8) and (8,0) are common peers of C1 and C2 and must lose 7."""
+        cg = self._setup()
+        w_wing(cg)
+        assert 7 not in cg.candidates(0, 8)
+        assert 7 not in cg.candidates(8, 0)
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = w_wing(cg)
+        if step is not None:
+            assert step.score == SCORES['W_WING']
+
+
+# ---------------------------------------------------------------------------
+# Unique Rectangle
+# ---------------------------------------------------------------------------
+
+class TestUniqueRectangle:
+    # Rectangle corners (0,0),(0,4),(1,0),(1,4) span boxes (0,0) and (0,1).
+
+    def _setup_type1(self):
+        """
+        Three corners have only {2,5}; fourth corner (1,4) has {2,5,7}.
+        UR Type 1: eliminate 2 and 5 from (1,4).
+        """
+        cg = CandidateGrid(empty())
+        for r, c in [(0, 0), (0, 4), (1, 0)]:
+            for d in range(1, 10):
+                if d not in (2, 5): cg.eliminate(r, c, d)
+        for d in range(1, 10):
+            if d not in (2, 5, 7): cg.eliminate(1, 4, d)
+        return cg
+
+    def _setup_type2(self):
+        """
+        Two floor corners (0,0),(0,4) have only {2,5}.
+        Two roof corners (1,0),(1,4) each have {2,5,7}.
+        UR Type 2: eliminate 7 from common peers of the two roof cells.
+        """
+        cg = CandidateGrid(empty())
+        for r, c in [(0, 0), (0, 4)]:
+            for d in range(1, 10):
+                if d not in (2, 5): cg.eliminate(r, c, d)
+        for r, c in [(1, 0), (1, 4)]:
+            for d in range(1, 10):
+                if d not in (2, 5, 7): cg.eliminate(r, c, d)
+        return cg
+
+    def test_type1_found(self):
+        cg = self._setup_type1()
+        step = unique_rectangle(cg)
+        assert step is not None
+        assert step.technique == 'UNIQUE_RECTANGLE_1'
+
+    def test_type1_eliminates_ab_from_roof(self):
+        cg = self._setup_type1()
+        step = unique_rectangle(cg)
+        assert step is not None
+        elim_set = {(r, c, d) for r, c, d in step.eliminations}
+        assert (1, 4, 2) in elim_set
+        assert (1, 4, 5) in elim_set
+
+    def test_type1_correct_score(self):
+        cg = self._setup_type1()
+        step = unique_rectangle(cg)
+        if step is not None:
+            assert step.score == SCORES['UNIQUE_RECTANGLE_1']
+
+    def test_type2_found(self):
+        cg = self._setup_type2()
+        step = unique_rectangle(cg)
+        assert step is not None
+        assert step.technique == 'UNIQUE_RECTANGLE_2'
+
+    def test_type2_eliminates_x_from_peers(self):
+        cg = self._setup_type2()
+        step = unique_rectangle(cg)
+        assert step is not None
+        # All eliminations are digit 7 from cells not in the rectangle
+        rect = {(0, 0), (0, 4), (1, 0), (1, 4)}
+        for r, c, d in step.eliminations:
+            assert d == 7
+            assert (r, c) not in rect
+
+    def test_type2_correct_score(self):
+        cg = self._setup_type2()
+        step = unique_rectangle(cg)
+        if step is not None:
+            assert step.score == SCORES['UNIQUE_RECTANGLE_2']
+
+
+# ---------------------------------------------------------------------------
+# Simple Coloring
+# ---------------------------------------------------------------------------
+
+class TestSimpleColoring:
+    def _setup(self):
+        """
+        Build a 4-cell coloring chain for digit 5:
+          (0,0)=color-0, (4,0)=color-1, (4,7)=color-0, (0,7)=color-1
+
+        Strong links used:
+          col 0  →  (0,0) ↔ (4,0)
+          row 4  →  (4,0) ↔ (4,7)
+          col 7  →  (4,7) ↔ (0,7)
+
+        Row 0 still has 5 in (0,0), (0,3), (0,7).
+        (0,3) sees color-0 cell (0,0) and color-1 cell (0,7) via row 0
+        → Color Trap: eliminate 5 from (0,3).
+        """
+        cg = CandidateGrid(empty())
+        # Strong link in col 0: only (0,0) and (4,0) keep digit 5
+        for r in range(1, 9):
+            if r != 4:
+                cg.eliminate(r, 0, 5)
+        # Strong link in row 4: only (4,0) and (4,7) keep digit 5
+        for c in range(1, 9):
+            if c != 7:
+                cg.eliminate(4, c, 5)
+        # Strong link in col 7: only (0,7) and (4,7) keep digit 5
+        for r in range(1, 9):
+            if r != 4:
+                cg.eliminate(r, 7, 5)
+        # Row 0: keep 5 only in cols 0, 3, 7
+        for c in range(9):
+            if c not in (0, 3, 7):
+                cg.eliminate(0, c, 5)
+        return cg
+
+    def test_finds_simple_coloring(self):
+        cg = self._setup()
+        step = simple_coloring(cg)
+        assert step is not None
+        assert step.technique == 'SIMPLE_COLORING'
+
+    def test_color_trap_eliminates_5_from_target(self):
+        cg = self._setup()
+        simple_coloring(cg)
+        # (0,3) must have lost digit 5 via Color Trap
+        assert 5 not in cg.candidates(0, 3)
+
+    def test_eliminated_digit_is_5(self):
+        cg = self._setup()
+        step = simple_coloring(cg)
+        assert step is not None
+        for r, c, d in step.eliminations:
+            assert d == 5
+
+    def test_correct_score(self):
+        cg = self._setup()
+        step = simple_coloring(cg)
+        if step is not None:
+            assert step.score == SCORES['SIMPLE_COLORING']

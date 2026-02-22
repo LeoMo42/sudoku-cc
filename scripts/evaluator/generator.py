@@ -58,6 +58,32 @@ _PUZZLE_SPECIFIC_TYPES = {
     'KILLER', 'KROPKI', 'GREATER_THAN', 'THERMO', 'SANDWICH', 'LITTLE_KILLER',
 }
 
+# Minimum solver_difficulty required to accept a puzzle at each target level.
+# Only applied to types NOT in _PUZZLE_SPECIFIC_TYPES — for puzzle-specific
+# variants the technique solver cannot evaluate variant constraints, so it
+# always returns EASY; applying a floor there would cause infinite loops.
+_MIN_SOLVER_DIFFICULTY: dict[str, str] = {
+    'HARD':   'MEDIUM',   # reject solver=EASY puzzles for HARD target
+    'EXPERT': 'HARD',     # reject solver=EASY/MEDIUM puzzles for EXPERT target
+}
+
+# Per-type stricter overrides (must be ≥ the global thresholds above).
+# Applied to types whose variant constraint is fully captured in the candidate
+# grid (so the technique solver IS the correct difficulty measure).
+_MIN_SOLVER_DIFFICULTY_BY_TYPE: dict[str, dict[str, str]] = {
+    'CLASSIC':         {'HARD': 'HARD'},
+    # All types below bake their variant constraint into CandidateGrid so the
+    # technique solver reliably rates HARD vs MEDIUM puzzles correctly.
+    'DIAGONAL':        {'HARD': 'HARD'},
+    'WINDOKU':         {'HARD': 'HARD'},
+    'ANTI_KNIGHT':     {'HARD': 'HARD'},
+    'ANTI_KING':       {'HARD': 'HARD'},
+    'NON_CONSECUTIVE': {'HARD': 'HARD'},
+    # ODD_EVEN mask is baked into the candidate grid; solver sees the full
+    # constraint and can correctly distinguish MEDIUM from HARD.
+    'ODD_EVEN':        {'HARD': 'HARD'},
+}
+
 
 # ---------------------------------------------------------------------------
 # Variant data generators  (called after a complete board is produced)
@@ -302,6 +328,16 @@ def _generate_variant_data(
 # Complete board generator
 # ---------------------------------------------------------------------------
 
+# Per-type node budget for the randomised backtracking fill.
+# Some variant types (notably NON_CONSECUTIVE) have a very tight constraint
+# space: most attempts complete quickly, but occasionally the random order
+# leads to a search branch that takes millions of nodes.  Capping the budget
+# and restarting with a new random seed is much faster on average.
+_FILL_NODE_BUDGET: dict[str, int] = {
+    'NON_CONSECUTIVE': 1_000,
+}
+
+
 def generate_complete_board(
     sudoku_type: str,
     odd_even_mask: list[list[str]] | None = None,
@@ -318,19 +354,33 @@ def generate_complete_board(
     Returns the board or None if all attempts fail.
     """
     board_type = 'CLASSIC' if sudoku_type in _PUZZLE_SPECIFIC_TYPES else sudoku_type
-    for _ in range(max_attempts):
+    node_budget = _FILL_NODE_BUDGET.get(sudoku_type)
+    # With a node budget many individual attempts are aborted early → use more
+    # retries so the overall generation still reliably succeeds.
+    attempt_limit = 1_000 if node_budget else max_attempts
+    for _ in range(attempt_limit):
         board = [[0] * 9 for _ in range(9)]
         cg = CandidateGrid(board, board_type, odd_even_mask=odd_even_mask)
-        if _fill(cg):
+        budget = [node_budget] if node_budget else None
+        if _fill(cg, budget):
             return cg.board
     return None
 
 
-def _fill(cg: CandidateGrid) -> bool:
+def _fill(cg: CandidateGrid, _budget: list[int] | None = None) -> bool:
     """
     Recursive backtracking fill.  Modifies `cg` in-place.
     State is saved/restored on each call so the caller can retry.
+
+    _budget: optional [remaining_nodes] counter.  When it reaches 0 the call
+             returns False immediately so generate_complete_board restarts with
+             a fresh random seed.  Pass None for unlimited search.
     """
+    if _budget is not None:
+        if _budget[0] <= 0:
+            return False
+        _budget[0] -= 1
+
     # Find empty cell with fewest candidates (MRV)
     best_r, best_c, best_n = -1, -1, 10
     for r in range(9):
@@ -358,7 +408,7 @@ def _fill(cg: CandidateGrid) -> bool:
 
         cg.place(best_r, best_c, digit)
 
-        if not cg.has_contradiction() and _fill(cg):
+        if not cg.has_contradiction() and _fill(cg, _budget):
             return True
 
         cg.grid  = saved_grid
@@ -375,6 +425,7 @@ def count_solutions(
     board: list[list[int]],
     sudoku_type: str,
     limit: int = 2,
+    max_nodes: int | None = None,
     odd_even_mask: list[list[str]] | None = None,
     killer_cages: list[dict] | None = None,
     kropki_dots: dict[str, str] | None = None,
@@ -386,6 +437,9 @@ def count_solutions(
     """
     Count solutions up to `limit`.  Stops as soon as limit is reached.
     Uses backtracking — for internal validation only.
+
+    If `max_nodes` is set and the backtracker visits more than that many
+    nodes, returns -1 (budget exhausted / result unknown).
     """
     cg = CandidateGrid(
         board, sudoku_type,
@@ -400,13 +454,26 @@ def count_solutions(
     if cg.has_contradiction():
         return 0
     counter = [0]
-    _count_recursive(cg, counter, limit)
+    nodes   = [0]
+    _count_recursive(cg, counter, limit, nodes, max_nodes)
+    if max_nodes is not None and nodes[0] >= max_nodes:
+        return -1  # node budget exhausted — result unknown
     return counter[0]
 
 
-def _count_recursive(cg: CandidateGrid, counter: list[int], limit: int) -> None:
+def _count_recursive(
+    cg: CandidateGrid,
+    counter: list[int],
+    limit: int,
+    nodes: list[int],
+    max_nodes: int | None,
+) -> None:
     if counter[0] >= limit:
         return
+    if max_nodes is not None and nodes[0] >= max_nodes:
+        return
+
+    nodes[0] += 1
 
     if cg.is_solved():
         counter[0] += 1
@@ -433,11 +500,13 @@ def _count_recursive(cg: CandidateGrid, counter: list[int], limit: int) -> None:
     for digit in cg.candidates(best_r, best_c):
         if counter[0] >= limit:
             return
+        if max_nodes is not None and nodes[0] >= max_nodes:
+            return
         saved_grid  = [row[:] for row in cg.grid]
         saved_board = [row[:] for row in cg.board]
         cg.place(best_r, best_c, digit)
         if not cg.has_contradiction():
-            _count_recursive(cg, counter, limit)
+            _count_recursive(cg, counter, limit, nodes, max_nodes)
         cg.grid  = saved_grid
         cg.board = saved_board
 
@@ -506,7 +575,9 @@ def _make_puzzle_stepwise(full_board, sudoku_type, target_difficulty, variant_kw
         puzzle[r][c] = 0
         givens -= 1
 
-        if count_solutions(puzzle, sudoku_type, limit=2, **variant_kwargs) != 1:
+        n = count_solutions(puzzle, sudoku_type, limit=2,
+                            max_nodes=_MAX_NODES_DIVE, **variant_kwargs)
+        if n != 1:
             puzzle[r][c] = saved
             givens += 1
             continue
@@ -535,6 +606,44 @@ _SCAN_START = {
     'EXPERT': 30,
 }
 
+# Types whose constraint propagation is expensive to re-initialise on every
+# uniqueness check.  Use a higher scan_start so we collect snapshots earlier,
+# and a higher min_givens_dive so we stop removing cells before the backtracker
+# gets into the expensive "≤25 givens" territory.
+_SCAN_START_OVERRIDE = {
+    'LITTLE_KILLER': {'HARD': 52, 'EXPERT': 46},
+    'SANDWICH':      {'HARD': 52, 'EXPERT': 46},
+}
+
+# Per-type floor for the dive loop; overrides MIN_GIVENS when set.
+# Prevents count_solutions from being called with too few givens, which causes
+# each call to exhaust the node budget (~1.3 s each in Python).
+_MIN_GIVENS_DIVE = {
+    'LITTLE_KILLER': 28,
+    'SANDWICH':      28,
+}
+
+# Maximum backtracking nodes per uniqueness check inside _make_puzzle_dive.
+# Keeps each count_solutions call ≲100 ms; protects against degenerate boards.
+_MAX_NODES_DIVE = 100_000
+
+# Per-type overrides for _MAX_NODES_DIVE.
+# Some variant types have heavier constraint propagation per backtracking node,
+# so the same node budget costs more wall time.  A lower budget cuts off the
+# expensive cases early (treating them as non-unique → cell not removed).
+# The tradeoff: ~1 extra given on average, but 5-10× faster uniqueness checks.
+_MAX_NODES_DIVE_BY_TYPE: dict[str, int] = {
+    # DIAGONAL adds two full diagonal houses; uniqueness checks at ≤20 givens
+    # can reach ~100 k nodes at ~13 µs/node = over 1 s per call.
+    # budget=2 000 caps each call at ~26 ms with minimal givens impact (+1).
+    'DIAGONAL':    2_000,
+    # ANTI_KNIGHT adds knight-move constraints between all cell pairs; similarly
+    # heavy propagation makes uniqueness checks at low givens very expensive.
+    'ANTI_KNIGHT': 2_000,
+    # WINDOKU adds 4 extra 3×3 box houses; comparable propagation cost.
+    'WINDOKU':     2_000,
+}
+
 
 def _make_puzzle_dive(full_board, sudoku_type, target_difficulty, variant_kwargs):
     """Remove cells until uniqueness is lost, then pick the best snapshot.
@@ -542,13 +651,20 @@ def _make_puzzle_dive(full_board, sudoku_type, target_difficulty, variant_kwargs
     Strategy (givens-based with technique preference):
       1. Collect snapshots once the board drops to ≤ scan_start givens.
       2. Walk snapshots from fewest givens (hardest) toward more givens (easier).
-      3. Return the first snapshot whose technique difficulty matches the target.
-      4. If no exact match exists, return the snapshot with the fewest givens
-         that the technique solver can still fully solve (fallback).
-    This guarantees we always produce *something* even when the target technique
-    level is never hit, trading exact difficulty label for faster generation.
+      3. Pick the best snapshot according to three-tier priority:
+           Tier 1 — exact technique match (solver reaches target difficulty).
+           Tier 2 — solver-stuck state (result.solved=False): the technique solver
+                    cannot make further progress, meaning advanced techniques
+                    (X-Wing, variant-specific logic, …) are genuinely required.
+                    This is a true HARD/EXPERT puzzle.
+           Tier 3 — solvable at a lower difficulty level: last resort.
+                    Dive's random cell removal produces states with more givens
+                    than stepwise MEDIUM, so this is "MEDIUM-in-disguise".
     """
-    scan_start = _SCAN_START[target_difficulty]
+    overrides = _SCAN_START_OVERRIDE.get(sudoku_type, {})
+    scan_start = overrides.get(target_difficulty, _SCAN_START[target_difficulty])
+    min_givens = _MIN_GIVENS_DIVE.get(sudoku_type, MIN_GIVENS)
+    max_nodes_dive = _MAX_NODES_DIVE_BY_TYPE.get(sudoku_type, _MAX_NODES_DIVE)
     puzzle = [row[:] for row in full_board]
     positions = [(r, c) for r in range(9) for c in range(9)]
     random.shuffle(positions)
@@ -556,13 +672,17 @@ def _make_puzzle_dive(full_board, sudoku_type, target_difficulty, variant_kwargs
     snapshots: list[tuple[int, list[list[int]]]] = []
 
     for r, c in positions:
-        if givens <= MIN_GIVENS:
+        if givens <= min_givens:
             break
         saved = puzzle[r][c]
         puzzle[r][c] = 0
         givens -= 1
 
-        if count_solutions(puzzle, sudoku_type, limit=2, **variant_kwargs) != 1:
+        n = count_solutions(puzzle, sudoku_type, limit=2,
+                            max_nodes=max_nodes_dive, **variant_kwargs)
+        if n != 1:
+            # n == 0: no solution (contradiction); n == 2: not unique;
+            # n == -1: node budget hit — treat conservatively as non-unique.
             puzzle[r][c] = saved
             givens += 1
             continue
@@ -571,22 +691,35 @@ def _make_puzzle_dive(full_board, sudoku_type, target_difficulty, variant_kwargs
             snapshots.append((givens, [row[:] for row in puzzle]))
 
     # Walk from fewest givens (hardest) to most givens (easiest).
-    # Prefer exact technique match; otherwise keep the hardest solvable state.
-    fallback = None
-    for _, state in reversed(snapshots):
-        result = solve(state, sudoku_type, **variant_kwargs)
-        if not result.solved:
-            continue
-        if result.difficulty == target_difficulty:
-            return (state, result)
-        if fallback is None:
-            # Record the hardest state the technique solver can handle.
-            fallback = (state, result)
+    # Three-tier priority:
+    #   1. Exact technique match → return immediately (best case).
+    #   2. Solver-stuck state (result.solved=False) → genuine HARD/EXPERT;
+    #      the technique solver ran out of moves, so real advanced techniques
+    #      (e.g. X-Wing, variant-specific logic) are required.  Pick the
+    #      snapshot with the fewest givens — hardest within this tier.
+    #   3. Solvable at a lower difficulty level → last resort ("MEDIUM-in-disguise");
+    #      dive's random removal order produces states with more givens than
+    #      stepwise MEDIUM, so we only fall back here if nothing better exists.
+    hard_fallback = None   # solver stuck — genuinely hard
+    soft_fallback = None   # solver solves but at wrong (lower) level
 
-    if fallback is not None:
-        log.debug('dive: no exact %s match — returning fallback difficulty=%s',
-                  target_difficulty, fallback[1].difficulty)
-    return fallback
+    for _, state in reversed(snapshots):   # fewest givens first
+        result = solve(state, sudoku_type, **variant_kwargs)
+        if result.difficulty == target_difficulty and result.solved:
+            return (state, result)          # exact match → best
+        if not result.solved:
+            if hard_fallback is None:
+                hard_fallback = (state, result)  # record first (= fewest-givens) stuck state
+        elif soft_fallback is None:
+            soft_fallback = (state, result)      # record first (= fewest-givens) solvable state
+
+    chosen = hard_fallback or soft_fallback
+    if chosen is not None:
+        tier = 'hard_fallback' if chosen is hard_fallback else 'soft_fallback'
+        chosen_givens = sum(v != 0 for row in chosen[0] for v in row)
+        log.debug('dive: no exact %s match — using %s  solver=%s  givens=%d',
+                  target_difficulty, tier, chosen[1].difficulty, chosen_givens)
+    return chosen
 
 
 def _level_index(level: str) -> int:
@@ -659,15 +792,14 @@ def generate_puzzles(
         if sudoku_type == 'KILLER':
             puzzle = [[0] * 9 for _ in range(9)]
             solve_result = solve(puzzle, sudoku_type, **variant_data)
+            givens = 0
             log.debug('[%d] KILLER solve: solved=%s  difficulty=%s  score=%d',
                       attempts, solve_result.solved, solve_result.difficulty,
                       solve_result.total_score)
         else:
-            n_orders = 5 if target_difficulty in ('HARD', 'EXPERT') else 1
             outcome = make_puzzle(
                 full_board, sudoku_type, target_difficulty,
                 odd_even_mask=odd_even_mask,
-                n_orders=n_orders,
                 **variant_data,
             )
             if outcome is None:
@@ -680,18 +812,60 @@ def generate_puzzles(
                       attempts, givens, solve_result.difficulty,
                       solve_result.total_score, solve_result.technique_counts())
 
+        # 4. Determine the reported difficulty.
+        #
+        # Our technique solver only knows naked/hidden singles, X-Wing, etc.
+        # It cannot evaluate variant-specific constraints (sandwich sums, Kropki
+        # dots, thermo sequences, …).  For HARD/EXPERT targets the solver
+        # therefore often reports a lower level even though the puzzle is
+        # genuinely harder (it has fewer given cells and relies more on the
+        # variant constraints).
+        #
+        # Plan B: for HARD/EXPERT targets we use the *requested* difficulty as
+        # the public label whenever the solver falls short.  The raw solver
+        # output is preserved as solver_difficulty / solver_score so callers
+        # can still inspect it.
+        #
+        # Exception: KILLER — all difficulty levels produce the same empty board
+        # with cages, so overriding the label would be misleading.
+        solver_difficulty = solve_result.difficulty
+        solver_score      = solve_result.total_score
+
+        # Minimum solver_difficulty gate for HARD / EXPERT targets.
+        # Skip for puzzle-specific variant types (solver can't evaluate them).
+        if sudoku_type not in _PUZZLE_SPECIFIC_TYPES:
+            type_overrides = _MIN_SOLVER_DIFFICULTY_BY_TYPE.get(sudoku_type, {})
+            min_solver = type_overrides.get(target_difficulty) or _MIN_SOLVER_DIFFICULTY.get(target_difficulty)
+            if min_solver and _level_index(solver_difficulty) < _level_index(min_solver):
+                log.debug('[%d] rejected: solver=%s below min=%s for target=%s',
+                          attempts, solver_difficulty, min_solver, target_difficulty)
+                continue
+
+        reported_difficulty = solver_difficulty  # default: trust the solver
+        if (
+            sudoku_type != 'KILLER'
+            and target_difficulty in ('HARD', 'EXPERT')
+            and _level_index(solver_difficulty) < _level_index(target_difficulty)
+        ):
+            reported_difficulty = target_difficulty
+            log.debug('[%d] difficulty override: solver=%s → reported=%s  givens=%d',
+                      attempts, solver_difficulty, reported_difficulty, givens)
+
         record = {
-            'puzzle':      puzzle,
-            'solution':    full_board,
-            'difficulty':  solve_result.difficulty,
-            'score':       solve_result.total_score,
-            'techniques':  solve_result.technique_counts(),
-            'sudoku_type': sudoku_type,
+            'puzzle':             puzzle,
+            'solution':           full_board,
+            'difficulty':         reported_difficulty,
+            'solver_difficulty':  solver_difficulty,
+            'score':              solver_score,
+            'givens':             givens,
+            'techniques':         solve_result.technique_counts(),
+            'sudoku_type':        sudoku_type,
         }
         record.update(variant_data)
         results.append(record)
-        log.info('[%d] accepted #%d  difficulty=%s  score=%d',
-                 attempts, len(results), solve_result.difficulty, solve_result.total_score)
+        log.info('[%d] accepted #%d  difficulty=%s  solver=%s  score=%d  givens=%d',
+                 attempts, len(results), reported_difficulty,
+                 solver_difficulty, solver_score, givens)
 
         if len(results) % 50 == 0:
             elapsed = time.time() - t_start

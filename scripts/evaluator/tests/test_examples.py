@@ -47,6 +47,15 @@ def _solver_kwargs(ex: dict) -> dict:
         return {'kropki_dots': ex['kropki_dots']}
     if t == 'GREATER_THAN':
         return {'greater_than_signs': ex['greater_than_signs']}
+    if t == 'THERMO':
+        return {'thermos': [[tuple(c) for c in thermo] for thermo in ex['thermos']]}
+    if t == 'SANDWICH':
+        return {'sandwich_clues': ex['sandwich_clues']}
+    if t == 'LITTLE_KILLER':
+        return {'little_killer_clues': [
+            {'cells': [tuple(c) for c in clue['cells']], 'sum': clue['sum']}
+            for clue in ex['little_killer_clues']
+        ]}
     return {}
 
 
@@ -66,6 +75,9 @@ def _solver_kwargs(ex: dict) -> dict:
     'killer_skl9_1_005.json',
     'kropki_215.json',
     'greater_than_sgt_215.json',
+    'thermo_8mbQn8HFH9.json',
+    'sandwich_65xlas9gzy.json',
+    'little_killer_RQMpF2m6NN.json',
 ])
 def test_solution_is_valid(filename):
     """Stored solution must satisfy all variant constraints."""
@@ -272,3 +284,418 @@ def test_non_consecutive_no_adjacent_consecutive():
                         f"Non-Consecutive conflict: ({r},{c})={solution[r][c]} "
                         f"and ({nr},{nc})={solution[nr][nc]}"
                     )
+
+
+# ---------------------------------------------------------------------------
+# Convenience groupings used in later parametrize blocks
+# ---------------------------------------------------------------------------
+
+_ALL_FILES = [
+    'diagonal_sx9_1_402.json',
+    'windoku_win9_1_021.json',
+    'anti_knight_skn9_1_050.json',
+    'anti_king_stl9_4_045.json',
+    'non_consecutive_snc9_1_040.json',
+    'odd_even_soe1_345.json',
+    'killer_skl9_1_005.json',
+    'kropki_215.json',
+    'greater_than_sgt_215.json',
+    'thermo_8mbQn8HFH9.json',
+    'sandwich_65xlas9gzy.json',
+    'little_killer_RQMpF2m6NN.json',
+]
+
+# Files that include a 'puzzle' grid AND where puzzle cells are consistent with
+# the stored solution.  anti_king_stl9_4_045.json has a known data-capture
+# mismatch (puzzle and solution were scraped from different page states), so it
+# is excluded here and tested only for solution validity / no-contradiction.
+# thermo_8mbQn8HFH9.json has an all-zero puzzle (no given cells), handled like KILLER.
+_PUZZLE_FILES = [
+    'diagonal_sx9_1_402.json',
+    'windoku_win9_1_021.json',
+    'anti_knight_skn9_1_050.json',
+    'non_consecutive_snc9_1_040.json',
+    'killer_skl9_1_005.json',
+    'sandwich_65xlas9gzy.json',
+    'little_killer_RQMpF2m6NN.json',
+]
+
+# Easy examples where the technique solver is expected to fully solve the puzzle
+_EASY_PUZZLE_PARAMS = [
+    ('diagonal_sx9_1_402.json',         'DIAGONAL'),
+    ('windoku_win9_1_021.json',          'WINDOKU'),
+    ('anti_knight_skn9_1_050.json',     'ANTI_KNIGHT'),
+    ('non_consecutive_snc9_1_040.json', 'NON_CONSECUTIVE'),
+]
+
+
+# ---------------------------------------------------------------------------
+# 5. Every stored solution is a valid classic board (rows / cols / boxes)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize('filename', _ALL_FILES)
+def test_solution_rows_cols_boxes_valid(filename):
+    """All 9 rows, 9 columns, and 9 boxes must contain each of 1-9 exactly once."""
+    ex = _load(filename)
+    solution = ex['solution']
+    digits = set(range(1, 10))
+    for r, row in enumerate(solution):
+        assert set(row) == digits, f"{filename}: row {r} is not 1-9: {row}"
+    for c in range(9):
+        col = [solution[r][c] for r in range(9)]
+        assert set(col) == digits, f"{filename}: col {c} is not 1-9"
+    for br in range(3):
+        for bc in range(3):
+            box = {solution[br*3+dr][bc*3+dc] for dr in range(3) for dc in range(3)}
+            assert box == digits, f"{filename}: box ({br},{bc}) is not 1-9"
+
+
+# ---------------------------------------------------------------------------
+# 6. Puzzle-solution consistency
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize('filename', _PUZZLE_FILES)
+def test_puzzle_cells_match_solution(filename):
+    """Every non-zero cell in the puzzle must equal the corresponding solution cell."""
+    ex = _load(filename)
+    puzzle, solution = ex['puzzle'], ex['solution']
+    for r in range(9):
+        for c in range(9):
+            if puzzle[r][c] != 0:
+                assert puzzle[r][c] == solution[r][c], (
+                    f"{filename}: ({r},{c}) puzzle={puzzle[r][c]} "
+                    f"but solution={solution[r][c]}"
+                )
+
+
+_FULLY_EMPTY_PUZZLE_FILES = ['killer_skl9_1_005.json', 'thermo_8mbQn8HFH9.json']
+
+
+@pytest.mark.parametrize('filename', [f for f in _PUZZLE_FILES
+                                       if f not in _FULLY_EMPTY_PUZZLE_FILES])
+def test_puzzle_has_at_least_one_empty_cell(filename):
+    """A non-Killer/non-Thermo puzzle must contain at least one empty (0) cell."""
+    ex = _load(filename)
+    empty = sum(v == 0 for row in ex['puzzle'] for v in row)
+    assert empty >= 1, f"{filename}: puzzle has no empty cells"
+
+
+@pytest.mark.parametrize('filename', _FULLY_EMPTY_PUZZLE_FILES)
+def test_fully_empty_puzzle_has_no_givens(filename):
+    """Killer/Thermo puzzles use all-zero grids — variant constraints alone drive solving."""
+    ex = _load(filename)
+    assert all(ex['puzzle'][r][c] == 0 for r in range(9) for c in range(9))
+
+
+# ---------------------------------------------------------------------------
+# 7. Solver result quality for easy examples
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize('filename,sudoku_type', _EASY_PUZZLE_PARAMS)
+def test_easy_puzzle_solve_result_fields(filename, sudoku_type):
+    """SolveResult for easy examples must have a valid difficulty and non-negative score."""
+    ex = _load(filename)
+    kw = _solver_kwargs(ex)
+    r = solve(ex['puzzle'], sudoku_type, **kw)
+    assert r.difficulty in ('EASY', 'MEDIUM', 'HARD', 'EXPERT')
+    assert r.total_score >= 0
+    assert isinstance(r.technique_counts(), dict)
+
+
+@pytest.mark.parametrize('filename,sudoku_type', _EASY_PUZZLE_PARAMS)
+def test_easy_puzzle_solver_placements_match_solution(filename, sudoku_type):
+    """Cell placements made by the solver must match the stored solution."""
+    ex = _load(filename)
+    kw = _solver_kwargs(ex)
+    r = solve(ex['puzzle'], sudoku_type, **kw)
+    if not r.solved:
+        pytest.skip(f"{filename}: technique solver did not fully solve the puzzle")
+    # Apply all placements to the starting puzzle
+    board = [row[:] for row in ex['puzzle']]
+    for step in r.steps:
+        for row, col, digit in step.placements:
+            board[row][col] = digit
+    solution = ex['solution']
+    for row in range(9):
+        for col in range(9):
+            assert board[row][col] == solution[row][col], (
+                f"{filename}: ({row},{col}) solver placed {board[row][col]} "
+                f"but expected {solution[row][col]}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# 8. Killer structural invariants (from the example file)
+# ---------------------------------------------------------------------------
+
+def test_killer_cages_cover_all_81_cells():
+    """Killer cages must partition all 81 cells — no cell may be missing."""
+    ex = _load('killer_skl9_1_005.json')
+    covered = set()
+    for cage in ex['killer_cages']:
+        for cell in cage['cells']:
+            covered.add(tuple(cell))
+    assert covered == {(r, c) for r in range(9) for c in range(9)}, (
+        f"Killer cages cover only {len(covered)} of 81 cells"
+    )
+
+
+def test_killer_no_cell_in_two_cages():
+    """Each cell must appear in exactly one cage."""
+    ex = _load('killer_skl9_1_005.json')
+    all_cells = [tuple(cell) for cage in ex['killer_cages'] for cell in cage['cells']]
+    assert len(all_cells) == len(set(all_cells)), "Some cell appears in multiple cages"
+
+
+def test_killer_cage_max_size():
+    """No cage in the example may have more than 9 cells."""
+    ex = _load('killer_skl9_1_005.json')
+    for cage in ex['killer_cages']:
+        assert len(cage['cells']) <= 9, (
+            f"Cage '{cage.get('label', '?')}' has {len(cage['cells'])} cells"
+        )
+
+
+def test_killer_each_cage_orthogonally_connected():
+    """Every cage must be a single orthogonally-connected region."""
+    ex = _load('killer_skl9_1_005.json')
+    for cage in ex['killer_cages']:
+        cells = [tuple(c) for c in cage['cells']]
+        if len(cells) == 1:
+            continue
+        remaining = set(cells)
+        frontier = {cells[0]}
+        visited: set = set()
+        while frontier:
+            cell = frontier.pop()
+            visited.add(cell)
+            remaining.discard(cell)
+            r, c = cell
+            for dr, dc in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+                nb = (r + dr, c + dc)
+                if nb in remaining and nb not in visited:
+                    frontier.add(nb)
+        assert not remaining, (
+            f"Cage '{cage.get('label', '?')}' is not orthogonally connected: {cells}"
+        )
+
+
+def test_killer_solver_places_multiple_digits():
+    """Killer solver must place more than one digit from cage deductions."""
+    ex = _load('killer_skl9_1_005.json')
+    kw = _solver_kwargs(ex)
+    r = solve(ex['puzzle'], 'KILLER', **kw)
+    placements = [p for step in r.steps for p in step.placements]
+    assert len(placements) > 1, (
+        f"Killer solver placed only {len(placements)} digit(s) — expected meaningful progress"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 9. GREATER_THAN structural checks
+# ---------------------------------------------------------------------------
+
+def test_greater_than_exactly_144_signs():
+    """Greater-than example must store exactly 144 signs (9×8 horizontal + 8×9 vertical)."""
+    ex = _load('greater_than_sgt_215.json')
+    assert len(ex['greater_than_signs']) == 144, (
+        f"Expected 144 signs, got {len(ex['greater_than_signs'])}"
+    )
+
+
+def test_greater_than_sign_values_are_valid():
+    """Every stored sign must be '>' or '<'."""
+    ex = _load('greater_than_sgt_215.json')
+    for key, sign in ex['greater_than_signs'].items():
+        assert sign in ('>', '<'), f"Unexpected sign '{sign}' for key {key}"
+
+
+def test_greater_than_all_edges_present():
+    """Every internal horizontal and vertical edge must have a sign."""
+    ex = _load('greater_than_sgt_215.json')
+    signs = ex['greater_than_signs']
+    for r in range(9):
+        for c in range(9):
+            if c + 1 < 9:
+                assert f'{r},{c},r' in signs, f"Missing horizontal sign at ({r},{c})"
+            if r + 1 < 9:
+                assert f'{r},{c},b' in signs, f"Missing vertical sign at ({r},{c})"
+
+
+# ---------------------------------------------------------------------------
+# 10. KROPKI structural checks
+# ---------------------------------------------------------------------------
+
+def test_kropki_dot_values_are_valid():
+    """Every Kropki dot must be 'white' or 'black'."""
+    ex = _load('kropki_215.json')
+    for key, dot in ex['kropki_dots'].items():
+        assert dot in ('white', 'black'), f"Unexpected dot type '{dot}' for key {key}"
+
+
+def test_kropki_key_format():
+    """Every Kropki key must be 'r,c,d' where d ∈ {'r', 'b'}."""
+    ex = _load('kropki_215.json')
+    for key in ex['kropki_dots']:
+        parts = key.split(',')
+        assert len(parts) == 3, f"Malformed key: {key}"
+        r_s, c_s, d = parts
+        assert r_s.isdigit() and c_s.isdigit(), f"Non-integer coords in key: {key}"
+        assert d in ('r', 'b'), f"Unknown direction '{d}' in key: {key}"
+
+
+def test_kropki_coords_in_bounds():
+    """Kropki key coordinates must reference valid adjacent cells."""
+    ex = _load('kropki_215.json')
+    for key in ex['kropki_dots']:
+        r, c, d = key.split(',')
+        r, c = int(r), int(c)
+        assert 0 <= r < 9 and 0 <= c < 9, f"Coords out of bounds: {key}"
+        if d == 'r':
+            assert c + 1 < 9, f"Right edge out of bounds: {key}"
+        else:
+            assert r + 1 < 9, f"Bottom edge out of bounds: {key}"
+
+
+# ---------------------------------------------------------------------------
+# 11. ODD_EVEN mask structural checks
+# ---------------------------------------------------------------------------
+
+def test_odd_even_mask_is_9x9():
+    """ODD_EVEN mask must be a 9×9 grid."""
+    ex = _load('odd_even_soe1_345.json')
+    mask = ex['odd_even_mask']
+    assert len(mask) == 9, f"Mask has {len(mask)} rows"
+    for r, row in enumerate(mask):
+        assert len(row) == 9, f"Mask row {r} has {len(row)} entries"
+
+
+def test_odd_even_mask_values_are_valid():
+    """Every mask cell must be 'odd', 'even', or None."""
+    ex = _load('odd_even_soe1_345.json')
+    mask = ex['odd_even_mask']
+    for r in range(9):
+        for c in range(9):
+            val = mask[r][c]
+            assert val in ('odd', 'even', None), (
+                f"Unexpected mask value '{val}' at ({r},{c})"
+            )
+
+
+def test_odd_even_mask_odd_count_matches_digit_parity():
+    """The number of 'odd' mask cells must equal the count of odd digits in the solution."""
+    ex = _load('odd_even_soe1_345.json')
+    solution = ex['solution']
+    mask = ex['odd_even_mask']
+    odd_mask = sum(mask[r][c] == 'odd' for r in range(9) for c in range(9))
+    odd_solution = sum(solution[r][c] % 2 == 1 for r in range(9) for c in range(9))
+    assert odd_mask == odd_solution, (
+        f"Mask has {odd_mask} 'odd' cells but solution has {odd_solution} odd digits"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 12. THERMO, SANDWICH, LITTLE_KILLER invariant checks
+# ---------------------------------------------------------------------------
+
+def test_thermo_strictly_increasing():
+    """Every thermometer in the stored solution must be strictly increasing bulb→tip."""
+    ex = _load('thermo_8mbQn8HFH9.json')
+    solution = ex['solution']
+    for ti, thermo in enumerate(ex['thermos']):
+        vals = [solution[r][c] for r, c in thermo]
+        for i in range(len(vals) - 1):
+            assert vals[i] < vals[i + 1], (
+                f"Thermo {ti}: not strictly increasing at pos {i}: {vals}"
+            )
+
+
+def test_thermo_count():
+    """Thermo example must contain at least 2 thermos, each of length ≥ 2."""
+    ex = _load('thermo_8mbQn8HFH9.json')
+    thermos = ex['thermos']
+    assert len(thermos) >= 2, f"Expected ≥2 thermos, got {len(thermos)}"
+    for ti, thermo in enumerate(thermos):
+        assert len(thermo) >= 2, f"Thermo {ti} has fewer than 2 cells: {thermo}"
+
+
+def test_thermo_cells_in_bounds():
+    """All thermo cell coordinates must be within [0, 8]."""
+    ex = _load('thermo_8mbQn8HFH9.json')
+    for ti, thermo in enumerate(ex['thermos']):
+        for r, c in thermo:
+            assert 0 <= r < 9 and 0 <= c < 9, (
+                f"Thermo {ti}: cell ({r},{c}) out of bounds"
+            )
+
+
+def test_sandwich_row_clues_match_solution():
+    """Every row sandwich clue must equal the sum between 1 and 9 in that row."""
+    ex = _load('sandwich_65xlas9gzy.json')
+    solution = ex['solution']
+    rows_clue = ex['sandwich_clues']['rows']
+    for r in range(9):
+        line = solution[r]
+        p1, p9 = line.index(1), line.index(9)
+        lo, hi = min(p1, p9), max(p1, p9)
+        between = sum(line[lo + 1:hi])
+        assert between == rows_clue[r], (
+            f"Row {r}: clue={rows_clue[r]} but actual sum between 1&9={between}"
+        )
+
+
+def test_sandwich_col_clues_match_solution():
+    """Every column sandwich clue must equal the sum between 1 and 9 in that column."""
+    ex = _load('sandwich_65xlas9gzy.json')
+    solution = ex['solution']
+    cols_clue = ex['sandwich_clues']['cols']
+    for c in range(9):
+        line = [solution[r][c] for r in range(9)]
+        p1, p9 = line.index(1), line.index(9)
+        lo, hi = min(p1, p9), max(p1, p9)
+        between = sum(line[lo + 1:hi])
+        assert between == cols_clue[c], (
+            f"Col {c}: clue={cols_clue[c]} but actual sum between 1&9={between}"
+        )
+
+
+def test_sandwich_clues_have_9_each():
+    """Sandwich clues must have exactly 9 row values and 9 column values."""
+    ex = _load('sandwich_65xlas9gzy.json')
+    clues = ex['sandwich_clues']
+    assert len(clues['rows']) == 9, f"Expected 9 row clues, got {len(clues['rows'])}"
+    assert len(clues['cols']) == 9, f"Expected 9 col clues, got {len(clues['cols'])}"
+
+
+def test_little_killer_diagonal_sums_match_solution():
+    """Every little-killer diagonal clue sum must equal the actual sum in the solution."""
+    ex = _load('little_killer_RQMpF2m6NN.json')
+    solution = ex['solution']
+    for i, clue in enumerate(ex['little_killer_clues']):
+        actual = sum(solution[r][c] for r, c in clue['cells'])
+        assert actual == clue['sum'], (
+            f"LK clue {i}: expected sum={clue['sum']}, actual={actual}, cells={clue['cells']}"
+        )
+
+
+def test_little_killer_clue_cells_in_bounds():
+    """All little-killer clue cells must be within [0, 8]."""
+    ex = _load('little_killer_RQMpF2m6NN.json')
+    for i, clue in enumerate(ex['little_killer_clues']):
+        for r, c in clue['cells']:
+            assert 0 <= r < 9 and 0 <= c < 9, (
+                f"LK clue {i}: cell ({r},{c}) out of bounds"
+            )
+
+
+def test_little_killer_cells_form_diagonal():
+    """Each little-killer clue must trace a strict diagonal (|dr|=|dc|=1 between consecutive cells)."""
+    ex = _load('little_killer_RQMpF2m6NN.json')
+    for i, clue in enumerate(ex['little_killer_clues']):
+        cells = clue['cells']
+        for j in range(len(cells) - 1):
+            r1, c1 = cells[j]
+            r2, c2 = cells[j + 1]
+            assert abs(r2 - r1) == 1 and abs(c2 - c1) == 1, (
+                f"LK clue {i}: step {j}→{j+1} is not diagonal: ({r1},{c1})→({r2},{c2})"
+            )

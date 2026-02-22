@@ -239,3 +239,197 @@ class TestDifficultyRegression:
         r = solve(MEDIUM_PUZZLE)
         assert r.difficulty == 'MEDIUM'
         assert r.hardest_level == 'MEDIUM'
+
+
+# ---------------------------------------------------------------------------
+# SolveResult structure
+# ---------------------------------------------------------------------------
+
+class TestSolveResult:
+    def test_all_fields_have_correct_types(self):
+        r = solve(EASY_PUZZLE)
+        assert isinstance(r.solved, bool)
+        assert isinstance(r.steps, list)
+        assert isinstance(r.total_score, int)
+        assert isinstance(r.hardest_level, str)
+        assert isinstance(r.difficulty, str)
+
+    def test_technique_counts_returns_typed_dict(self):
+        r = solve(EASY_PUZZLE)
+        counts = r.technique_counts()
+        assert isinstance(counts, dict)
+        assert all(isinstance(k, str) for k in counts)
+        assert all(isinstance(v, int) and v > 0 for v in counts.values())
+
+    def test_technique_counts_empty_when_no_steps(self):
+        r = solve(SOLVED_BOARD)
+        assert r.technique_counts() == {}
+
+
+# ---------------------------------------------------------------------------
+# Input immutability + solution correctness
+# ---------------------------------------------------------------------------
+
+import copy as _copy
+
+# SOLVED_BOARD with one cell removed — trivially a single naked single.
+_NEAR_COMPLETE = _copy.deepcopy(SOLVED_BOARD)
+_NEAR_COMPLETE[0][0] = 0   # removed the 5
+
+
+class TestSolveIntegrity:
+    def test_board_not_mutated_by_solve(self):
+        original = _copy.deepcopy(EASY_PUZZLE)
+        solve(EASY_PUZZLE)
+        assert EASY_PUZZLE == original
+
+    def test_near_complete_board_solved_in_one_step(self):
+        r = solve(_copy.deepcopy(_NEAR_COMPLETE))
+        assert r.solved is True
+        assert len(r.steps) == 1
+        assert r.steps[0].technique == 'NAKED_SINGLE'
+        assert r.steps[0].placements == [(0, 0, 5)]
+
+    def test_easy_solution_is_valid_sudoku(self):
+        """Reconstruct the solved board from step placements; verify rows/cols/boxes."""
+        r = solve(EASY_PUZZLE)
+        assert r.solved
+
+        board = _copy.deepcopy(EASY_PUZZLE)
+        for step in r.steps:
+            for row, col, digit in step.placements:
+                board[row][col] = digit
+
+        digits = set(range(1, 10))
+        for row in board:
+            assert set(row) == digits
+        for c in range(9):
+            assert {board[r][c] for r in range(9)} == digits
+        for br in range(3):
+            for bc in range(3):
+                box = {board[br * 3 + dr][bc * 3 + dc]
+                       for dr in range(3) for dc in range(3)}
+                assert box == digits
+
+
+# ---------------------------------------------------------------------------
+# Step integrity
+# ---------------------------------------------------------------------------
+
+class TestStepIntegrity:
+    def test_all_techniques_are_registered(self):
+        from techniques import TECHNIQUE_LEVEL
+        r = solve(MEDIUM_PUZZLE)
+        for step in r.steps:
+            assert step.technique in TECHNIQUE_LEVEL, \
+                f'Unknown technique: {step.technique}'
+
+    def test_all_scores_positive(self):
+        r = solve(MEDIUM_PUZZLE)
+        for step in r.steps:
+            assert step.score > 0, f'{step.technique} has score {step.score}'
+
+    def test_each_step_has_placements_or_eliminations(self):
+        r = solve(MEDIUM_PUZZLE)
+        for step in r.steps:
+            assert step.placements or step.eliminations, \
+                f'{step.technique} step is a no-op'
+
+    def test_placement_coords_in_valid_range(self):
+        r = solve(EASY_PUZZLE)
+        for step in r.steps:
+            for row, col, digit in step.placements:
+                assert 0 <= row <= 8
+                assert 0 <= col <= 8
+                assert 1 <= digit <= 9
+
+    def test_naked_single_puzzle_step_count_equals_empty_cells(self):
+        """EASY_PUZZLE uses naked singles only — one step per empty cell."""
+        empty_count = sum(v == 0 for row in EASY_PUZZLE for v in row)
+        r = solve(EASY_PUZZLE)
+        assert len(r.steps) == empty_count
+
+
+# ---------------------------------------------------------------------------
+# max_steps precision
+# ---------------------------------------------------------------------------
+
+class TestMaxStepsPrecision:
+    def test_max_steps_limits_step_count(self):
+        for n in (1, 5, 10):
+            r = solve(EASY_PUZZLE, max_steps=n)
+            assert len(r.steps) <= n
+
+    def test_large_max_steps_does_not_change_result(self):
+        r_normal = solve(EASY_PUZZLE)
+        r_large = solve(EASY_PUZZLE, max_steps=9999)
+        assert r_large.solved == r_normal.solved
+        assert len(r_large.steps) == len(r_normal.steps)
+        assert r_large.total_score == r_normal.total_score
+
+
+# ---------------------------------------------------------------------------
+# LEVEL_ORDER properties
+# ---------------------------------------------------------------------------
+
+class TestLevelOrder:
+    def test_level_order_is_correct_sequence(self):
+        assert LEVEL_ORDER == ['EASY', 'MEDIUM', 'HARD', 'EXPERT']
+
+    def test_hardest_level_and_difficulty_in_level_order(self):
+        for puzzle in (EASY_PUZZLE, MEDIUM_PUZZLE):
+            r = solve(puzzle)
+            assert r.hardest_level in LEVEL_ORDER
+            assert r.difficulty in LEVEL_ORDER
+
+    def test_difficulty_equals_hardest_level(self):
+        """_compute_difficulty must return hardest_level directly."""
+        for puzzle in (EASY_PUZZLE, MEDIUM_PUZZLE):
+            r = solve(puzzle)
+            assert r.difficulty == r.hardest_level
+
+
+# ---------------------------------------------------------------------------
+# Variant interface — solver accepts all variant types without raising
+# ---------------------------------------------------------------------------
+
+class TestVariantInterface:
+    # Fully empty board — no contradiction possible for any variant type.
+    _EMPTY = [[0] * 9 for _ in range(9)]
+
+    def test_no_extra_constraint_variants_on_empty_board(self):
+        for vtype in ('CLASSIC', 'DIAGONAL', 'WINDOKU',
+                      'ANTI_KNIGHT', 'ANTI_KING', 'NON_CONSECUTIVE'):
+            r = solve(self._EMPTY, vtype)
+            assert isinstance(r, SolveResult), f'{vtype} did not return SolveResult'
+            assert not r.solved                 # empty board can't be solved
+
+    def test_odd_even_type_with_all_none_mask(self):
+        mask = [[None] * 9 for _ in range(9)]
+        r = solve(self._EMPTY, 'ODD_EVEN', odd_even_mask=mask)
+        assert isinstance(r, SolveResult)
+
+    def test_killer_type_pins_single_cell(self):
+        """A cage with sum=1 forces (0,0)=1; the naked single must be applied."""
+        puzzle = [[0] * 9 for _ in range(9)]
+        puzzle[0] = [0, 2, 3, 4, 5, 6, 7, 8, 9]
+        cages = [{'cells': [(0, 0)], 'sum': 1}]
+        r = solve(puzzle, 'KILLER', killer_cages=cages)
+        assert isinstance(r, SolveResult)
+        # Solver should have placed 1 at (0,0) as a naked single
+        assert any(
+            step.technique == 'NAKED_SINGLE' and (0, 0, 1) in step.placements
+            for step in r.steps
+        )
+
+    def test_thermo_type_with_minimal_thermo(self):
+        """THERMO type accepted; row-0 naked single still fires correctly."""
+        puzzle = [[0] * 9 for _ in range(9)]
+        puzzle[0] = [0, 2, 3, 4, 5, 6, 7, 8, 9]   # (0,0) → naked single → 1
+        thermos = [[(1, 0), (2, 0)]]               # thermo in col 0, rows 1-2
+        r = solve(puzzle, 'THERMO', thermos=thermos)
+        assert isinstance(r, SolveResult)
+        assert any(
+            step.technique == 'NAKED_SINGLE' and (0, 0, 1) in step.placements
+            for step in r.steps
+        )

@@ -107,7 +107,14 @@ def solve(
 
         if cg.has_contradiction():
             # A technique made an impossible elimination — reject
-            return SolveResult(solved=False, steps=steps)
+            difficulty = _compute_difficulty(total_score, hardest_level)
+            return SolveResult(
+                solved=False,
+                steps=steps,
+                total_score=total_score,
+                hardest_level=hardest_level,
+                difficulty=difficulty,
+            )
 
         applied = False
         for technique_fn in TECHNIQUES:
