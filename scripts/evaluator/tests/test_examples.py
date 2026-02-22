@@ -66,6 +66,7 @@ def _solver_kwargs(ex: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize('filename', [
+    'classic_wikipedia.json',
     'diagonal_sx9_1_402.json',
     'windoku_win9_1_021.json',
     'anti_knight_skn9_1_050.json',
@@ -94,6 +95,7 @@ def test_solution_is_valid(filename):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize('filename,sudoku_type', [
+    ('classic_wikipedia.json',          'CLASSIC'),
     ('diagonal_sx9_1_402.json',         'DIAGONAL'),
     ('windoku_win9_1_021.json',          'WINDOKU'),
     ('anti_knight_skn9_1_050.json',     'ANTI_KNIGHT'),
@@ -291,6 +293,7 @@ def test_non_consecutive_no_adjacent_consecutive():
 # ---------------------------------------------------------------------------
 
 _ALL_FILES = [
+    'classic_wikipedia.json',
     'diagonal_sx9_1_402.json',
     'windoku_win9_1_021.json',
     'anti_knight_skn9_1_050.json',
@@ -311,6 +314,7 @@ _ALL_FILES = [
 # is excluded here and tested only for solution validity / no-contradiction.
 # thermo_8mbQn8HFH9.json has an all-zero puzzle (no given cells), handled like KILLER.
 _PUZZLE_FILES = [
+    'classic_wikipedia.json',
     'diagonal_sx9_1_402.json',
     'windoku_win9_1_021.json',
     'anti_knight_skn9_1_050.json',
@@ -322,6 +326,7 @@ _PUZZLE_FILES = [
 
 # Easy examples where the technique solver is expected to fully solve the puzzle
 _EASY_PUZZLE_PARAMS = [
+    ('classic_wikipedia.json',          'CLASSIC'),
     ('diagonal_sx9_1_402.json',         'DIAGONAL'),
     ('windoku_win9_1_021.json',          'WINDOKU'),
     ('anti_knight_skn9_1_050.json',     'ANTI_KNIGHT'),
