@@ -65,6 +65,54 @@ export const NonConsecutiveSelected = {
   },
 };
 
+export const KropkiSelected = {
+  args: {
+    currentType: 'KROPKI',
+    onTypeChange: (type) => console.log('Type changed to:', type),
+    disabled: false,
+  },
+};
+
+export const KillerSelected = {
+  args: {
+    currentType: 'KILLER',
+    onTypeChange: (type) => console.log('Type changed to:', type),
+    disabled: false,
+  },
+};
+
+export const LittleKillerSelected = {
+  args: {
+    currentType: 'LITTLE_KILLER',
+    onTypeChange: (type) => console.log('Type changed to:', type),
+    disabled: false,
+  },
+};
+
+export const GreaterThanSelected = {
+  args: {
+    currentType: 'GREATER_THAN',
+    onTypeChange: (type) => console.log('Type changed to:', type),
+    disabled: false,
+  },
+};
+
+export const ThermoSelected = {
+  args: {
+    currentType: 'THERMO',
+    onTypeChange: (type) => console.log('Type changed to:', type),
+    disabled: false,
+  },
+};
+
+export const SandwichSelected = {
+  args: {
+    currentType: 'SANDWICH',
+    onTypeChange: (type) => console.log('Type changed to:', type),
+    disabled: false,
+  },
+};
+
 export const Disabled = {
   args: {
     currentType: 'CLASSIC',

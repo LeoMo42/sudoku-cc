@@ -164,6 +164,108 @@ export const EvenMarkerCell = {
   },
 };
 
+export const KropkiWhiteDot = {
+  args: {
+    value: 4,
+    row: 4,
+    col: 4,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    rightDot: 'white',
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const KropkiBlackDot = {
+  args: {
+    value: 3,
+    row: 4,
+    col: 4,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    bottomDot: 'black',
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const GreaterThanRight = {
+  args: {
+    value: 7,
+    row: 4,
+    col: 4,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    rightSign: '>',
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const GreaterThanBottom = {
+  args: {
+    value: 2,
+    row: 4,
+    col: 4,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    bottomSign: '<',
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const ThermoBulb = {
+  args: {
+    value: 0,
+    row: 4,
+    col: 4,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    thermoCell: { isBulb: true, dirs: ['right'] },
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const ThermoMid = {
+  args: {
+    value: 0,
+    row: 4,
+    col: 4,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    thermoCell: { isBulb: false, dirs: ['left', 'right'] },
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const KillerCageTopLeft = {
+  args: {
+    value: 0,
+    row: 4,
+    col: 4,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    cageSum: 15,
+    cageTop: true,
+    cageRight: false,
+    cageBottom: false,
+    cageLeft: true,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
 export const AllStates = () => (
   <div className="grid grid-cols-4 gap-4">
     <div style={{ width: '50px', height: '50px' }}>
