@@ -29,6 +29,7 @@ export const Cell = memo(function Cell({
   cageBottom = false,
   cageLeft = false,
   notes,
+  hintRole = null,
   onClick,
 }) {
   const baseStyles = 'w-full h-full flex items-center justify-center text-xl font-medium cursor-pointer select-none transition-colors relative';
@@ -59,7 +60,11 @@ export const Cell = memo(function Cell({
     cellStyles += ' cell-king-diagonal';
   }
 
-  if (isSelected) {
+  if (hintRole && !isError) {
+    if (hintRole === 'target')    cellStyles += ' cell-hint-target';
+    else if (hintRole === 'cause') cellStyles += ' cell-hint-cause';
+    else if (hintRole === 'eliminate') cellStyles += ' cell-hint-eliminate';
+  } else if (isSelected) {
     cellStyles += ' cell-selected';
   } else if (isHighlighted) {
     cellStyles += ' cell-highlighted';

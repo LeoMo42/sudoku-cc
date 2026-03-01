@@ -8,22 +8,22 @@ export const DIFFICULTY_LEVELS = {
   EASY: {
     name: 'Легкий',
     filledCells: [40, 50],
-    maxHints: 5,
+    maxHints: 10,
   },
   MEDIUM: {
     name: 'Средний',
     filledCells: [30, 40],
-    maxHints: 4,
+    maxHints: 10,
   },
   HARD: {
     name: 'Сложный',
     filledCells: [25, 30],
-    maxHints: 3,
+    maxHints: 10,
   },
   EXPERT: {
     name: 'Эксперт',
     filledCells: [20, 25],
-    maxHints: 3,
+    maxHints: 10,
   },
 };
 

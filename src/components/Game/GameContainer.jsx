@@ -1,13 +1,15 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGameState } from '../../hooks/useGameState';
 import { useTimer } from '../../hooks/useTimer';
+import { useSound } from '../../hooks/useSound';
 import { Board } from '../Board/Board';
 import { Timer } from '../Controls/Timer';
 import { NumberPad } from '../Controls/NumberPad';
 import { DifficultySelector } from '../Controls/DifficultySelector';
 import { SudokuTypeSelector } from '../Controls/SudokuTypeSelector';
 import { GameControls } from '../Controls/GameControls';
+import { HintModal } from '../Controls/HintModal';
 import { LanguageSwitcher } from '../UI/LanguageSwitcher';
 import { OddEvenLegend } from '../UI/OddEvenLegend';
 import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constants';
@@ -18,9 +20,36 @@ import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constant
 export function GameContainer() {
   const { t } = useTranslation();
   const { state, actions } = useGameState();
+  const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
 
   // Timer hook
   useTimer(state.gameStatus, actions.updateTime);
+
+  // Sound effects: track previous errors and gameStatus to detect changes
+  const prevErrorsSizeRef = useRef(state.errors.size);
+  const prevGameStatusRef = useRef(state.gameStatus);
+  // Set to true in input handlers so the effect knows a digit was just entered
+  const pendingDigitSoundRef = useRef(false);
+
+  useEffect(() => {
+    const prevStatus = prevGameStatusRef.current;
+    const prevErrorsSize = prevErrorsSizeRef.current;
+
+    if (state.gameStatus === GAME_STATUS.COMPLETED && prevStatus !== GAME_STATUS.COMPLETED) {
+      playVictorySound();
+    } else if (pendingDigitSoundRef.current) {
+      // Play either error OR digit sound, not both
+      if (state.errors.size > prevErrorsSize) {
+        playErrorSound();
+      } else {
+        playDigitSound();
+      }
+      pendingDigitSoundRef.current = false;
+    }
+
+    prevGameStatusRef.current = state.gameStatus;
+    prevErrorsSizeRef.current = state.errors.size;
+  }, [state.errors, state.gameStatus, playVictorySound, playErrorSound, playDigitSound]);
 
   // Auto-start game if status is IDLE
   useEffect(() => {
@@ -46,6 +75,8 @@ export function GameContainer() {
         if (state.notesMode) {
           actions.setNote(row, col, num);
         } else {
+          const isInitialCell = state.initialBoard[row][col] !== EMPTY_CELL;
+          if (!isInitialCell) pendingDigitSoundRef.current = true;
           actions.setCellValue(row, col, num);
         }
       }
@@ -89,7 +120,7 @@ export function GameContainer() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.selectedCell, state.gameStatus, state.notesMode, actions]);
+  }, [state.selectedCell, state.gameStatus, state.notesMode, state.initialBoard, actions]);
 
   const handleCellClick = useCallback(
     (row, col) => {
@@ -108,11 +139,13 @@ export function GameContainer() {
         if (state.notesMode) {
           actions.setNote(row, col, num);
         } else {
+          const isInitialCell = state.initialBoard[row][col] !== EMPTY_CELL;
+          if (!isInitialCell) pendingDigitSoundRef.current = true;
           actions.setCellValue(row, col, num);
         }
       }
     },
-    [state.selectedCell, state.gameStatus, state.notesMode, actions]
+    [state.selectedCell, state.gameStatus, state.notesMode, state.initialBoard, actions]
   );
 
   const handleClear = useCallback(() => {
@@ -141,6 +174,16 @@ export function GameContainer() {
   );
 
   const maxHints = DIFFICULTY_LEVELS[state.difficulty].maxHints;
+
+  // Build hint highlight map from activeHint
+  const hintHighlights = useMemo(() => {
+    if (!state.activeHint) return null;
+    const map = new Map();
+    for (const { row, col, role } of state.activeHint.highlightCells) {
+      map.set(`${row},${col}`, role);
+    }
+    return map;
+  }, [state.activeHint]);
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
@@ -196,6 +239,7 @@ export function GameContainer() {
                 greaterThanSigns={state.greaterThanSigns}
                 thermos={state.thermos}
                 sandwichClues={state.sandwichClues}
+                hintHighlights={hintHighlights}
                 onCellClick={handleCellClick}
               />
 
@@ -210,7 +254,16 @@ export function GameContainer() {
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm font-medium text-gray-600">{t('game.time')}</span>
-                <Timer elapsedTime={state.elapsedTime} />
+                <div className="flex items-center gap-3">
+                  <Timer elapsedTime={state.elapsedTime} />
+                  <button
+                    onClick={toggleSound}
+                    title={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
+                    className="text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors"
+                  >
+                    {soundEnabled ? '🔊' : '🔇'}
+                  </button>
+                </div>
               </div>
 
               {state.gameStatus === GAME_STATUS.PAUSED && (
@@ -237,6 +290,13 @@ export function GameContainer() {
                 notesMode={state.notesMode}
               />
             </div>
+
+            {/* Hint Modal (rendered as overlay) */}
+            <HintModal
+              activeHint={state.activeHint}
+              onApply={actions.applyHint}
+              onDismiss={actions.dismissHint}
+            />
 
             {/* Number Pad */}
             <div className="bg-white rounded-lg shadow-md p-6">

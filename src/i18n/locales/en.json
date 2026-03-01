@@ -14,7 +14,9 @@
     "numberInput": "Number Input:",
     "paused": "Game Paused",
     "completed": "🎉 Congratulations! You solved the puzzle!",
-    "hintsUsed": "{{used}}/{{max}}"
+    "hintsUsed": "{{used}}/{{max}}",
+    "soundOn": "Sound on (click to mute)",
+    "soundOff": "Sound off (click to enable)"
   },
   "difficulty": {
     "EASY": "Easy",
@@ -24,6 +26,97 @@
   },
   "controls": {
     "keyboard": "Use keys 1-9, arrows for navigation, Backspace to clear, N for notes"
+  },
+  "hint": {
+    "title": "Hint",
+    "apply": "Apply",
+    "dismiss": "Close",
+    "learnMore": "Learn more →",
+    "noHint": "No hint available for this position.",
+    "difficultyBadge": {
+      "EASY": "Easy",
+      "MEDIUM": "Medium",
+      "HARD": "Hard",
+      "EXPERT": "Expert"
+    },
+    "stepType": {
+      "placement": "Place a digit",
+      "elimination": "Eliminate candidates"
+    },
+    "techniques": {
+      "NAKED_SINGLE": {
+        "name": "Naked Single",
+        "explanation": "Cell R{{row}}C{{col}} has only one possible candidate — {{value}}. All other digits are already present in its row, column, or box."
+      },
+      "HIDDEN_SINGLE": {
+        "name": "Hidden Single",
+        "explanation": "Digit {{value}} can only go in cell R{{row}}C{{col}} within its house. Every other cell in that row, column, or box already rules out {{value}}."
+      },
+      "LOCKED_CANDIDATES": {
+        "name": "Locked Candidates",
+        "explanation": "A digit is confined to a single row or column within a box (or vice versa). This lets us eliminate that digit from the rest of the row, column, or box."
+      },
+      "NAKED_PAIR": {
+        "name": "Naked Pair",
+        "explanation": "Two cells in the same house share exactly the same two candidates. Those digits can be eliminated from all other cells in that house."
+      },
+      "HIDDEN_PAIR": {
+        "name": "Hidden Pair",
+        "explanation": "Two digits appear as candidates in exactly two cells of a house. All other candidates can be removed from those two cells."
+      },
+      "NAKED_TRIPLE": {
+        "name": "Naked Triple",
+        "explanation": "Three cells in a house collectively contain exactly three candidate digits. Those digits can be eliminated from the rest of the house."
+      },
+      "HIDDEN_TRIPLE": {
+        "name": "Hidden Triple",
+        "explanation": "Three digits appear in exactly three cells of a house. All other candidates can be removed from those cells."
+      },
+      "NAKED_QUAD": {
+        "name": "Naked Quad",
+        "explanation": "Four cells in a house collectively contain exactly four candidate digits. Those digits can be eliminated from the rest of the house."
+      },
+      "HIDDEN_QUAD": {
+        "name": "Hidden Quad",
+        "explanation": "Four digits appear in exactly four cells of a house. All other candidates can be removed from those cells."
+      },
+      "X_WING": {
+        "name": "X-Wing",
+        "explanation": "A digit appears in exactly two cells in each of two rows, and those cells share the same two columns. The digit can be eliminated from those columns in all other rows."
+      },
+      "SWORDFISH": {
+        "name": "Swordfish",
+        "explanation": "A digit appears in exactly two or three cells across three rows, all confined to the same three columns. It can be eliminated from those columns in all other rows."
+      },
+      "JELLYFISH": {
+        "name": "Jellyfish",
+        "explanation": "A digit appears in two to four cells across four rows, confined to the same four columns. It can be eliminated from those columns in all other rows."
+      },
+      "XY_WING": {
+        "name": "XY-Wing",
+        "explanation": "A pivot cell with two candidates {X,Y} is connected to two pincers: one with {X,Z} and one with {Y,Z}. Any cell that sees both pincers cannot contain Z."
+      },
+      "XYZ_WING": {
+        "name": "XYZ-Wing",
+        "explanation": "A pivot with three candidates {X,Y,Z} is connected to two bivalue pincers that together cover all three. Z can be eliminated from cells that see all three."
+      },
+      "W_WING": {
+        "name": "W-Wing",
+        "explanation": "Two bivalue cells share the same candidate pair {A,B} and are connected by a strong link on A. Digit B can be eliminated from cells that see both."
+      },
+      "UNIQUE_RECTANGLE_1": {
+        "name": "Unique Rectangle Type 1",
+        "explanation": "Three corners of a rectangle contain only the same two candidates. Placing those digits in the fourth corner would create two solutions, so they must be eliminated from it."
+      },
+      "UNIQUE_RECTANGLE_2": {
+        "name": "Unique Rectangle Type 2",
+        "explanation": "Two diagonal corners of a rectangle each have one extra candidate X beyond the shared pair. Since at least one must place X, it can be eliminated from cells that see both."
+      },
+      "SIMPLE_COLORING": {
+        "name": "Simple Coloring",
+        "explanation": "Strong links on a digit form a chain. Cells at alternating chain positions are colored. Either a color group is self-contradicting (wrap) or cells seeing both colors cannot contain the digit (trap)."
+      }
+    }
   },
   "oddEven": {
     "odd": "Odd",

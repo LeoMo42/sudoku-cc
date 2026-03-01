@@ -266,6 +266,49 @@ export const KillerCageTopLeft = {
   },
 };
 
+export const HintTarget = {
+  args: {
+    value: 5,
+    row: 4,
+    col: 4,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    hintRole: 'target',
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const HintCause = {
+  args: {
+    value: 3,
+    row: 4,
+    col: 4,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    hintRole: 'cause',
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const HintEliminate = {
+  args: {
+    value: 0,
+    row: 4,
+    col: 4,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    notes: new Set([1, 4]),
+    hintRole: 'eliminate',
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
 export const AllStates = () => (
   <div className="grid grid-cols-4 gap-4">
     <div style={{ width: '50px', height: '50px' }}>

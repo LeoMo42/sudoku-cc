@@ -21,6 +21,7 @@ export function Board({
   greaterThanSigns = null,
   thermos = null,
   sandwichClues = null,
+  hintHighlights = null,
   onCellClick,
 }) {
   // Build lookup maps for Killer Sudoku cage borders and sums
@@ -166,6 +167,7 @@ export function Board({
                 cageBottom={cageBottom}
                 cageLeft={cageLeft}
                 notes={cellNotes}
+                hintRole={hintHighlights?.get(`${rowIndex},${colIndex}`) ?? null}
                 onClick={onCellClick}
               />
             );

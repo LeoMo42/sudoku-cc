@@ -1,6 +1,7 @@
 import { createContext, useReducer, useCallback, useEffect } from 'react';
-import { createPuzzle, getHint } from '../utils/sudokuGenerator';
+import { createPuzzle } from '../utils/sudokuGenerator';
 import { findConflicts, isSolved, copyBoard } from '../utils/sudokuValidator';
+import { findHintStep } from '../utils/hintEngine';
 import { GAME_STATUS, DIFFICULTY_LEVELS, STORAGE_KEY, EMPTY_CELL } from '../utils/constants';
 
 export const GameContext = createContext();
@@ -12,6 +13,8 @@ const Actions = {
   SELECT_CELL: 'SELECT_CELL',
   CHECK_SOLUTION: 'CHECK_SOLUTION',
   GET_HINT: 'GET_HINT',
+  APPLY_HINT: 'APPLY_HINT',
+  DISMISS_HINT: 'DISMISS_HINT',
   TOGGLE_NOTES_MODE: 'TOGGLE_NOTES_MODE',
   SET_NOTE: 'SET_NOTE',
   PAUSE_GAME: 'PAUSE_GAME',
@@ -34,6 +37,7 @@ const initialState = {
   errors: new Set(),
   notesMode: false,
   notes: new Map(),
+  activeHint: null,
   oddEvenMarkers: null,
   kropkiDots: null,
   killerCages: null,
@@ -59,6 +63,7 @@ function gameReducer(state, action) {
         sudokuType,
         gameStatus: GAME_STATUS.PLAYING,
         notes: new Map(),
+        activeHint: null,
         oddEvenMarkers: oddEvenMarkers || null,
         kropkiDots: kropkiDots || null,
         killerCages: killerCages || null,
@@ -125,35 +130,76 @@ function gameReducer(state, action) {
 
     case Actions.GET_HINT: {
       const maxHints = DIFFICULTY_LEVELS[state.difficulty].maxHints;
+      if (state.hintsUsed >= maxHints) return state;
 
-      if (state.hintsUsed >= maxHints) {
-        return state;
+      const hintStep = findHintStep(state.board, state.sudokuType, {
+        oddEvenMarkers: state.oddEvenMarkers,
+        killerCages: state.killerCages,
+        kropkiDots: state.kropkiDots,
+        greaterThanSigns: state.greaterThanSigns,
+        thermos: state.thermos,
+        sandwichClues: state.sandwichClues,
+        littleKillerClues: state.littleKillerClues,
+      });
+
+      if (!hintStep) return state;
+
+      // Highlight the target cell (first highlight cell with role 'target')
+      const targetCell = hintStep.highlightCells.find(c => c.role === 'target');
+
+      return {
+        ...state,
+        activeHint: hintStep,
+        selectedCell: targetCell
+          ? { row: targetCell.row, col: targetCell.col }
+          : state.selectedCell,
+      };
+    }
+
+    case Actions.APPLY_HINT: {
+      const { activeHint } = state;
+      if (!activeHint) return state;
+
+      let newBoard = copyBoard(state.board);
+      const newNotes = new Map(state.notes);
+
+      if (activeHint.placement) {
+        // Placement hint: fill the cell
+        const { row, col, value } = activeHint.placement;
+        newBoard[row][col] = value;
+        newNotes.delete(`${row},${col}`);
+      } else {
+        // Elimination hint: remove eliminated candidates from notes
+        for (const { row, col, digit } of activeHint.eliminations) {
+          const key = `${row},${col}`;
+          const cellNotes = new Set(newNotes.get(key) || []);
+          cellNotes.delete(digit);
+          if (cellNotes.size === 0) {
+            newNotes.delete(key);
+          } else {
+            newNotes.set(key, cellNotes);
+          }
+        }
       }
-
-      const hint = getHint(state.board, state.solution, state.initialBoard);
-
-      if (!hint) {
-        return state;
-      }
-
-      const newBoard = copyBoard(state.board);
-      newBoard[hint.row][hint.col] = hint.value;
 
       const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
       const solved = isSolved(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
 
-      // Clear notes for the hinted cell
-      const newNotes = new Map(state.notes);
-      newNotes.delete(`${hint.row},${hint.col}`);
-
       return {
         ...state,
         board: newBoard,
+        notes: newNotes,
         hintsUsed: state.hintsUsed + 1,
         errors,
         gameStatus: solved ? GAME_STATUS.COMPLETED : state.gameStatus,
-        selectedCell: { row: hint.row, col: hint.col },
-        notes: newNotes,
+        activeHint: null,
+      };
+    }
+
+    case Actions.DISMISS_HINT: {
+      return {
+        ...state,
+        activeHint: null,
       };
     }
 
@@ -224,6 +270,7 @@ function gameReducer(state, action) {
         ...action.payload,
         errors: new Set(action.payload.errors || []),
         notes: new Map(action.payload.notes || []),
+        activeHint: null,
         oddEvenMarkers: action.payload.oddEvenMarkers ? new Map(action.payload.oddEvenMarkers) : null,
         kropkiDots: action.payload.kropkiDots ? new Map(action.payload.kropkiDots) : null,
         killerCages: action.payload.killerCages || null,
@@ -250,6 +297,7 @@ export function GameProvider({ children }) {
         ...state,
         errors: Array.from(state.errors),
         notes: Array.from(state.notes.entries()),
+        activeHint: null,
         oddEvenMarkers: state.oddEvenMarkers ? Array.from(state.oddEvenMarkers.entries()) : null,
         kropkiDots: state.kropkiDots ? Array.from(state.kropkiDots.entries()) : null,
         killerCages: state.killerCages,
@@ -295,6 +343,14 @@ export function GameProvider({ children }) {
     dispatch({ type: Actions.GET_HINT });
   }, []);
 
+  const applyHint = useCallback(() => {
+    dispatch({ type: Actions.APPLY_HINT });
+  }, []);
+
+  const dismissHint = useCallback(() => {
+    dispatch({ type: Actions.DISMISS_HINT });
+  }, []);
+
   const toggleNotesMode = useCallback(() => {
     dispatch({ type: Actions.TOGGLE_NOTES_MODE });
   }, []);
@@ -323,6 +379,8 @@ export function GameProvider({ children }) {
       selectCell,
       checkSolution,
       getHint: getHintAction,
+      applyHint,
+      dismissHint,
       toggleNotesMode,
       setNote,
       pauseGame,
