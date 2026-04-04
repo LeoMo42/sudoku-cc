@@ -2,6 +2,13 @@ import { memo } from 'react';
 import { EMPTY_CELL } from '../../utils/constants';
 import type { CellValue, HighlightRole, KropkiDotType, GreaterThanSign, Parity } from '../../types/index';
 
+function setsEqual(a: Set<number> | undefined, b: Set<number> | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+
 interface ThermoCell {
   isBulb: boolean;
   dirs: string[];
@@ -263,6 +270,7 @@ export const Cell = memo(function Cell({
     prevProps.cageRight === nextProps.cageRight &&
     prevProps.cageBottom === nextProps.cageBottom &&
     prevProps.cageLeft === nextProps.cageLeft &&
-    prevProps.notes === nextProps.notes
+    prevProps.hintRole === nextProps.hintRole &&
+    setsEqual(prevProps.notes, nextProps.notes)
   );
 });
