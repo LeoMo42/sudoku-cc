@@ -143,3 +143,4 @@ export const KING_MOVES: GridOffset[] = [
 ];
 
 export const STORAGE_KEY = 'sudoku-game-state';
+export const SAVE_VERSION = 1;

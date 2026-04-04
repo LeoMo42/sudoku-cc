@@ -2,7 +2,7 @@ import { createContext, useReducer, useCallback, useEffect, ReactNode } from 're
 import { createPuzzle } from '../utils/sudokuGenerator';
 import { findConflicts, isSolved, copyBoard } from '../utils/sudokuValidator';
 import { findHintStep } from '../utils/hintEngine';
-import { GAME_STATUS, DIFFICULTY_LEVELS, STORAGE_KEY, EMPTY_CELL } from '../utils/constants';
+import { GAME_STATUS, DIFFICULTY_LEVELS, STORAGE_KEY, SAVE_VERSION, EMPTY_CELL } from '../utils/constants';
 import type {
   GameState,
   GameContextValue,
@@ -64,6 +64,37 @@ const initialState: GameState = {
   thermos: null,
   sandwichClues: null,
 };
+
+// Validate that a parsed object looks like a saved game state
+function isValidSavedState(data: unknown): data is Record<string, unknown> {
+  if (!data || typeof data !== 'object') return false;
+  const obj = data as Record<string, unknown>;
+
+  // Must have a 9x9 board
+  if (!Array.isArray(obj.board) || obj.board.length !== 9) return false;
+  for (const row of obj.board) {
+    if (!Array.isArray(row) || row.length !== 9) return false;
+  }
+
+  // Must have required string fields
+  if (typeof obj.difficulty !== 'string') return false;
+  if (typeof obj.sudokuType !== 'string') return false;
+  if (typeof obj.gameStatus !== 'string') return false;
+
+  return true;
+}
+
+// Migrate saved state from older versions to current
+function migrateSavedState(data: Record<string, unknown>): Record<string, unknown> {
+  const version = typeof data.version === 'number' ? data.version : 0;
+
+  // Version 0 → 1: add version field (no structural changes needed)
+  if (version < 1) {
+    data.version = 1;
+  }
+
+  return data;
+}
 
 // Reducer
 function gameReducer(state: GameState, action: GameAction): GameState {
@@ -320,6 +351,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (state.gameStatus !== GAME_STATUS.IDLE) {
       const stateToSave = {
         ...state,
+        version: SAVE_VERSION,
         errors: Array.from(state.errors),
         notes: Array.from(state.notes.entries()).map(([k, v]) => [k, Array.from(v)]),
         activeHint: null,
@@ -341,9 +373,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (savedState) {
       try {
         const parsed = JSON.parse(savedState);
-        dispatch({ type: Actions.LOAD_STATE, payload: parsed });
+        if (!isValidSavedState(parsed)) {
+          console.warn('Saved game data is corrupted, starting fresh');
+          localStorage.removeItem(STORAGE_KEY);
+          return;
+        }
+        const migrated = migrateSavedState(parsed);
+        dispatch({ type: Actions.LOAD_STATE, payload: migrated });
       } catch (error) {
-        console.error('Failed to load saved game:', error);
+        console.warn('Failed to load saved game, starting fresh:', error);
+        localStorage.removeItem(STORAGE_KEY);
       }
     }
   }, []);
