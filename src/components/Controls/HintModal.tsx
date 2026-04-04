@@ -88,15 +88,6 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
           </div>
         )}
 
-        {/* Learn more link (shown only when slug is set; pages to be built later) */}
-        {activeHint?.learnMoreSlug && false && (
-          <a
-            href={`/learn/${activeHint?.learnMoreSlug}`}
-            className="text-sm text-blue-600 hover:underline"
-          >
-            {t('hint.learnMore')}
-          </a>
-        )}
 
         {/* Action buttons */}
         <div className="flex gap-2 justify-end pt-1">

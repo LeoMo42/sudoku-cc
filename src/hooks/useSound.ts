@@ -48,7 +48,7 @@ export function useSound(): UseSoundReturn {
         gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + duration);
         osc.start(ctx.currentTime + offset);
         osc.stop(ctx.currentTime + offset + duration + 0.01);
-      } catch (_) {}
+      } catch { /* audio not available */ }
     },
     [soundEnabled, getCtx]
   );
@@ -74,7 +74,7 @@ export function useSound(): UseSoundReturn {
       gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.29);
-    } catch (_) {}
+    } catch { /* audio not available */ }
   }, [soundEnabled, getCtx]);
 
   // Ascending major arpeggio — victory fanfare

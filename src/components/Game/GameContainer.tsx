@@ -57,6 +57,7 @@ export function GameContainer() {
     if (state.gameStatus === GAME_STATUS.IDLE) {
       actions.newGame(state.difficulty, state.sudokuType);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
   // Handle keyboard input
