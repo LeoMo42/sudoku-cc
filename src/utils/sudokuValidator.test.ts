@@ -7,7 +7,7 @@ import {
   copyBoard,
 } from './sudokuValidator';
 import { EMPTY_CELL } from './constants';
-import type { Board, OddEvenMarkers } from '../types/index';
+import type { Board, OddEvenMarkers, SandwichClues } from '../types/index';
 
 describe('Sudoku Validator', () => {
   // Valid complete sudoku board for testing
@@ -321,6 +321,74 @@ describe('Sudoku Validator', () => {
       // Try to place 4 or 6 at diagonal cell [1,1] - should be valid (diagonals not checked)
       expect(isValidMove(board, 1, 1, 4, 'NON_CONSECUTIVE')).toBe(true);
       expect(isValidMove(board, 1, 1, 6, 'NON_CONSECUTIVE')).toBe(true);
+    });
+  });
+
+  describe('Sandwich Sudoku', () => {
+    const emptySandwich: SandwichClues = {
+      rows: [null, null, null, null, null, null, null, null, null],
+      cols: [null, null, null, null, null, null, null, null, null],
+    };
+
+    it('should reject placement when partial sum exceeds row clue', () => {
+      const board: Board = Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)) as Board;
+      // Row 0: 1 at col 0, 9 at col 4, between them cols 1-3
+      board[0]![0] = 1;
+      board[0]![4] = 9;
+      board[0]![1] = 8; // sum between = 8
+      const clues: SandwichClues = { ...emptySandwich, rows: [10, null, null, null, null, null, null, null, null] };
+
+      // Placing 7 at col 2 would make sum = 8+7 = 15 > 10
+      expect(isValidMove(board, 0, 2, 7, 'SANDWICH', null, null, null, null, null, null, clues)).toBe(false);
+
+      // Placing 2 at col 2 would make sum = 8+2 = 10 <= 10, still has empty col 3
+      expect(isValidMove(board, 0, 2, 2, 'SANDWICH', null, null, null, null, null, null, clues)).toBe(true);
+    });
+
+    it('should reject complete sandwich with wrong sum', () => {
+      const board: Board = Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)) as Board;
+      // Row 0: 1 at col 0, 9 at col 3, between them cols 1-2
+      board[0]![0] = 1;
+      board[0]![3] = 9;
+      board[0]![1] = 3;
+      const clues: SandwichClues = { ...emptySandwich, rows: [10, null, null, null, null, null, null, null, null] };
+
+      // Placing 5 at col 2 makes sum = 3+5 = 8 != 10 and sandwich is complete
+      expect(isValidMove(board, 0, 2, 5, 'SANDWICH', null, null, null, null, null, null, clues)).toBe(false);
+
+      // Placing 7 at col 2 makes sum = 3+7 = 10 == 10
+      expect(isValidMove(board, 0, 2, 7, 'SANDWICH', null, null, null, null, null, null, clues)).toBe(true);
+    });
+
+    it('should skip validation when 1 or 9 not placed yet', () => {
+      const board: Board = Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)) as Board;
+      board[0]![0] = 1; // only 1 placed, no 9
+      const clues: SandwichClues = { ...emptySandwich, rows: [5, null, null, null, null, null, null, null, null] };
+
+      // Any digit should be allowed since sandwich boundaries aren't defined yet
+      expect(isValidMove(board, 0, 4, 8, 'SANDWICH', null, null, null, null, null, null, clues)).toBe(true);
+    });
+
+    it('should check column clues too', () => {
+      const board: Board = Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)) as Board;
+      // Col 0: 1 at row 0, 9 at row 3, between them rows 1-2
+      board[0]![0] = 1;
+      board[3]![0] = 9;
+      board[1]![0] = 7;
+      const clues: SandwichClues = { ...emptySandwich, cols: [8, null, null, null, null, null, null, null, null] };
+
+      // Placing 6 at row 2 col 0 makes sum = 7+6 = 13 > 8
+      expect(isValidMove(board, 2, 0, 6, 'SANDWICH', null, null, null, null, null, null, clues)).toBe(false);
+    });
+
+    it('should skip row/col with null clue', () => {
+      const board: Board = Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)) as Board;
+      board[0]![0] = 1;
+      board[0]![4] = 9;
+      // Row 0 clue is null — should not validate sandwich
+      const clues: SandwichClues = { ...emptySandwich, rows: [null, null, null, null, null, null, null, null, null] };
+
+      expect(isValidMove(board, 0, 2, 8, 'SANDWICH', null, null, null, null, null, null, clues)).toBe(true);
     });
   });
 });
