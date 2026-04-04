@@ -69,8 +69,7 @@ const initialState: GameState = {
   historyIndex: -1,
 };
 
-// Validate that a parsed object looks like a saved game state
-function isValidSavedState(data: unknown): data is Record<string, unknown> {
+export function isValidSavedState(data: unknown): data is Record<string, unknown> {
   if (!data || typeof data !== 'object') return false;
   const obj = data as Record<string, unknown>;
 
@@ -88,8 +87,7 @@ function isValidSavedState(data: unknown): data is Record<string, unknown> {
   return true;
 }
 
-// Migrate saved state from older versions to current
-function migrateSavedState(data: Record<string, unknown>): Record<string, unknown> {
+export function migrateSavedState(data: Record<string, unknown>): Record<string, unknown> {
   const version = typeof data.version === 'number' ? data.version : 0;
 
   // Version 0 → 1: add version field (no structural changes needed)
