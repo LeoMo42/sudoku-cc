@@ -1,17 +1,23 @@
 import { useTranslation } from 'react-i18next';
 
+interface Language {
+  code: string;
+  label: string;
+  flag: string;
+}
+
 /**
  * Language switcher component
  */
 export function LanguageSwitcher() {
   const { i18n } = useTranslation();
 
-  const languages = [
+  const languages: Language[] = [
     { code: 'ru', label: 'RU', flag: '🇷🇺' },
     { code: 'en', label: 'EN', flag: '🇬🇧' },
   ];
 
-  const handleLanguageChange = (langCode) => {
+  const handleLanguageChange = (langCode: string): void => {
     i18n.changeLanguage(langCode);
   };
 

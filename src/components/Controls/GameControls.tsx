@@ -1,6 +1,20 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '../UI/Button';
-import { DIFFICULTY_LEVELS, GAME_STATUS } from '../../utils/constants';
+import { GAME_STATUS } from '../../utils/constants';
+import type { GameStatus } from '../../types/index';
+
+interface GameControlsProps {
+  onNewGame: () => void;
+  onCheck: () => void;
+  onHint: () => void;
+  onPause: () => void;
+  onResume: () => void;
+  onToggleNotes: () => void;
+  hintsUsed: number;
+  maxHints: number;
+  gameStatus: GameStatus;
+  notesMode: boolean;
+}
 
 /**
  * Game control buttons
@@ -16,7 +30,7 @@ export function GameControls({
   maxHints,
   gameStatus,
   notesMode,
-}) {
+}: GameControlsProps) {
   const { t } = useTranslation();
   const isPaused = gameStatus === GAME_STATUS.PAUSED;
   const isPlaying = gameStatus === GAME_STATUS.PLAYING;

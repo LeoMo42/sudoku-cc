@@ -13,6 +13,7 @@ import { HintModal } from '../Controls/HintModal';
 import { LanguageSwitcher } from '../UI/LanguageSwitcher';
 import { OddEvenLegend } from '../UI/OddEvenLegend';
 import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constants';
+import type { HighlightRole } from '../../types/index';
 
 /**
  * Main game container component
@@ -26,10 +27,10 @@ export function GameContainer() {
   useTimer(state.gameStatus, actions.updateTime);
 
   // Sound effects: track previous errors and gameStatus to detect changes
-  const prevErrorsSizeRef = useRef(state.errors.size);
+  const prevErrorsSizeRef = useRef<number>(state.errors.size);
   const prevGameStatusRef = useRef(state.gameStatus);
   // Set to true in input handlers so the effect knows a digit was just entered
-  const pendingDigitSoundRef = useRef(false);
+  const pendingDigitSoundRef = useRef<boolean>(false);
 
   useEffect(() => {
     const prevStatus = prevGameStatusRef.current;
@@ -60,7 +61,7 @@ export function GameContainer() {
 
   // Handle keyboard input
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (!state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING) {
         return;
       }
@@ -77,7 +78,7 @@ export function GameContainer() {
         } else {
           const isInitialCell = state.initialBoard[row][col] !== EMPTY_CELL;
           if (!isInitialCell) pendingDigitSoundRef.current = true;
-          actions.setCellValue(row, col, num);
+          actions.setCellValue(row, col, num as 1|2|3|4|5|6|7|8|9);
         }
       }
 
@@ -123,7 +124,7 @@ export function GameContainer() {
   }, [state.selectedCell, state.gameStatus, state.notesMode, state.initialBoard, actions]);
 
   const handleCellClick = useCallback(
-    (row, col) => {
+    (row: number, col: number) => {
       if (state.gameStatus === GAME_STATUS.PLAYING) {
         actions.selectCell(row, col);
       }
@@ -132,7 +133,7 @@ export function GameContainer() {
   );
 
   const handleNumberClick = useCallback(
-    (num) => {
+    (num: number) => {
       if (state.selectedCell && state.gameStatus === GAME_STATUS.PLAYING) {
         const { row, col } = state.selectedCell;
 
@@ -141,7 +142,7 @@ export function GameContainer() {
         } else {
           const isInitialCell = state.initialBoard[row][col] !== EMPTY_CELL;
           if (!isInitialCell) pendingDigitSoundRef.current = true;
-          actions.setCellValue(row, col, num);
+          actions.setCellValue(row, col, num as 1|2|3|4|5|6|7|8|9);
         }
       }
     },
@@ -160,14 +161,14 @@ export function GameContainer() {
   }, [state.difficulty, state.sudokuType, actions]);
 
   const handleDifficultyChange = useCallback(
-    (difficulty) => {
+    (difficulty: Parameters<typeof actions.newGame>[0]) => {
       actions.newGame(difficulty, state.sudokuType);
     },
     [state.sudokuType, actions]
   );
 
   const handleTypeChange = useCallback(
-    (sudokuType) => {
+    (sudokuType: Parameters<typeof actions.newGame>[1]) => {
       actions.newGame(state.difficulty, sudokuType);
     },
     [state.difficulty, actions]
@@ -176,9 +177,9 @@ export function GameContainer() {
   const maxHints = DIFFICULTY_LEVELS[state.difficulty].maxHints;
 
   // Build hint highlight map from activeHint
-  const hintHighlights = useMemo(() => {
+  const hintHighlights = useMemo((): Map<string, HighlightRole> | null => {
     if (!state.activeHint) return null;
-    const map = new Map();
+    const map = new Map<string, HighlightRole>();
     for (const { row, col, role } of state.activeHint.highlightCells) {
       map.set(`${row},${col}`, role);
     }
@@ -235,7 +236,7 @@ export function GameContainer() {
                 oddEvenMarkers={state.oddEvenMarkers}
                 kropkiDots={state.kropkiDots}
                 killerCages={state.killerCages}
-                littleKillerClues={state.littleKillerClues}
+                littleKillerClues={state.littleKillerClues as never}
                 greaterThanSigns={state.greaterThanSigns}
                 thermos={state.thermos}
                 sandwichClues={state.sandwichClues}

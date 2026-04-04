@@ -1,16 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { CandidateGrid, DIGIT_BIT, ALL_CANDIDATES, bitsToDigits, popcount } from './candidateGrid';
+import type { Board, OddEvenMarkers } from '../types/index';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function emptyBoard() {
-  return Array.from({ length: 9 }, () => new Array(9).fill(0));
+function emptyBoard(): Board {
+  return Array.from({ length: 9 }, () => new Array(9).fill(0)) as Board;
 }
 
 // A fully filled valid board (for isSolved / contradiction tests)
-const SOLVED_BOARD = [
+const SOLVED_BOARD: Board = [
   [5, 3, 4, 6, 7, 8, 9, 1, 2],
   [6, 7, 2, 1, 9, 5, 3, 4, 8],
   [1, 9, 8, 3, 4, 2, 5, 6, 7],
@@ -37,12 +38,12 @@ describe('bitsToDigits', () => {
 
   it('converts single-bit masks correctly', () => {
     for (let d = 1; d <= 9; d++) {
-      expect(bitsToDigits(DIGIT_BIT[d])).toEqual([d]);
+      expect(bitsToDigits(DIGIT_BIT[d]!)).toEqual([d]);
     }
   });
 
   it('converts multi-bit masks correctly', () => {
-    const bits = DIGIT_BIT[1] | DIGIT_BIT[5] | DIGIT_BIT[9];
+    const bits = DIGIT_BIT[1]! | DIGIT_BIT[5]! | DIGIT_BIT[9]!;
     expect(bitsToDigits(bits)).toEqual([1, 5, 9]);
   });
 });
@@ -51,10 +52,10 @@ describe('popcount', () => {
   it('returns 0 for 0', () => expect(popcount(0)).toBe(0));
   it('returns 9 for ALL_CANDIDATES', () => expect(popcount(ALL_CANDIDATES)).toBe(9));
   it('returns 1 for any single DIGIT_BIT', () => {
-    for (let d = 1; d <= 9; d++) expect(popcount(DIGIT_BIT[d])).toBe(1);
+    for (let d = 1; d <= 9; d++) expect(popcount(DIGIT_BIT[d]!)).toBe(1);
   });
   it('counts correctly for mixed masks', () => {
-    expect(popcount(DIGIT_BIT[1] | DIGIT_BIT[3] | DIGIT_BIT[7])).toBe(3);
+    expect(popcount(DIGIT_BIT[1]! | DIGIT_BIT[3]! | DIGIT_BIT[7]!)).toBe(3);
   });
 });
 
@@ -79,25 +80,25 @@ describe('CandidateGrid construction', () => {
 
   it('partial board: filled cells have 0 candidates', () => {
     const board = emptyBoard();
-    board[0][0] = 5;
+    board[0]![0] = 5;
     const cg = new CandidateGrid(board);
     expect(cg.candidateBits(0, 0)).toBe(0);
   });
 
   it('propagation: placing 5 at (0,0) removes 5 from row, col, box peers', () => {
     const board = emptyBoard();
-    board[0][0] = 5;
+    board[0]![0] = 5;
     const cg = new CandidateGrid(board);
     // Same row
     for (let c = 1; c < 9; c++)
-      expect(cg.candidateBits(0, c) & DIGIT_BIT[5]).toBe(0);
+      expect(cg.candidateBits(0, c) & DIGIT_BIT[5]!).toBe(0);
     // Same column
     for (let r = 1; r < 9; r++)
-      expect(cg.candidateBits(r, 0) & DIGIT_BIT[5]).toBe(0);
+      expect(cg.candidateBits(r, 0) & DIGIT_BIT[5]!).toBe(0);
     // Same box (top-left)
     for (let r = 0; r < 3; r++)
       for (let c = 0; c < 3; c++)
-        expect(cg.candidateBits(r, c) & DIGIT_BIT[5]).toBe(0);
+        expect(cg.candidateBits(r, c) & DIGIT_BIT[5]!).toBe(0);
   });
 });
 
@@ -110,27 +111,27 @@ describe('place()', () => {
     const cg = new CandidateGrid(emptyBoard());
     cg.place(4, 4, 7);
     expect(cg.candidateBits(4, 4)).toBe(0);
-    expect(cg.board[4][4]).toBe(7);
+    expect(cg.board[4]![4]).toBe(7);
   });
 
   it('removes digit from peers after placement', () => {
     const cg = new CandidateGrid(emptyBoard());
     cg.place(0, 0, 3);
     // Row peer
-    expect(cg.candidateBits(0, 5) & DIGIT_BIT[3]).toBe(0);
+    expect(cg.candidateBits(0, 5) & DIGIT_BIT[3]!).toBe(0);
     // Col peer
-    expect(cg.candidateBits(7, 0) & DIGIT_BIT[3]).toBe(0);
+    expect(cg.candidateBits(7, 0) & DIGIT_BIT[3]!).toBe(0);
     // Box peer
-    expect(cg.candidateBits(2, 2) & DIGIT_BIT[3]).toBe(0);
+    expect(cg.candidateBits(2, 2) & DIGIT_BIT[3]!).toBe(0);
   });
 });
 
 describe('eliminate()', () => {
   it('removes a candidate from a cell', () => {
     const cg = new CandidateGrid(emptyBoard());
-    expect(cg.candidateBits(0, 0) & DIGIT_BIT[5]).not.toBe(0);
+    expect(cg.candidateBits(0, 0) & DIGIT_BIT[5]!).not.toBe(0);
     cg.eliminate(0, 0, 5);
-    expect(cg.candidateBits(0, 0) & DIGIT_BIT[5]).toBe(0);
+    expect(cg.candidateBits(0, 0) & DIGIT_BIT[5]!).toBe(0);
   });
 
   it('returns true when candidate was present', () => {
@@ -186,7 +187,7 @@ describe('isEmpty()', () => {
 
   it('returns false for filled cell', () => {
     const board = emptyBoard();
-    board[0][0] = 5;
+    board[0]![0] = 5;
     const cg = new CandidateGrid(board);
     expect(cg.isEmpty(0, 0)).toBe(false);
   });
@@ -287,19 +288,19 @@ describe('getPeers()', () => {
 describe('DIAGONAL variant', () => {
   it('placing on main diagonal propagates to other diagonal cells', () => {
     const board = emptyBoard();
-    board[0][0] = 7;
+    board[0]![0] = 7;
     const cg = new CandidateGrid(board, 'DIAGONAL');
     // All (i, i) should not have 7
     for (let i = 1; i < 9; i++)
-      expect(cg.candidateBits(i, i) & DIGIT_BIT[7]).toBe(0);
+      expect(cg.candidateBits(i, i) & DIGIT_BIT[7]!).toBe(0);
   });
 
   it('placing on anti-diagonal propagates along anti-diagonal', () => {
     const board = emptyBoard();
-    board[0][8] = 3;
+    board[0]![8] = 3;
     const cg = new CandidateGrid(board, 'DIAGONAL');
     for (let i = 1; i < 9; i++)
-      expect(cg.candidateBits(i, 8 - i) & DIGIT_BIT[3]).toBe(0);
+      expect(cg.candidateBits(i, 8 - i) & DIGIT_BIT[3]!).toBe(0);
   });
 });
 
@@ -310,13 +311,13 @@ describe('DIAGONAL variant', () => {
 describe('ANTI_KNIGHT variant', () => {
   it('placing a digit removes it from all knight-move positions', () => {
     const board = emptyBoard();
-    board[4][4] = 5;
+    board[4]![4] = 5;
     const cg = new CandidateGrid(board, 'ANTI_KNIGHT');
-    const knightMoves = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+    const knightMoves: [number, number][] = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
     for (const [dr, dc] of knightMoves) {
       const r = 4 + dr, c = 4 + dc;
       if (r >= 0 && r < 9 && c >= 0 && c < 9)
-        expect(cg.candidateBits(r, c) & DIGIT_BIT[5]).toBe(0);
+        expect(cg.candidateBits(r, c) & DIGIT_BIT[5]!).toBe(0);
     }
   });
 });
@@ -328,10 +329,10 @@ describe('ANTI_KNIGHT variant', () => {
 describe('ANTI_KING variant', () => {
   it('placing a digit removes it from all diagonally-adjacent cells', () => {
     const board = emptyBoard();
-    board[4][4] = 9;
+    board[4]![4] = 9;
     const cg = new CandidateGrid(board, 'ANTI_KING');
-    for (const [dr, dc] of [[-1,-1],[-1,1],[1,-1],[1,1]]) {
-      expect(cg.candidateBits(4+dr, 4+dc) & DIGIT_BIT[9]).toBe(0);
+    for (const [dr, dc] of [[-1,-1],[-1,1],[1,-1],[1,1]] as [number, number][]) {
+      expect(cg.candidateBits(4+dr, 4+dc) & DIGIT_BIT[9]!).toBe(0);
     }
     // Orthogonal should not be additionally affected (beyond standard peers)
     // R+1,C (already a row/col peer), just confirm still eliminated through normal peers
@@ -345,20 +346,20 @@ describe('ANTI_KING variant', () => {
 describe('NON_CONSECUTIVE variant', () => {
   it('placing 5 removes 4 and 6 from orthogonal neighbours', () => {
     const board = emptyBoard();
-    board[4][4] = 5;
+    board[4]![4] = 5;
     const cg = new CandidateGrid(board, 'NON_CONSECUTIVE');
-    for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-      expect(cg.candidateBits(4+dr, 4+dc) & DIGIT_BIT[4]).toBe(0);
-      expect(cg.candidateBits(4+dr, 4+dc) & DIGIT_BIT[6]).toBe(0);
+    for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]] as [number, number][]) {
+      expect(cg.candidateBits(4+dr, 4+dc) & DIGIT_BIT[4]!).toBe(0);
+      expect(cg.candidateBits(4+dr, 4+dc) & DIGIT_BIT[6]!).toBe(0);
     }
   });
 
   it('edge digit 1 only removes 2 from neighbours', () => {
     const board = emptyBoard();
-    board[0][4] = 1;
+    board[0]![4] = 1;
     const cg = new CandidateGrid(board, 'NON_CONSECUTIVE');
     // Below (1,4): 2 should be gone
-    expect(cg.candidateBits(1, 4) & DIGIT_BIT[2]).toBe(0);
+    expect(cg.candidateBits(1, 4) & DIGIT_BIT[2]!).toBe(0);
     // No digit 0 to worry about
   });
 });
@@ -370,7 +371,7 @@ describe('NON_CONSECUTIVE variant', () => {
 describe('ODD_EVEN variant', () => {
   it('odd-marked cell only allows 1,3,5,7,9', () => {
     const board = emptyBoard();
-    const markers = new Map([['0,0', 'odd']]);
+    const markers: OddEvenMarkers = new Map([['0,0', 'odd']]);
     const cg = new CandidateGrid(board, 'ODD_EVEN', { oddEvenMarkers: markers });
     const cands = cg.candidates(0, 0);
     expect(cands).toEqual([1, 3, 5, 7, 9]);
@@ -378,7 +379,7 @@ describe('ODD_EVEN variant', () => {
 
   it('even-marked cell only allows 2,4,6,8', () => {
     const board = emptyBoard();
-    const markers = new Map([['0,0', 'even']]);
+    const markers: OddEvenMarkers = new Map([['0,0', 'even']]);
     const cg = new CandidateGrid(board, 'ODD_EVEN', { oddEvenMarkers: markers });
     const cands = cg.candidates(0, 0);
     expect(cands).toEqual([2, 4, 6, 8]);
@@ -386,7 +387,7 @@ describe('ODD_EVEN variant', () => {
 
   it('unmarked cell is unaffected', () => {
     const board = emptyBoard();
-    const markers = new Map([['0,0', 'odd']]);
+    const markers: OddEvenMarkers = new Map([['0,0', 'odd']]);
     const cg = new CandidateGrid(board, 'ODD_EVEN', { oddEvenMarkers: markers });
     expect(cg.candidateBits(1, 1)).toBe(ALL_CANDIDATES);
   });

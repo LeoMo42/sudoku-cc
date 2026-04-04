@@ -1,12 +1,19 @@
 import { useTranslation } from 'react-i18next';
 import { DIFFICULTY_LEVELS } from '../../utils/constants';
+import type { DifficultyLevel } from '../../types/index';
+
+interface DifficultySelectorProps {
+  currentDifficulty: DifficultyLevel;
+  onDifficultyChange: (difficulty: DifficultyLevel) => void;
+  disabled: boolean;
+}
 
 /**
  * Difficulty level selector
  */
-export function DifficultySelector({ currentDifficulty, onDifficultyChange, disabled }) {
+export function DifficultySelector({ currentDifficulty, onDifficultyChange, disabled }: DifficultySelectorProps) {
   const { t } = useTranslation();
-  const difficulties = Object.keys(DIFFICULTY_LEVELS);
+  const difficulties = Object.keys(DIFFICULTY_LEVELS) as DifficultyLevel[];
 
   return (
     <div className="flex gap-2 flex-wrap">

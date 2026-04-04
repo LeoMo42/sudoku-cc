@@ -1,18 +1,25 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '../UI/Button';
+import type { HintStep, DifficultyLevel } from '../../types/index';
 
-const DIFFICULTY_COLORS = {
+const DIFFICULTY_COLORS: Record<DifficultyLevel, string> = {
   EASY:   'bg-green-100 text-green-800 border-green-300',
   MEDIUM: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   HARD:   'bg-orange-100 text-orange-800 border-orange-300',
   EXPERT: 'bg-red-100 text-red-800 border-red-300',
 };
 
+interface HintModalProps {
+  activeHint: HintStep | null;
+  onApply: () => void;
+  onDismiss: () => void;
+}
+
 /**
  * Modal overlay showing hint technique details.
  * Renders on top of the board while hint is active.
  */
-export function HintModal({ activeHint, onApply, onDismiss }) {
+export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
   const { t } = useTranslation();
 
   if (!activeHint) return null;
@@ -75,16 +82,16 @@ export function HintModal({ activeHint, onApply, onDismiss }) {
           <div className="text-xs text-gray-600 bg-orange-50 border border-orange-200 rounded-lg p-3">
             <span className="font-semibold">
               {eliminations.length === 1
-                ? `R${eliminations[0].row + 1}C${eliminations[0].col + 1}: −${eliminations[0].digit}`
+                ? `R${eliminations[0]!.row + 1}C${eliminations[0]!.col + 1}: −${eliminations[0]!.digit}`
                 : eliminations.map(e => `R${e.row + 1}C${e.col + 1}: −${e.digit}`).join('  ')}
             </span>
           </div>
         )}
 
         {/* Learn more link (shown only when slug is set; pages to be built later) */}
-        {activeHint.learnMoreSlug && false && (
+        {activeHint?.learnMoreSlug && false && (
           <a
-            href={`/learn/${activeHint.learnMoreSlug}`}
+            href={`/learn/${activeHint?.learnMoreSlug}`}
             className="text-sm text-blue-600 hover:underline"
           >
             {t('hint.learnMore')}

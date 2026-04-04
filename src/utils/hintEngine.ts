@@ -16,13 +16,24 @@
  * found step to the candidate grid (for correct state), and returns the step.
  */
 
-import { CandidateGrid, DIGIT_BIT, bitsToDigits, popcount, ALL_CANDIDATES } from './candidateGrid.js';
+import { CandidateGrid, DIGIT_BIT, bitsToDigits, popcount } from './candidateGrid';
+import type {
+  Board,
+  SudokuTypeId,
+  DifficultyLevel,
+  TechniqueName,
+  HintStep,
+  Placement,
+  Elimination,
+  HighlightCell,
+  VariantConstraints,
+} from '../types/index';
 
 // ---------------------------------------------------------------------------
 // Scores and difficulty levels (mirror of Python)
 // ---------------------------------------------------------------------------
 
-const TECHNIQUE_DIFFICULTY = {
+const TECHNIQUE_DIFFICULTY: Record<TechniqueName, DifficultyLevel> = {
   NAKED_SINGLE:        'EASY',
   HIDDEN_SINGLE:       'MEDIUM',
   LOCKED_CANDIDATES:   'MEDIUM',
@@ -43,7 +54,7 @@ const TECHNIQUE_DIFFICULTY = {
   SIMPLE_COLORING:     'EXPERT',
 };
 
-const LEARN_MORE_SLUGS = {
+const LEARN_MORE_SLUGS: Record<TechniqueName, string> = {
   NAKED_SINGLE:        'naked-single',
   HIDDEN_SINGLE:       'hidden-single',
   LOCKED_CANDIDATES:   'locked-candidates',
@@ -64,8 +75,17 @@ const LEARN_MORE_SLUGS = {
   SIMPLE_COLORING:     'simple-coloring',
 };
 
-function makeStep(technique, { placement = null, eliminations = [], causeCells = [] } = {}) {
-  const highlightCells = [];
+interface MakeStepOptions {
+  placement?: Placement | null;
+  eliminations?: Elimination[];
+  causeCells?: number[][];
+}
+
+function makeStep(
+  technique: TechniqueName,
+  { placement = null, eliminations = [], causeCells = [] }: MakeStepOptions = {}
+): HintStep {
+  const highlightCells: HighlightCell[] = [];
 
   if (placement) {
     highlightCells.push({ row: placement.row, col: placement.col, role: 'target' });
@@ -94,7 +114,7 @@ function makeStep(technique, { placement = null, eliminations = [], causeCells =
 // Utility
 // ---------------------------------------------------------------------------
 
-function* combinations(arr, r) {
+function* combinations(arr: number[][], r: number): Generator<number[][]> {
   if (r === 0) { yield []; return; }
   for (let i = 0; i <= arr.length - r; i++) {
     for (const rest of combinations(arr.slice(i + 1), r - 1)) {
@@ -103,7 +123,7 @@ function* combinations(arr, r) {
   }
 }
 
-function twoBits(bits) {
+function twoBits(bits: number): [number, number] {
   const low = bits & (-bits);
   const high = bits & ~low;
   return [low, high];
@@ -113,7 +133,7 @@ function twoBits(bits) {
 // 1. Naked Single
 // ---------------------------------------------------------------------------
 
-function nakedSingle(cg) {
+function nakedSingle(cg: CandidateGrid): HintStep | null {
   for (let r = 0; r < 9; r++) {
     for (let c = 0; c < 9; c++) {
       if (cg.isEmpty(r, c) && cg.candidateCount(r, c) === 1) {
@@ -132,16 +152,17 @@ function nakedSingle(cg) {
 // 2. Hidden Single
 // ---------------------------------------------------------------------------
 
-function hiddenSingle(cg) {
+function hiddenSingle(cg: CandidateGrid): HintStep | null {
   for (const house of cg.getHouses()) {
     for (let digit = 1; digit <= 9; digit++) {
       const bit = DIGIT_BIT[digit];
       const positions = house.filter(([r, c]) => cg.isEmpty(r, c) && (cg.candidateBits(r, c) & bit));
       if (positions.length === 1) {
         const [r, c] = positions[0];
-        const causeCells = house
+        const _causeCells = house
           .filter(([hr, hc]) => !cg.isEmpty(hr, hc) || (hr === r && hc === c) ? false : true)
           .filter(([hr, hc]) => cg.candidateBits(hr, hc) & bit ? false : true);
+        void _causeCells;
         cg.place(r, c, digit);
         return makeStep('HIDDEN_SINGLE', {
           placement: { row: r, col: c, value: digit },
@@ -157,11 +178,11 @@ function hiddenSingle(cg) {
 // 3. Locked Candidates (Pointing + Claiming)
 // ---------------------------------------------------------------------------
 
-function lockedCandidates(cg) {
+function lockedCandidates(cg: CandidateGrid): HintStep | null {
   // Pointing: digit in a box is confined to one row/col
   for (let br = 0; br < 3; br++) {
     for (let bc = 0; bc < 3; bc++) {
-      const boxCells = [];
+      const boxCells: number[][] = [];
       for (let dr = 0; dr < 3; dr++)
         for (let dc = 0; dc < 3; dc++)
           boxCells.push([br * 3 + dr, bc * 3 + dc]);
@@ -173,7 +194,7 @@ function lockedCandidates(cg) {
 
         const rows = new Set(positions.map(([r]) => r));
         const cols = new Set(positions.map(([, c]) => c));
-        const elims = [];
+        const elims: Elimination[] = [];
 
         if (rows.size === 1) {
           const lockedRow = [...rows][0];
@@ -212,7 +233,7 @@ function lockedCandidates(cg) {
       const boxCols = new Set(positions.map(([, c]) => Math.floor(c / 3)));
       if (boxCols.size === 1) {
         const bc = [...boxCols][0], br = Math.floor(r / 3);
-        const elims = [];
+        const elims: Elimination[] = [];
         for (let dr = 0; dr < 3; dr++)
           for (let dc = 0; dc < 3; dc++) {
             const [er, ec] = [br * 3 + dr, bc * 3 + dc];
@@ -237,7 +258,7 @@ function lockedCandidates(cg) {
       const boxRows = new Set(positions.map(([r]) => Math.floor(r / 3)));
       if (boxRows.size === 1) {
         const br = [...boxRows][0], bc = Math.floor(c / 3);
-        const elims = [];
+        const elims: Elimination[] = [];
         for (let dr = 0; dr < 3; dr++)
           for (let dc = 0; dc < 3; dc++) {
             const [er, ec] = [br * 3 + dr, bc * 3 + dc];
@@ -260,8 +281,8 @@ function lockedCandidates(cg) {
 // 4 & 5. Naked / Hidden Subsets
 // ---------------------------------------------------------------------------
 
-function _nakedSubset(cg, size) {
-  const technique = ['', '', 'NAKED_PAIR', 'NAKED_TRIPLE', 'NAKED_QUAD'][size];
+function _nakedSubset(cg: CandidateGrid, size: number): HintStep | null {
+  const technique = ['', '', 'NAKED_PAIR', 'NAKED_TRIPLE', 'NAKED_QUAD'][size] as TechniqueName;
   for (const house of cg.getHouses()) {
     const emptyCells = house.filter(([r, c]) => cg.isEmpty(r, c));
     if (emptyCells.length < size + 1) continue;
@@ -269,7 +290,7 @@ function _nakedSubset(cg, size) {
       let combined = 0;
       for (const [r, c] of combo) combined |= cg.candidateBits(r, c);
       if (popcount(combined) !== size) continue;
-      const elims = [];
+      const elims: Elimination[] = [];
       for (const [r, c] of house) {
         if (!cg.isEmpty(r, c) || combo.some(([cr, cc]) => cr === r && cc === c)) continue;
         for (const digit of bitsToDigits(combined)) {
@@ -286,27 +307,28 @@ function _nakedSubset(cg, size) {
   return null;
 }
 
-function _hiddenSubset(cg, size) {
-  const technique = ['', '', 'HIDDEN_PAIR', 'HIDDEN_TRIPLE', 'HIDDEN_QUAD'][size];
+function _hiddenSubset(cg: CandidateGrid, size: number): HintStep | null {
+  const technique = ['', '', 'HIDDEN_PAIR', 'HIDDEN_TRIPLE', 'HIDDEN_QUAD'][size] as TechniqueName;
   for (const house of cg.getHouses()) {
     const emptyCells = house.filter(([r, c]) => cg.isEmpty(r, c));
     if (emptyCells.length < size + 1) continue;
 
-    const digitPositions = {};
+    const digitPositions: Record<number, number[][]> = {};
     for (let digit = 1; digit <= 9; digit++) {
       const bit = DIGIT_BIT[digit];
       const pos = emptyCells.filter(([r, c]) => cg.candidateBits(r, c) & bit);
       if (pos.length >= 2 && pos.length <= size) digitPositions[digit] = pos;
     }
 
-    for (const digitCombo of combinations(Object.keys(digitPositions).map(Number), size)) {
-      const cellsInvolved = new Set();
-      for (const d of digitCombo)
+    for (const digitCombo of combinations(Object.keys(digitPositions).map(Number).map(d => [d]), size)) {
+      const digits = digitCombo.map(([d]) => d);
+      const cellsInvolved = new Set<string>();
+      for (const d of digits)
         for (const [r, c] of digitPositions[d]) cellsInvolved.add(`${r},${c}`);
       if (cellsInvolved.size !== size) continue;
 
-      const comboBits = digitCombo.reduce((acc, d) => acc | DIGIT_BIT[d], 0);
-      const elims = [];
+      const comboBits = digits.reduce((acc, d) => acc | DIGIT_BIT[d], 0);
+      const elims: Elimination[] = [];
       for (const key of cellsInvolved) {
         const [r, c] = key.split(',').map(Number);
         const extra = cg.candidateBits(r, c) & ~comboBits;
@@ -322,61 +344,62 @@ function _hiddenSubset(cg, size) {
   return null;
 }
 
-const nakedPair   = cg => _nakedSubset(cg, 2);
-const nakedTriple = cg => _nakedSubset(cg, 3);
-const nakedQuad   = cg => _nakedSubset(cg, 4);
-const hiddenPair   = cg => _hiddenSubset(cg, 2);
-const hiddenTriple = cg => _hiddenSubset(cg, 3);
-const hiddenQuad   = cg => _hiddenSubset(cg, 4);
+const nakedPair   = (cg: CandidateGrid): HintStep | null => _nakedSubset(cg, 2);
+const nakedTriple = (cg: CandidateGrid): HintStep | null => _nakedSubset(cg, 3);
+const nakedQuad   = (cg: CandidateGrid): HintStep | null => _nakedSubset(cg, 4);
+const hiddenPair   = (cg: CandidateGrid): HintStep | null => _hiddenSubset(cg, 2);
+const hiddenTriple = (cg: CandidateGrid): HintStep | null => _hiddenSubset(cg, 3);
+const hiddenQuad   = (cg: CandidateGrid): HintStep | null => _hiddenSubset(cg, 4);
 
 // ---------------------------------------------------------------------------
 // 6. Basic Fish: X-Wing (2), Swordfish (3), Jellyfish (4)
 // ---------------------------------------------------------------------------
 
-function _basicFish(cg, size) {
-  const technique = ['', '', 'X_WING', 'SWORDFISH', 'JELLYFISH'][size];
+function _basicFish(cg: CandidateGrid, size: number): HintStep | null {
+  const technique = ['', '', 'X_WING', 'SWORDFISH', 'JELLYFISH'][size] as TechniqueName;
 
   for (let digit = 1; digit <= 9; digit++) {
     const bit = DIGIT_BIT[digit];
 
     // Row-based
-    const rowCols = Array.from({ length: 9 }, (_, r) =>
+    const rowCols: Set<number>[] = Array.from({ length: 9 }, (_, r) =>
       new Set(Array.from({ length: 9 }, (_, c) => c).filter(c => cg.isEmpty(r, c) && (cg.candidateBits(r, c) & bit)))
     );
 
-    for (const baseRows of combinations(Array.from({ length: 9 }, (_, i) => i), size)) {
-      const baseCols = new Set();
-      for (const r of baseRows) for (const c of rowCols[r]) baseCols.add(c);
+    for (const baseRows of combinations(Array.from({ length: 9 }, (_, i) => [i]), size)) {
+      const baseRowNums = baseRows.map(([r]) => r);
+      const baseCols = new Set<number>();
+      for (const r of baseRowNums) for (const c of rowCols[r]) baseCols.add(c);
       if (baseCols.size !== size) continue;
-      const elims = [];
+      const elims: Elimination[] = [];
       for (let r = 0; r < 9; r++) {
-        if (baseRows.includes(r)) continue;
+        if (baseRowNums.includes(r)) continue;
         for (const c of baseCols)
           if (cg.isEmpty(r, c) && (cg.candidateBits(r, c) & bit))
             elims.push({ row: r, col: c, digit });
       }
       if (elims.length > 0) {
         elims.forEach(({ row, col, digit: d }) => cg.eliminate(row, col, d));
-        const causeCells = baseRows.flatMap(r => [...baseCols].filter(c => cg.candidateBits(r, c) || !cg.isEmpty(r,c) ? false : true).map(c => [r, c]));
         return makeStep(technique, {
           eliminations: elims,
-          causeCells: baseRows.flatMap(r => [...rowCols[r]].map(c => [r, c])),
+          causeCells: baseRowNums.flatMap(r => [...rowCols[r]].map(c => [r, c])),
         });
       }
     }
 
     // Column-based
-    const colRows = Array.from({ length: 9 }, (_, c) =>
+    const colRows: Set<number>[] = Array.from({ length: 9 }, (_, c) =>
       new Set(Array.from({ length: 9 }, (_, r) => r).filter(r => cg.isEmpty(r, c) && (cg.candidateBits(r, c) & bit)))
     );
 
-    for (const baseCols of combinations(Array.from({ length: 9 }, (_, i) => i), size)) {
-      const baseRowsSet = new Set();
-      for (const c of baseCols) for (const r of colRows[c]) baseRowsSet.add(r);
+    for (const baseCols of combinations(Array.from({ length: 9 }, (_, i) => [i]), size)) {
+      const baseColNums = baseCols.map(([c]) => c);
+      const baseRowsSet = new Set<number>();
+      for (const c of baseColNums) for (const r of colRows[c]) baseRowsSet.add(r);
       if (baseRowsSet.size !== size) continue;
-      const elims = [];
+      const elims: Elimination[] = [];
       for (let c = 0; c < 9; c++) {
-        if (baseCols.includes(c)) continue;
+        if (baseColNums.includes(c)) continue;
         for (const r of baseRowsSet)
           if (cg.isEmpty(r, c) && (cg.candidateBits(r, c) & bit))
             elims.push({ row: r, col: c, digit });
@@ -385,7 +408,7 @@ function _basicFish(cg, size) {
         elims.forEach(({ row, col, digit: d }) => cg.eliminate(row, col, d));
         return makeStep(technique, {
           eliminations: elims,
-          causeCells: baseCols.flatMap(c => [...colRows[c]].map(r => [r, c])),
+          causeCells: baseColNums.flatMap(c => [...colRows[c]].map(r => [r, c])),
         });
       }
     }
@@ -393,16 +416,16 @@ function _basicFish(cg, size) {
   return null;
 }
 
-const xWing    = cg => _basicFish(cg, 2);
-const swordfish = cg => _basicFish(cg, 3);
-const jellyfish = cg => _basicFish(cg, 4);
+const xWing    = (cg: CandidateGrid): HintStep | null => _basicFish(cg, 2);
+const swordfish = (cg: CandidateGrid): HintStep | null => _basicFish(cg, 3);
+const jellyfish = (cg: CandidateGrid): HintStep | null => _basicFish(cg, 4);
 
 // ---------------------------------------------------------------------------
 // 7. XY-Wing
 // ---------------------------------------------------------------------------
 
-function xyWing(cg) {
-  const bivalue = [];
+function xyWing(cg: CandidateGrid): HintStep | null {
+  const bivalue: number[][] = [];
   for (let r = 0; r < 9; r++)
     for (let c = 0; c < 9; c++)
       if (cg.isEmpty(r, c) && cg.candidateCount(r, c) === 2)
@@ -432,7 +455,7 @@ function xyWing(cg) {
         const p2Peers = cg.getPeers(p2r, p2c);
         const zDigit = bitsToDigits(zBit)[0];
 
-        const elims = [];
+        const elims: Elimination[] = [];
         for (const key of p1Peers) {
           if (!p2Peers.has(key)) continue;
           const [r, c] = key.split(',').map(Number);
@@ -457,8 +480,8 @@ function xyWing(cg) {
 // 8. XYZ-Wing
 // ---------------------------------------------------------------------------
 
-function xyzWing(cg) {
-  const trivalue = [];
+function xyzWing(cg: CandidateGrid): HintStep | null {
+  const trivalue: number[][] = [];
   for (let r = 0; r < 9; r++)
     for (let c = 0; c < 9; c++)
       if (cg.isEmpty(r, c) && cg.candidateCount(r, c) === 3)
@@ -468,7 +491,7 @@ function xyzWing(cg) {
     const pivotBits = cg.candidateBits(pr, pc);
     const pivotPeers = cg.getPeers(pr, pc);
 
-    const pincers = [];
+    const pincers: number[][] = [];
     for (const key of pivotPeers) {
       const [r, c] = key.split(',').map(Number);
       if (cg.isEmpty(r, c) && cg.candidateCount(r, c) === 2 &&
@@ -490,7 +513,7 @@ function xyzWing(cg) {
         const p1Peers = cg.getPeers(p1r, p1c);
         const p2Peers = cg.getPeers(p2r, p2c);
 
-        const elims = [];
+        const elims: Elimination[] = [];
         for (const key of pivotPeers) {
           if (!p1Peers.has(key) || !p2Peers.has(key)) continue;
           const [r, c] = key.split(',').map(Number);
@@ -515,8 +538,8 @@ function xyzWing(cg) {
 // 9. W-Wing
 // ---------------------------------------------------------------------------
 
-function wWing(cg) {
-  const bivalue = new Map();
+function wWing(cg: CandidateGrid): HintStep | null {
+  const bivalue = new Map<string, number>();
   for (let r = 0; r < 9; r++)
     for (let c = 0; c < 9; c++)
       if (cg.isEmpty(r, c) && cg.candidateCount(r, c) === 2)
@@ -527,18 +550,18 @@ function wWing(cg) {
   for (let i = 0; i < cells.length; i++) {
     const k1 = cells[i];
     const [r1, c1] = k1.split(',').map(Number);
-    const bits1 = bivalue.get(k1);
+    const bits1 = bivalue.get(k1)!;
     const peers1 = cg.getPeers(r1, c1);
 
     for (let j = i + 1; j < cells.length; j++) {
       const k2 = cells[j];
       const [r2, c2] = k2.split(',').map(Number);
-      const bits2 = bivalue.get(k2);
+      const bits2 = bivalue.get(k2)!;
       if (bits1 !== bits2) continue;
       const peers2 = cg.getPeers(r2, c2);
       const [aBit, bBit] = twoBits(bits1);
 
-      for (const [linkBit, elimBit] of [[aBit, bBit], [bBit, aBit]]) {
+      for (const [linkBit, elimBit] of [[aBit, bBit], [bBit, aBit]] as [number, number][]) {
         const elimDigit = bitsToDigits(elimBit)[0];
 
         for (const house of cg.getHouses()) {
@@ -552,7 +575,7 @@ function wWing(cg) {
           if (!((peers1.has(xKey) && peers2.has(yKey)) ||
                 (peers1.has(yKey) && peers2.has(xKey)))) continue;
 
-          const elims = [];
+          const elims: Elimination[] = [];
           for (const key of peers1) {
             if (!peers2.has(key)) continue;
             if (key === k1 || key === k2) continue;
@@ -578,7 +601,22 @@ function wWing(cg) {
 // 10. Unique Rectangle (Type 1 and 2)
 // ---------------------------------------------------------------------------
 
-function* _urRectangles(cg) {
+interface URCandidate {
+  corners: number[][];
+  bits: number[];
+  a: number;
+  b: number;
+}
+
+interface URType2Candidate {
+  corners: number[][];
+  roofIdxs: number[];
+  xBit: number;
+  a: number;
+  b: number;
+}
+
+function* _urRectangles(cg: CandidateGrid): Generator<URCandidate> {
   for (let r1 = 0; r1 < 9; r1++) {
     for (let r2 = r1 + 1; r2 < 9; r2++) {
       for (let c1 = 0; c1 < 9; c1++) {
@@ -595,8 +633,8 @@ function* _urRectangles(cg) {
           const bits = corners.map(([r,c]) => cg.candidateBits(r,c));
           const common = bits.reduce((a, b) => a & b);
           if (popcount(common) < 2) continue;
-          for (const combo of combinations(bitsToDigits(common), 2)) {
-            yield { corners, bits, a: combo[0], b: combo[1] };
+          for (const combo of combinations(bitsToDigits(common).map(d => [d]), 2)) {
+            yield { corners, bits, a: combo[0][0], b: combo[1][0] };
           }
         }
       }
@@ -604,8 +642,8 @@ function* _urRectangles(cg) {
   }
 }
 
-function uniqueRectangle(cg) {
-  const type2Candidates = [];
+function uniqueRectangle(cg: CandidateGrid): HintStep | null {
+  const type2Candidates: URType2Candidate[] = [];
 
   for (const { corners, bits, a, b } of _urRectangles(cg)) {
     const ab = DIGIT_BIT[a] | DIGIT_BIT[b];
@@ -616,7 +654,7 @@ function uniqueRectangle(cg) {
     if (nExact === 3) {
       const roofIdx = extras.findIndex(e => e !== 0);
       const [rr, rc] = corners[roofIdx];
-      const elims = [a, b]
+      const elims: Elimination[] = [a, b]
         .filter(d => cg.candidateBits(rr, rc) & DIGIT_BIT[d])
         .map(d => ({ row: rr, col: rc, digit: d }));
       if (elims.length > 0) {
@@ -640,13 +678,13 @@ function uniqueRectangle(cg) {
   }
 
   // Type 2
-  for (const { corners, roofIdxs, xBit, a, b } of type2Candidates) {
+  for (const { corners, roofIdxs, xBit } of type2Candidates) {
     const xDigit = bitsToDigits(xBit)[0];
     const [rr0, rc0] = corners[roofIdxs[0]];
     const [rr1, rc1] = corners[roofIdxs[1]];
     const peers0 = cg.getPeers(rr0, rc0);
     const peers1 = cg.getPeers(rr1, rc1);
-    const elims = [];
+    const elims: Elimination[] = [];
     for (const key of peers0) {
       if (!peers1.has(key)) continue;
       const [r, c] = key.split(',').map(Number);
@@ -670,12 +708,12 @@ function uniqueRectangle(cg) {
 // 11. Simple Coloring
 // ---------------------------------------------------------------------------
 
-function simpleColoring(cg) {
+function simpleColoring(cg: CandidateGrid): HintStep | null {
   for (let digit = 1; digit <= 9; digit++) {
     const bit = DIGIT_BIT[digit];
 
     // Build strong-link graph
-    const strongLinks = new Map(); // "r,c" → Set of "r,c"
+    const strongLinks = new Map<string, Set<string>>(); // "r,c" → Set of "r,c"
     for (const house of cg.getHouses()) {
       const positions = house.filter(([r, c]) => cg.isEmpty(r, c) && (cg.candidateBits(r, c) & bit));
       if (positions.length === 2) {
@@ -683,24 +721,24 @@ function simpleColoring(cg) {
         const ka = `${a[0]},${a[1]}`, kb = `${b[0]},${b[1]}`;
         if (!strongLinks.has(ka)) strongLinks.set(ka, new Set());
         if (!strongLinks.has(kb)) strongLinks.set(kb, new Set());
-        strongLinks.get(ka).add(kb);
-        strongLinks.get(kb).add(ka);
+        strongLinks.get(ka)!.add(kb);
+        strongLinks.get(kb)!.add(ka);
       }
     }
 
     // BFS 2-color components
-    const color = new Map();
-    const components = [];
+    const color = new Map<string, number>();
+    const components: Map<string, number>[] = [];
 
     for (const start of strongLinks.keys()) {
       if (color.has(start)) continue;
-      const component = new Map([[start, 0]]);
-      const queue = [start];
+      const component = new Map<string, number>([[start, 0]]);
+      const queue: string[] = [start];
       while (queue.length > 0) {
-        const node = queue.pop();
+        const node = queue.pop()!;
         for (const neighbor of (strongLinks.get(node) || [])) {
           if (!component.has(neighbor)) {
-            component.set(neighbor, 1 - component.get(node));
+            component.set(neighbor, 1 - component.get(node)!);
             queue.push(neighbor);
           }
         }
@@ -719,7 +757,7 @@ function simpleColoring(cg) {
         for (const badCells of [cells0, cells1]) {
           const overlap = [...badCells].filter(k => houseKeys.has(k));
           if (overlap.length >= 2) {
-            const elims = [];
+            const elims: Elimination[] = [];
             for (const k of badCells) {
               const [r, c] = k.split(',').map(Number);
               if (cg.isEmpty(r, c) && (cg.candidateBits(r, c) & bit))
@@ -737,7 +775,7 @@ function simpleColoring(cg) {
       }
 
       // Rule 2: Color Trap
-      const elims = [];
+      const elims: Elimination[] = [];
       for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
           if (!cg.isEmpty(r, c) || !(cg.candidateBits(r, c) & bit)) continue;
@@ -765,7 +803,7 @@ function simpleColoring(cg) {
 // Main entry point
 // ---------------------------------------------------------------------------
 
-const TECHNIQUES = [
+const TECHNIQUES: Array<(cg: CandidateGrid) => HintStep | null> = [
   nakedSingle,
   hiddenSingle,
   lockedCandidates,
@@ -788,12 +826,16 @@ const TECHNIQUES = [
 /**
  * Find the next logical hint step for the given board state.
  *
- * @param {number[][]} board - Current board (0 = empty)
- * @param {string} sudokuType - Puzzle variant
- * @param {object} constraints - Variant-specific constraints
- * @returns {object|null} HintStep or null if puzzle is already solved / stuck
+ * @param board - Current board (0 = empty)
+ * @param sudokuType - Puzzle variant
+ * @param constraints - Variant-specific constraints
+ * @returns HintStep or null if puzzle is already solved / stuck
  */
-export function findHintStep(board, sudokuType, constraints = {}) {
+export function findHintStep(
+  board: Board,
+  sudokuType: SudokuTypeId,
+  constraints: VariantConstraints = {}
+): HintStep | null {
   const cg = new CandidateGrid(board, sudokuType, constraints);
 
   if (cg.isSolved() || cg.hasContradiction()) return null;

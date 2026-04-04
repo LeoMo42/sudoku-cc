@@ -1,10 +1,17 @@
 import { useTranslation } from 'react-i18next';
 import { SUDOKU_TYPES } from '../../utils/constants';
+import type { SudokuTypeId } from '../../types/index';
+
+interface SudokuTypeSelectorProps {
+  currentType: SudokuTypeId;
+  onTypeChange: (type: SudokuTypeId) => void;
+  disabled: boolean;
+}
 
 /**
  * Sudoku type selector component
  */
-export function SudokuTypeSelector({ currentType, onTypeChange, disabled }) {
+export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: SudokuTypeSelectorProps) {
   const { t } = useTranslation();
   const types = Object.values(SUDOKU_TYPES);
 

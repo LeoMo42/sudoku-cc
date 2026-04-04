@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { solveSudoku, getSolution } from './sudokuSolver';
 import { isSolved, copyBoard } from './sudokuValidator';
+import type { Board } from '../types/index';
 
 describe('Sudoku Solver', () => {
   // Simple puzzle for testing
-  const simplePuzzle = [
+  const simplePuzzle: Board = [
     [5, 3, 0, 0, 7, 0, 0, 0, 0],
     [6, 0, 0, 1, 9, 5, 0, 0, 0],
     [0, 9, 8, 0, 0, 0, 0, 6, 0],
@@ -25,7 +26,7 @@ describe('Sudoku Solver', () => {
     });
 
     it('should return false for unsolvable puzzle', () => {
-      const unsolvable = [
+      const unsolvable: Board = [
         [1, 1, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -47,7 +48,7 @@ describe('Sudoku Solver', () => {
       const solution = getSolution(puzzle);
 
       expect(solution).not.toBeNull();
-      expect(isSolved(solution)).toBe(true);
+      expect(isSolved(solution!)).toBe(true);
       expect(puzzle).toEqual(simplePuzzle); // Original unchanged
     });
   });

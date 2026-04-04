@@ -1,5 +1,40 @@
 import { memo } from 'react';
 import { EMPTY_CELL } from '../../utils/constants';
+import type { CellValue, HighlightRole, KropkiDotType, GreaterThanSign, Parity } from '../../types/index';
+
+interface ThermoCell {
+  isBulb: boolean;
+  dirs: string[];
+}
+
+interface CellProps {
+  value: CellValue;
+  row: number;
+  col: number;
+  isInitial: boolean;
+  isSelected: boolean | null | undefined;
+  isHighlighted: boolean | null | undefined;
+  isError: boolean;
+  isOnDiagonal: boolean;
+  isInWindow: boolean;
+  isKnightTarget: boolean | null | undefined;
+  isKingDiagonal: boolean | null | undefined;
+  isNonConsec: boolean;
+  oddEvenMarker: Parity | null | undefined;
+  rightDot: KropkiDotType | null | undefined;
+  bottomDot: KropkiDotType | null | undefined;
+  rightSign?: GreaterThanSign | null;
+  bottomSign?: GreaterThanSign | null;
+  thermoCell?: ThermoCell | null;
+  cageSum?: number | null;
+  cageTop?: boolean;
+  cageRight?: boolean;
+  cageBottom?: boolean;
+  cageLeft?: boolean;
+  notes: Set<number> | undefined;
+  hintRole?: HighlightRole | null;
+  onClick: (row: number, col: number) => void;
+}
 
 /**
  * Individual cell component (memoized for performance)
@@ -31,7 +66,7 @@ export const Cell = memo(function Cell({
   notes,
   hintRole = null,
   onClick,
-}) {
+}: CellProps) {
   const baseStyles = 'w-full h-full flex items-center justify-center text-xl font-medium cursor-pointer select-none transition-colors relative';
 
   let cellStyles = '';
@@ -71,7 +106,7 @@ export const Cell = memo(function Cell({
   }
 
   // Border styles for 3x3 boxes
-  const borderStyles = [];
+  const borderStyles: string[] = [];
   if (row % 3 === 0 && row !== 0) borderStyles.push('border-t-2 border-t-gray-800');
   if (col % 3 === 0 && col !== 0) borderStyles.push('border-l-2 border-l-gray-800');
   if (row === 0) borderStyles.push('border-t-2 border-t-gray-800');

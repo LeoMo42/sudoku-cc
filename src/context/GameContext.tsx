@@ -1,10 +1,20 @@
-import { createContext, useReducer, useCallback, useEffect } from 'react';
+import { createContext, useReducer, useCallback, useEffect, ReactNode } from 'react';
 import { createPuzzle } from '../utils/sudokuGenerator';
 import { findConflicts, isSolved, copyBoard } from '../utils/sudokuValidator';
 import { findHintStep } from '../utils/hintEngine';
 import { GAME_STATUS, DIFFICULTY_LEVELS, STORAGE_KEY, EMPTY_CELL } from '../utils/constants';
+import type {
+  GameState,
+  GameContextValue,
+  DifficultyLevel,
+  SudokuTypeId,
+  CellValue,
+  OddEvenMarkers,
+  KropkiDots,
+  GreaterThanSigns,
+} from '../types/index';
 
-export const GameContext = createContext();
+export const GameContext = createContext<GameContextValue | null>(null);
 
 // Action types
 const Actions = {
@@ -21,10 +31,17 @@ const Actions = {
   RESUME_GAME: 'RESUME_GAME',
   UPDATE_TIME: 'UPDATE_TIME',
   LOAD_STATE: 'LOAD_STATE',
-};
+} as const;
+
+type ActionType = typeof Actions[keyof typeof Actions];
+
+interface GameAction {
+  type: ActionType;
+  payload?: unknown;
+}
 
 // Initial state
-const initialState = {
+const initialState: GameState = {
   board: Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)),
   initialBoard: Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)),
   solution: Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)),
@@ -48,10 +65,10 @@ const initialState = {
 };
 
 // Reducer
-function gameReducer(state, action) {
+function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case Actions.NEW_GAME: {
-      const { difficulty, sudokuType } = action.payload;
+      const { difficulty, sudokuType } = action.payload as { difficulty: DifficultyLevel; sudokuType: SudokuTypeId };
       const { puzzle, solution, oddEvenMarkers, kropkiDots, killerCages, littleKillerClues, greaterThanSigns, thermos, sandwichClues } = createPuzzle(difficulty, sudokuType);
 
       return {
@@ -75,15 +92,15 @@ function gameReducer(state, action) {
     }
 
     case Actions.SET_CELL_VALUE: {
-      const { row, col, value } = action.payload;
+      const { row, col, value } = action.payload as { row: number; col: number; value: CellValue };
 
       // Can't modify initial cells
-      if (state.initialBoard[row][col] !== EMPTY_CELL) {
+      if (state.initialBoard[row]![col] !== EMPTY_CELL) {
         return state;
       }
 
       const newBoard = copyBoard(state.board);
-      newBoard[row][col] = value;
+      newBoard[row]![col] = value;
 
       // Check for errors
       const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
@@ -110,7 +127,7 @@ function gameReducer(state, action) {
     }
 
     case Actions.SELECT_CELL: {
-      const { row, col } = action.payload;
+      const { row, col } = action.payload as { row: number; col: number };
       return {
         ...state,
         selectedCell: { row, col },
@@ -166,7 +183,7 @@ function gameReducer(state, action) {
       if (activeHint.placement) {
         // Placement hint: fill the cell
         const { row, col, value } = activeHint.placement;
-        newBoard[row][col] = value;
+        newBoard[row]![col] = value as CellValue;
         newNotes.delete(`${row},${col}`);
       } else {
         // Elimination hint: remove eliminated candidates from notes
@@ -211,12 +228,12 @@ function gameReducer(state, action) {
     }
 
     case Actions.SET_NOTE: {
-      const { row, col, number } = action.payload;
+      const { row, col, number } = action.payload as { row: number; col: number; number: number };
 
       // Can't set notes on initial cells or filled cells
       if (
-        state.initialBoard[row][col] !== EMPTY_CELL ||
-        state.board[row][col] !== EMPTY_CELL
+        state.initialBoard[row]![col] !== EMPTY_CELL ||
+        state.board[row]![col] !== EMPTY_CELL
       ) {
         return state;
       }
@@ -265,19 +282,26 @@ function gameReducer(state, action) {
     }
 
     case Actions.LOAD_STATE: {
+      const payload = action.payload as Partial<GameState> & {
+        errors?: string[];
+        notes?: [string, number[]][];
+        oddEvenMarkers?: [string, string][] | null;
+        kropkiDots?: [string, string][] | null;
+        greaterThanSigns?: [string, string][] | null;
+      };
       return {
         ...state,
-        ...action.payload,
-        errors: new Set(action.payload.errors || []),
-        notes: new Map(action.payload.notes || []),
+        ...payload,
+        errors: new Set(payload.errors || []),
+        notes: new Map((payload.notes || []).map(([k, v]) => [k, new Set(v)])),
         activeHint: null,
-        oddEvenMarkers: action.payload.oddEvenMarkers ? new Map(action.payload.oddEvenMarkers) : null,
-        kropkiDots: action.payload.kropkiDots ? new Map(action.payload.kropkiDots) : null,
-        killerCages: action.payload.killerCages || null,
-        littleKillerClues: action.payload.littleKillerClues || null,
-        greaterThanSigns: action.payload.greaterThanSigns ? new Map(action.payload.greaterThanSigns) : null,
-        thermos: action.payload.thermos || null,
-        sandwichClues: action.payload.sandwichClues || null,
+        oddEvenMarkers: payload.oddEvenMarkers ? new Map(payload.oddEvenMarkers) as OddEvenMarkers : null,
+        kropkiDots: payload.kropkiDots ? new Map(payload.kropkiDots) as KropkiDots : null,
+        killerCages: payload.killerCages || null,
+        littleKillerClues: payload.littleKillerClues || null,
+        greaterThanSigns: payload.greaterThanSigns ? new Map(payload.greaterThanSigns) as GreaterThanSigns : null,
+        thermos: payload.thermos || null,
+        sandwichClues: payload.sandwichClues || null,
       };
     }
 
@@ -287,7 +311,7 @@ function gameReducer(state, action) {
 }
 
 // Provider component
-export function GameProvider({ children }) {
+export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
 
   // Save state to localStorage
@@ -296,7 +320,7 @@ export function GameProvider({ children }) {
       const stateToSave = {
         ...state,
         errors: Array.from(state.errors),
-        notes: Array.from(state.notes.entries()),
+        notes: Array.from(state.notes.entries()).map(([k, v]) => [k, Array.from(v)]),
         activeHint: null,
         oddEvenMarkers: state.oddEvenMarkers ? Array.from(state.oddEvenMarkers.entries()) : null,
         kropkiDots: state.kropkiDots ? Array.from(state.kropkiDots.entries()) : null,
@@ -323,15 +347,15 @@ export function GameProvider({ children }) {
     }
   }, []);
 
-  const newGame = useCallback((difficulty = 'MEDIUM', sudokuType = 'CLASSIC') => {
+  const newGame = useCallback((difficulty: DifficultyLevel = 'MEDIUM', sudokuType: SudokuTypeId = 'CLASSIC') => {
     dispatch({ type: Actions.NEW_GAME, payload: { difficulty, sudokuType } });
   }, []);
 
-  const setCellValue = useCallback((row, col, value) => {
+  const setCellValue = useCallback((row: number, col: number, value: CellValue) => {
     dispatch({ type: Actions.SET_CELL_VALUE, payload: { row, col, value } });
   }, []);
 
-  const selectCell = useCallback((row, col) => {
+  const selectCell = useCallback((row: number, col: number) => {
     dispatch({ type: Actions.SELECT_CELL, payload: { row, col } });
   }, []);
 
@@ -355,7 +379,7 @@ export function GameProvider({ children }) {
     dispatch({ type: Actions.TOGGLE_NOTES_MODE });
   }, []);
 
-  const setNote = useCallback((row, col, number) => {
+  const setNote = useCallback((row: number, col: number, number: number) => {
     dispatch({ type: Actions.SET_NOTE, payload: { row, col, number } });
   }, []);
 
@@ -371,7 +395,7 @@ export function GameProvider({ children }) {
     dispatch({ type: Actions.UPDATE_TIME });
   }, []);
 
-  const value = {
+  const value: GameContextValue = {
     state,
     actions: {
       newGame,

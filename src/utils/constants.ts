@@ -1,4 +1,12 @@
 // Sudoku constants and difficulty levels
+import type {
+  DifficultyLevel,
+  DifficultyConfig,
+  SudokuTypeId,
+  SudokuTypeConfig,
+  GameStatus,
+  GridOffset,
+} from '../types/index';
 
 export const GRID_SIZE = 9;
 export const BOX_SIZE = 3;
@@ -7,32 +15,32 @@ export const EMPTY_CELL = 0;
 export const DIFFICULTY_LEVELS = {
   EASY: {
     name: 'Легкий',
-    filledCells: [40, 50],
+    filledCells: [40, 50] as [number, number],
     maxHints: 10,
   },
   MEDIUM: {
     name: 'Средний',
-    filledCells: [30, 40],
+    filledCells: [30, 40] as [number, number],
     maxHints: 10,
   },
   HARD: {
     name: 'Сложный',
-    filledCells: [25, 30],
+    filledCells: [25, 30] as [number, number],
     maxHints: 10,
   },
   EXPERT: {
     name: 'Эксперт',
-    filledCells: [20, 25],
+    filledCells: [20, 25] as [number, number],
     maxHints: 10,
   },
-};
+} satisfies Record<DifficultyLevel, DifficultyConfig>;
 
 export const GAME_STATUS = {
   IDLE: 'idle',
   PLAYING: 'playing',
   PAUSED: 'paused',
   COMPLETED: 'completed',
-};
+} as const satisfies Record<string, GameStatus>;
 
 export const SUDOKU_TYPES = {
   CLASSIC: {
@@ -100,10 +108,10 @@ export const SUDOKU_TYPES = {
     name: 'Sandwich Sudoku',
     description: 'Classic rules + clues outside the grid show the sum of digits between 1 and 9 in each row/column',
   },
-};
+} satisfies Record<SudokuTypeId, SudokuTypeConfig>;
 
 // Windoku window positions (top-left corners)
-export const WINDOKU_WINDOWS = [
+export const WINDOKU_WINDOWS: GridOffset[] = [
   { row: 1, col: 1 }, // Top-left window
   { row: 1, col: 5 }, // Top-right window
   { row: 5, col: 1 }, // Bottom-left window
@@ -111,7 +119,7 @@ export const WINDOKU_WINDOWS = [
 ];
 
 // Knight moves (chess knight L-shape: 2+1)
-export const KNIGHT_MOVES = [
+export const KNIGHT_MOVES: GridOffset[] = [
   { row: -2, col: -1 },
   { row: -2, col: 1 },
   { row: -1, col: -2 },
@@ -123,7 +131,7 @@ export const KNIGHT_MOVES = [
 ];
 
 // King moves (all 8 adjacent cells)
-export const KING_MOVES = [
+export const KING_MOVES: GridOffset[] = [
   { row: -1, col: -1 }, // top-left
   { row: -1, col: 0 },  // top
   { row: -1, col: 1 },  // top-right

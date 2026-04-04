@@ -4,6 +4,10 @@ import { isSolved, isComplete, findConflicts } from './sudokuValidator';
 import { solveSudoku, hasUniqueSolution } from './sudokuSolver';
 import { GRID_SIZE, EMPTY_CELL, KING_MOVES } from './constants';
 
+// Suppress unused import warning - these are used in commented-out or conditional tests
+void solveSudoku;
+void hasUniqueSolution;
+
 describe('Sudoku Generator', () => {
   describe('generateFullBoard', () => {
     it('should generate a complete valid sudoku board', () => {
@@ -52,8 +56,8 @@ describe('Sudoku Generator', () => {
       // All filled cells in puzzle should match solution
       for (let row = 0; row < GRID_SIZE; row++) {
         for (let col = 0; col < GRID_SIZE; col++) {
-          if (puzzle[row][col] !== EMPTY_CELL) {
-            expect(puzzle[row][col]).toBe(solution[row][col]);
+          if (puzzle[row]![col] !== EMPTY_CELL) {
+            expect(puzzle[row]![col]).toBe(solution[row]![col]);
           }
         }
       }
@@ -71,7 +75,7 @@ describe('Sudoku Generator', () => {
         expect(hint.row).toBeLessThan(GRID_SIZE);
         expect(hint.col).toBeGreaterThanOrEqual(0);
         expect(hint.col).toBeLessThan(GRID_SIZE);
-        expect(hint.value).toBe(solution[hint.row][hint.col]);
+        expect(hint.value).toBe(solution[hint.row]![hint.col]);
       }
     });
 
@@ -89,22 +93,22 @@ describe('Sudoku Generator', () => {
         expect(isComplete(board)).toBe(true);
 
         // Check main diagonal contains all digits 1-9
-        const mainDiagonal = [];
+        const mainDiagonal: number[] = [];
         for (let i = 0; i < GRID_SIZE; i++) {
-          mainDiagonal.push(board[i][i]);
+          mainDiagonal.push(board[i]![i]!);
         }
         expect(new Set(mainDiagonal).size).toBe(9);
 
         // Check anti-diagonal contains all digits 1-9
-        const antiDiagonal = [];
+        const antiDiagonal: number[] = [];
         for (let i = 0; i < GRID_SIZE; i++) {
-          antiDiagonal.push(board[i][GRID_SIZE - 1 - i]);
+          antiDiagonal.push(board[i]![GRID_SIZE - 1 - i]!);
         }
         expect(new Set(antiDiagonal).size).toBe(9);
       });
 
       it('should create valid Diagonal Sudoku puzzle', () => {
-        const { puzzle, solution } = createPuzzle('MEDIUM', 'DIAGONAL');
+        const { solution } = createPuzzle('MEDIUM', 'DIAGONAL');
         expect(isSolved(solution)).toBe(true);
 
         // Verify no conflicts with Diagonal rules
@@ -124,7 +128,7 @@ describe('Sudoku Generator', () => {
       });
 
       it('should create valid Windoku puzzle', () => {
-        const { puzzle, solution } = createPuzzle('MEDIUM', 'WINDOKU');
+        const { solution } = createPuzzle('MEDIUM', 'WINDOKU');
         expect(isSolved(solution)).toBe(true);
 
         // Note: Windoku constraint is applied during solving/validation
@@ -142,7 +146,7 @@ describe('Sudoku Generator', () => {
       });
 
       it('should create valid Anti-Knight puzzle', () => {
-        const { puzzle, solution } = createPuzzle('MEDIUM', 'ANTI_KNIGHT');
+        const { solution } = createPuzzle('MEDIUM', 'ANTI_KNIGHT');
         expect(isSolved(solution)).toBe(true);
 
         // Note: Anti-Knight constraint is enforced during solving/validation
@@ -159,14 +163,14 @@ describe('Sudoku Generator', () => {
         let hasViolation = false;
         for (let row = 0; row < GRID_SIZE; row++) {
           for (let col = 0; col < GRID_SIZE; col++) {
-            const num = board[row][col];
+            const num = board[row]![col]!;
 
             for (const move of KING_MOVES) {
               const newRow = row + move.row;
               const newCol = col + move.col;
 
               if (newRow >= 0 && newRow < GRID_SIZE && newCol >= 0 && newCol < GRID_SIZE) {
-                if (board[newRow][newCol] === num) {
+                if (board[newRow]![newCol] === num) {
                   hasViolation = true;
                   break;
                 }
@@ -181,7 +185,7 @@ describe('Sudoku Generator', () => {
       });
 
       it('should create valid Anti-King puzzle', () => {
-        const { puzzle, solution } = createPuzzle('MEDIUM', 'ANTI_KING');
+        const { solution } = createPuzzle('MEDIUM', 'ANTI_KING');
         expect(isSolved(solution)).toBe(true);
 
         // Verify no conflicts with Anti-King rules
@@ -200,15 +204,17 @@ describe('Sudoku Generator', () => {
 
     describe('Odd-Even Sudoku', () => {
       it('should generate valid Odd-Even Sudoku with markers', () => {
-        const { puzzle, solution, oddEvenMarkers } = createPuzzle('MEDIUM', 'ODD_EVEN');
+        const { solution, oddEvenMarkers } = createPuzzle('MEDIUM', 'ODD_EVEN');
 
         expect(isSolved(solution)).toBe(true);
         expect(oddEvenMarkers).toBeInstanceOf(Map);
 
         // Verify markers match solution
-        oddEvenMarkers.forEach((marker, cellKey) => {
-          const [row, col] = cellKey.split(',').map(Number);
-          const num = solution[row][col];
+        oddEvenMarkers!.forEach((marker, cellKey) => {
+          const [rowStr, colStr] = cellKey.split(',');
+          const row = Number(rowStr);
+          const col = Number(colStr);
+          const num = solution[row]![col]!;
           const isOdd = num % 2 === 1;
 
           if (marker === 'odd') {
@@ -223,8 +229,8 @@ describe('Sudoku Generator', () => {
         const { oddEvenMarkers } = createPuzzle('MEDIUM', 'ODD_EVEN');
 
         // Should have markers (around 35% of cells)
-        expect(oddEvenMarkers.size).toBeGreaterThan(15);
-        expect(oddEvenMarkers.size).toBeLessThan(50);
+        expect(oddEvenMarkers!.size).toBeGreaterThan(15);
+        expect(oddEvenMarkers!.size).toBeLessThan(50);
       });
     });
 
@@ -238,7 +244,7 @@ describe('Sudoku Generator', () => {
       });
 
       it('should create valid Non-Consecutive puzzle', () => {
-        const { puzzle, solution } = createPuzzle('MEDIUM', 'NON_CONSECUTIVE');
+        const { solution } = createPuzzle('MEDIUM', 'NON_CONSECUTIVE');
         expect(isSolved(solution)).toBe(true);
 
         // Note: Non-Consecutive constraint is enforced during solving/validation
@@ -254,17 +260,17 @@ describe('Sudoku Generator', () => {
           let isValid = true;
           for (let row = 0; row < GRID_SIZE && isValid; row++) {
             for (let col = 0; col < GRID_SIZE && isValid; col++) {
-              const num = board[row][col];
+              const num = board[row]![col]!;
 
               // Check adjacent cells
-              const adjacents = [
+              const adjacents: [number, number][] = [
                 [row - 1, col], [row + 1, col],
                 [row, col - 1], [row, col + 1]
               ];
 
               for (const [r, c] of adjacents) {
                 if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
-                  if (Math.abs(board[r][c] - num) === 1) {
+                  if (Math.abs(board[r]![c]! - num) === 1) {
                     isValid = false;
                     break;
                   }

@@ -1,11 +1,50 @@
 import { useMemo } from 'react';
 import { Cell } from './Cell';
 import { GRID_SIZE, EMPTY_CELL, WINDOKU_WINDOWS } from '../../utils/constants';
+import type {
+  Board as BoardType,
+  CellPosition,
+  SudokuTypeId,
+  OddEvenMarkers,
+  KropkiDots,
+  KillerCage,
+  GreaterThanSigns,
+  Thermo,
+  SandwichClues,
+  HighlightRole,
+} from '../../types/index';
 
 /**
  * Sudoku board component (9x9 grid)
  */
-const LITTLE_KILLER_ARROW = { '1,1': '↘', '1,-1': '↙', '-1,1': '↗', '-1,-1': '↖' };
+const LITTLE_KILLER_ARROW: Record<string, string> = { '1,1': '↘', '1,-1': '↙', '-1,1': '↗', '-1,-1': '↖' };
+
+// Extended LittleKillerClue with display properties computed by the generator
+interface LittleKillerClueDisplay {
+  sum: number;
+  labelRow: number;
+  labelCol: number;
+  dr: number;
+  dc: number;
+}
+
+interface BoardProps {
+  board: BoardType;
+  initialBoard: BoardType;
+  selectedCell: CellPosition | null;
+  errors: Set<string>;
+  notes: Map<string, Set<number>>;
+  sudokuType?: SudokuTypeId;
+  oddEvenMarkers?: OddEvenMarkers | null;
+  kropkiDots?: KropkiDots | null;
+  killerCages?: KillerCage[] | null;
+  littleKillerClues?: LittleKillerClueDisplay[] | null;
+  greaterThanSigns?: GreaterThanSigns | null;
+  thermos?: Thermo[] | null;
+  sandwichClues?: SandwichClues | null;
+  hintHighlights?: Map<string, HighlightRole> | null;
+  onCellClick: (row: number, col: number) => void;
+}
 
 export function Board({
   board,
@@ -23,13 +62,15 @@ export function Board({
   sandwichClues = null,
   hintHighlights = null,
   onCellClick,
-}) {
+}: BoardProps) {
   // Build lookup maps for Killer Sudoku cage borders and sums
-  const cellToCageMap = new Map();
-  const cageTopLeftSet = new Set();
+  const cellToCageMap = new Map<string, KillerCage & { id: number }>();
+  const cageTopLeftSet = new Set<string>();
   if (killerCages) {
-    for (const cage of killerCages) {
-      for (const { row, col } of cage.cells) cellToCageMap.set(`${row},${col}`, cage);
+    for (let idx = 0; idx < killerCages.length; idx++) {
+      const cage = killerCages[idx]!;
+      const cageWithId = { ...cage, id: idx };
+      for (const { row, col } of cage.cells) cellToCageMap.set(`${row},${col}`, cageWithId);
       const tl = cage.cells.reduce((a, b) =>
         b.row < a.row || (b.row === a.row && b.col < a.col) ? b : a
       );
@@ -40,14 +81,14 @@ export function Board({
   // Build thermo data map: "row,col" -> { isBulb, dirs[] }
   // Memoized so Cell references stay stable between renders (memo comparator uses ===)
   const thermoDataMap = useMemo(() => {
-    const map = new Map();
+    const map = new Map<string, { isBulb: boolean; dirs: string[] }>();
     if (!thermos) return map;
     for (const thermo of thermos) {
       for (let i = 0; i < thermo.length; i++) {
-        const { row, col } = thermo[i];
-        const prev = i > 0 ? thermo[i - 1] : null;
-        const next = i < thermo.length - 1 ? thermo[i + 1] : null;
-        const dirs = [];
+        const { row, col } = thermo[i]!;
+        const prev = i > 0 ? thermo[i - 1]! : null;
+        const next = i < thermo.length - 1 ? thermo[i + 1]! : null;
+        const dirs: string[] = [];
         for (const neighbor of [prev, next]) {
           if (!neighbor) continue;
           if (neighbor.row < row) dirs.push('top');
@@ -63,7 +104,7 @@ export function Board({
 
   const cellGrid = board.map((row, rowIndex) =>
     row.map((value, colIndex) => {
-            const isInitial = initialBoard[rowIndex][colIndex] !== EMPTY_CELL;
+            const isInitial = initialBoard[rowIndex]![colIndex] !== EMPTY_CELL;
             const isSelected =
               selectedCell &&
               selectedCell.row === rowIndex &&
@@ -134,7 +175,7 @@ export function Board({
             // Get Killer cage info for this cell
             const cage = cellToCageMap.get(`${rowIndex},${colIndex}`);
             const cageId = cage?.id ?? null;
-            const cageSum = (cageId !== null && cageTopLeftSet.has(`${rowIndex},${colIndex}`)) ? cage.sum : null;
+            const cageSum = (cageId !== null && cageTopLeftSet.has(`${rowIndex},${colIndex}`)) ? cage!.sum : null;
             const cageTop    = cageId !== null && (rowIndex === 0 || (cellToCageMap.get(`${rowIndex-1},${colIndex}`)?.id ?? null) !== cageId);
             const cageRight  = cageId !== null && (colIndex === 8 || (cellToCageMap.get(`${rowIndex},${colIndex+1}`)?.id ?? null) !== cageId);
             const cageBottom = cageId !== null && (rowIndex === 8 || (cellToCageMap.get(`${rowIndex+1},${colIndex}`)?.id ?? null) !== cageId);
@@ -186,7 +227,7 @@ export function Board({
   );
 
   // Little Killer: wrap with a container that shows diagonal sum clues outside the grid
-  if (sudokuType === 'LITTLE_KILLER' && littleKillerClues?.length > 0) {
+  if (sudokuType === 'LITTLE_KILLER' && littleKillerClues && littleKillerClues.length > 0) {
     // Cell size = 50px, board padding (p-2) = 8px, label area = 35px
     const CELL_PX = 50;
     const BOARD_PAD = 8;

@@ -11,14 +11,14 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './src/test/setup.js',
+    setupFiles: './src/test/setup.ts',
     projects: [
       // Unit tests project
       {
         test: {
           name: 'unit',
-          include: ['src/**/*.test.{js,jsx}'],
-          exclude: ['node_modules/**', 'src/**/*.stories.jsx']
+          include: ['src/**/*.test.{ts,tsx}'],
+          exclude: ['node_modules/**', 'src/**/*.stories.tsx']
         }
       },
       // Storybook tests project

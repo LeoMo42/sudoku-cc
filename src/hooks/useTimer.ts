@@ -6,7 +6,7 @@ import { GAME_STATUS } from '../utils/constants';
  * @param {string} gameStatus - Current game status
  * @param {Function} updateTime - Function to increment time
  */
-export function useTimer(gameStatus, updateTime) {
+export function useTimer(gameStatus: string, updateTime: () => void): void {
   useEffect(() => {
     if (gameStatus !== GAME_STATUS.PLAYING) {
       return;
@@ -25,7 +25,7 @@ export function useTimer(gameStatus, updateTime) {
  * @param {number} seconds - Elapsed time in seconds
  * @returns {string} Formatted time string
  */
-export function formatTime(seconds) {
+export function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;

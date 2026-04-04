@@ -2,10 +2,18 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 
 const SOUND_ENABLED_KEY = 'sudoku-sound-enabled';
 
-export function useSound() {
-  const audioCtxRef = useRef(null);
+interface UseSoundReturn {
+  soundEnabled: boolean;
+  toggleSound: () => void;
+  playDigitSound: () => void;
+  playErrorSound: () => void;
+  playVictorySound: () => void;
+}
 
-  const [soundEnabled, setSoundEnabled] = useState(() => {
+export function useSound(): UseSoundReturn {
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem(SOUND_ENABLED_KEY);
     return saved === null ? true : saved === 'true';
   });
@@ -14,9 +22,9 @@ export function useSound() {
     localStorage.setItem(SOUND_ENABLED_KEY, String(soundEnabled));
   }, [soundEnabled]);
 
-  const getCtx = useCallback(() => {
+  const getCtx = useCallback((): AudioContext => {
     if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     }
     if (audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume();
@@ -26,7 +34,7 @@ export function useSound() {
 
   // Play a single tone at a scheduled time offset from now
   const playTone = useCallback(
-    (frequency, duration, type = 'sine', gain = 0.25, offset = 0) => {
+    (frequency: number, duration: number, type: OscillatorType = 'sine', gain = 0.25, offset = 0): void => {
       if (!soundEnabled) return;
       try {
         const ctx = getCtx();
@@ -46,12 +54,12 @@ export function useSound() {
   );
 
   // Short soft pluck — digit input feedback
-  const playDigitSound = useCallback(() => {
+  const playDigitSound = useCallback((): void => {
     playTone(520, 0.12, 'sine', 0.18);
   }, [playTone]);
 
   // Descending sawtooth buzz — error/conflict feedback
-  const playErrorSound = useCallback(() => {
+  const playErrorSound = useCallback((): void => {
     if (!soundEnabled) return;
     try {
       const ctx = getCtx();
@@ -70,14 +78,14 @@ export function useSound() {
   }, [soundEnabled, getCtx]);
 
   // Ascending major arpeggio — victory fanfare
-  const playVictorySound = useCallback(() => {
+  const playVictorySound = useCallback((): void => {
     // C5 - E5 - G5 - C6
     [523, 659, 784, 1047].forEach((freq, i) => {
       playTone(freq, 0.5, 'sine', 0.28, i * 0.14);
     });
   }, [playTone]);
 
-  const toggleSound = useCallback(() => {
+  const toggleSound = useCallback((): void => {
     setSoundEnabled((prev) => !prev);
   }, []);
 

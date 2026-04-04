@@ -1,5 +1,6 @@
 import { GRID_SIZE, EMPTY_CELL } from './constants';
 import { isValidMove, findEmptyCell, copyBoard } from './sudokuValidator';
+import type { Board, SudokuTypeId } from '../types/index';
 
 /**
  * Solve sudoku using backtracking algorithm
@@ -7,7 +8,7 @@ import { isValidMove, findEmptyCell, copyBoard } from './sudokuValidator';
  * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {boolean} - True if solution found
  */
-export function solveSudoku(board, sudokuType = 'CLASSIC') {
+export function solveSudoku(board: Board, sudokuType: SudokuTypeId = 'CLASSIC'): boolean {
   const emptyCell = findEmptyCell(board);
 
   // No empty cells means puzzle is solved
@@ -42,7 +43,7 @@ export function solveSudoku(board, sudokuType = 'CLASSIC') {
  * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {number[][] | null} - Solved board or null if unsolvable
  */
-export function getSolution(board, sudokuType = 'CLASSIC') {
+export function getSolution(board: Board, sudokuType: SudokuTypeId = 'CLASSIC'): Board | null {
   const boardCopy = copyBoard(board);
   const solved = solveSudoku(boardCopy, sudokuType);
   return solved ? boardCopy : null;
@@ -56,10 +57,10 @@ export function getSolution(board, sudokuType = 'CLASSIC') {
  * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {number} - Number of solutions found (capped at limit)
  */
-export function countSolutions(board, limit = 2, sudokuType = 'CLASSIC') {
+export function countSolutions(board: Board, limit: number = 2, sudokuType: SudokuTypeId = 'CLASSIC'): number {
   let count = 0;
 
-  function solve(currentBoard) {
+  function solve(currentBoard: Board): void {
     // If we've found enough solutions, stop searching
     if (count >= limit) {
       return;
@@ -98,6 +99,6 @@ export function countSolutions(board, limit = 2, sudokuType = 'CLASSIC') {
  * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {boolean} - True if puzzle has exactly one solution
  */
-export function hasUniqueSolution(board, sudokuType = 'CLASSIC') {
+export function hasUniqueSolution(board: Board, sudokuType: SudokuTypeId = 'CLASSIC'): boolean {
   return countSolutions(board, 2, sudokuType) === 1;
 }

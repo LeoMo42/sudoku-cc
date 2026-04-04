@@ -1,11 +1,8 @@
 import { useContext } from 'react';
 import { GameContext } from '../context/GameContext';
+import type { GameContextValue } from '../types/index';
 
-/**
- * Custom hook to access game state and actions
- * @returns {Object} Game state and actions
- */
-export function useGameState() {
+export function useGameState(): GameContextValue {
   const context = useContext(GameContext);
 
   if (!context) {

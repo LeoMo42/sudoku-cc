@@ -10,19 +10,33 @@
  *   Filled cell: grid[r][c] = 0
  */
 
+import type {
+  Board,
+  CellValue,
+  SudokuTypeId,
+  OddEvenMarkers,
+  KropkiDots,
+  GreaterThanSigns,
+  KillerCage,
+  LittleKillerClue,
+  Thermo,
+  SandwichClues,
+  VariantConstraints,
+} from '../types/index';
+
 export const ALL_CANDIDATES = (1 << 9) - 1; // 511
 
 // DIGIT_BIT[d] = bitmask for digit d (d = 1..9)
-export const DIGIT_BIT = [0, ...Array.from({ length: 9 }, (_, i) => 1 << i)];
+export const DIGIT_BIT: number[] = [0, ...Array.from({ length: 9 }, (_, i) => 1 << i)];
 
-const WINDOKU_WINDOWS = [[1, 1], [1, 5], [5, 1], [5, 5]];
+const WINDOKU_WINDOWS: [number, number][] = [[1, 1], [1, 5], [5, 1], [5, 5]];
 
-const KNIGHT_MOVES = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
-const KING_DIAGONALS = [[-1,-1],[-1,1],[1,-1],[1,1]];
-const ORTHOGONALS = [[-1,0],[1,0],[0,-1],[0,1]];
+const KNIGHT_MOVES: [number, number][] = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+const KING_DIAGONALS: [number, number][] = [[-1,-1],[-1,1],[1,-1],[1,1]];
+const ORTHOGONALS: [number, number][] = [[-1,0],[1,0],[0,-1],[0,1]];
 
-export function bitsToDigits(bits) {
-  const digits = [];
+export function bitsToDigits(bits: number): number[] {
+  const digits: number[] = [];
   let b = bits, d = 1;
   while (b) {
     if (b & 1) digits.push(d);
@@ -32,22 +46,22 @@ export function bitsToDigits(bits) {
   return digits;
 }
 
-export function popcount(bits) {
+export function popcount(bits: number): number {
   let n = bits;
   n = n - ((n >>> 1) & 0x55555555);
   n = (n & 0x33333333) + ((n >>> 2) & 0x33333333);
   return (((n + (n >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
 }
 
-function bitsForRange(lo, hi) {
+function bitsForRange(lo: number, hi: number): number {
   let bits = 0;
   for (let d = Math.max(1, lo); d <= Math.min(9, hi); d++) bits |= DIGIT_BIT[d];
   return bits;
 }
 
-function killerValidDigits(n, target, excluded) {
-  const valid = new Set();
-  function combine(start, remaining, count, digits) {
+function killerValidDigits(n: number, target: number, excluded: Set<number>): Set<number> {
+  const valid = new Set<number>();
+  function combine(start: number, remaining: number, count: number, digits: number[]): void {
     if (count === 0) {
       if (remaining === 0) digits.forEach(d => valid.add(d));
       return;
@@ -64,24 +78,49 @@ function killerValidDigits(n, target, excluded) {
   return valid;
 }
 
+interface ThermoPosition {
+  ti: number;
+  pi: number;
+}
+
 export class CandidateGrid {
-  constructor(board, sudokuType = 'CLASSIC', {
-    oddEvenMarkers = null,
-    killerCages = null,
-    kropkiDots = null,
-    greaterThanSigns = null,
-    thermos = null,
-    sandwichClues = null,
-    littleKillerClues = null,
-  } = {}) {
+  sudokuType: SudokuTypeId;
+  oddEvenMarkers: OddEvenMarkers | null;
+  killerCages: KillerCage[] | null;
+  kropkiDots: KropkiDots | null;
+  greaterThanSigns: GreaterThanSigns | null;
+  thermos: Thermo[] | null;
+  sandwichClues: SandwichClues | null;
+  littleKillerClues: LittleKillerClue[] | null;
+  board: CellValue[][];
+  grid: number[][];
+  private _thermoPositions: Map<string, ThermoPosition[]>;
+  private _cellToCage: Map<string, KillerCage>;
+  private _cellToLK: Map<string, LittleKillerClue[]>;
+  private _housesCache: [number, number][][] | null;
+  private _peerCache: Map<string, Set<string>>;
+
+  constructor(
+    board: Board,
+    sudokuType: SudokuTypeId = 'CLASSIC',
+    {
+      oddEvenMarkers = null,
+      killerCages = null,
+      kropkiDots = null,
+      greaterThanSigns = null,
+      thermos = null,
+      sandwichClues = null,
+      littleKillerClues = null,
+    }: VariantConstraints = {}
+  ) {
     this.sudokuType = sudokuType;
-    this.oddEvenMarkers = oddEvenMarkers;
-    this.killerCages = killerCages;
-    this.kropkiDots = kropkiDots;
-    this.greaterThanSigns = greaterThanSigns;
-    this.thermos = thermos;
-    this.sandwichClues = sandwichClues;
-    this.littleKillerClues = littleKillerClues;
+    this.oddEvenMarkers = oddEvenMarkers ?? null;
+    this.killerCages = killerCages ?? null;
+    this.kropkiDots = kropkiDots ?? null;
+    this.greaterThanSigns = greaterThanSigns ?? null;
+    this.thermos = thermos ?? null;
+    this.sandwichClues = sandwichClues ?? null;
+    this.littleKillerClues = littleKillerClues ?? null;
 
     // Deep-copy board
     this.board = board.map(row => [...row]);
@@ -92,9 +131,9 @@ export class CandidateGrid {
     if (thermos) {
       thermos.forEach((thermo, ti) => {
         thermo.forEach((cell, pi) => {
-          const key = `${cell[0]},${cell[1]}`;
+          const key = `${cell.row},${cell.col}`;
           if (!this._thermoPositions.has(key)) this._thermoPositions.set(key, []);
-          this._thermoPositions.get(key).push({ ti, pi });
+          this._thermoPositions.get(key)!.push({ ti, pi });
         });
       });
     }
@@ -104,7 +143,7 @@ export class CandidateGrid {
     if (killerCages) {
       killerCages.forEach(cage => {
         cage.cells.forEach(cell => {
-          this._cellToCage.set(`${cell[0]},${cell[1]}`, cage);
+          this._cellToCage.set(`${cell.row},${cell.col}`, cage);
         });
       });
     }
@@ -114,9 +153,9 @@ export class CandidateGrid {
     if (littleKillerClues) {
       littleKillerClues.forEach(clue => {
         clue.cells.forEach(cell => {
-          const key = `${cell[0]},${cell[1]}`;
+          const key = `${cell.row},${cell.col}`;
           if (!this._cellToLK.has(key)) this._cellToLK.set(key, []);
-          this._cellToLK.get(key).push(clue);
+          this._cellToLK.get(key)!.push(clue);
         });
       });
     }
@@ -127,7 +166,7 @@ export class CandidateGrid {
     this._initialize();
   }
 
-  _initialize() {
+  private _initialize(): void {
     // 1. All empty cells start with all candidates
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
@@ -156,7 +195,7 @@ export class CandidateGrid {
       for (const thermo of this.thermos) {
         const n = thermo.length;
         thermo.forEach((cell, i) => {
-          const [r, c] = [cell[0], cell[1]];
+          const { row: r, col: c } = cell;
           if (this.board[r][c] === 0) {
             const minVal = i + 1;
             const maxVal = 9 - (n - 1 - i);
@@ -169,18 +208,18 @@ export class CandidateGrid {
     // 4. KILLER: restrict to digits that appear in any valid combination
     if (this.sudokuType === 'KILLER' && this.killerCages) {
       for (const cage of this.killerCages) {
-        const placedDigits = new Set(
-          cage.cells.map(cell => this.board[cell[0]][cell[1]]).filter(v => v !== 0)
+        const placedDigits = new Set<number>(
+          cage.cells.map(cell => this.board[cell.row][cell.col]).filter(v => v !== 0)
         );
         const placedSum = [...placedDigits].reduce((a, b) => a + b, 0);
-        const nEmpty = cage.cells.filter(cell => this.board[cell[0]][cell[1]] === 0).length;
+        const nEmpty = cage.cells.filter(cell => this.board[cell.row][cell.col] === 0).length;
         if (nEmpty === 0) continue;
         const remainingSum = cage.sum - placedSum;
         const valid = killerValidDigits(nEmpty, remainingSum, placedDigits);
         let validBits = 0;
         valid.forEach(d => { validBits |= DIGIT_BIT[d]; });
         cage.cells.forEach(cell => {
-          const [r, c] = [cell[0], cell[1]];
+          const { row: r, col: c } = cell;
           if (this.board[r][c] === 0) this.grid[r][c] &= validBits;
         });
       }
@@ -190,7 +229,7 @@ export class CandidateGrid {
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
         if (this.board[r][c] !== 0) {
-          this._applyPlacement(r, c, this.board[r][c]);
+          this._applyPlacement(r, c, this.board[r][c] as number);
         }
       }
     }
@@ -200,13 +239,13 @@ export class CandidateGrid {
   // Core placement / elimination
   // -------------------------------------------------------------------------
 
-  place(row, col, digit) {
-    this.board[row][col] = digit;
+  place(row: number, col: number, digit: number): void {
+    this.board[row][col] = digit as CellValue;
     this.grid[row][col] = 0;
     this._applyPlacement(row, col, digit);
   }
 
-  _applyPlacement(row, col, digit) {
+  private _applyPlacement(row: number, col: number, digit: number): void {
     const bit = DIGIT_BIT[digit];
 
     // Standard peers: row, column, box
@@ -276,28 +315,28 @@ export class CandidateGrid {
   // Variant-specific propagators
   // -------------------------------------------------------------------------
 
-  _applyThermo(row, col, digit) {
+  private _applyThermo(row: number, col: number, digit: number): void {
     const key = `${row},${col}`;
     const positions = this._thermoPositions.get(key);
     if (!positions) return;
     for (const { ti, pi } of positions) {
-      const thermo = this.thermos[ti];
+      const thermo = this.thermos![ti];
       const geMask = bitsForRange(digit, 9);
       for (let j = 0; j < pi; j++) {
-        const [r, c] = [thermo[j][0], thermo[j][1]];
+        const { row: r, col: c } = thermo[j];
         this.grid[r][c] &= ~geMask;
       }
       const leMask = bitsForRange(1, digit);
       for (let j = pi + 1; j < thermo.length; j++) {
-        const [r, c] = [thermo[j][0], thermo[j][1]];
+        const { row: r, col: c } = thermo[j];
         this.grid[r][c] &= ~leMask;
       }
     }
   }
 
-  _applyGreaterThan(row, col, digit) {
-    const signs = this.greaterThanSigns; // Map<key, '>'|'<'>
-    const get = key => signs.get ? signs.get(key) : signs[key];
+  private _applyGreaterThan(row: number, col: number, digit: number): void {
+    const signs = this.greaterThanSigns!; // Map<key, '>'|'<'>
+    const get = (key: string) => signs.get(key);
     const geMask = bitsForRange(digit, 9);
     const leMask = bitsForRange(1, digit);
 
@@ -323,20 +362,20 @@ export class CandidateGrid {
     }
   }
 
-  _applyKiller(row, col, digit) {
+  private _applyKiller(row: number, col: number, digit: number): void {
     const cage = this._cellToCage.get(`${row},${col}`);
     if (!cage) return;
     const bit = DIGIT_BIT[digit];
     cage.cells.forEach(cell => {
-      const [r, c] = [cell[0], cell[1]];
+      const { row: r, col: c } = cell;
       if (r !== row || c !== col) this.grid[r][c] &= ~bit;
     });
-    const emptyCells = cage.cells.filter(cell => this.board[cell[0]][cell[1]] === 0);
+    const emptyCells = cage.cells.filter(cell => this.board[cell.row][cell.col] === 0);
     if (emptyCells.length === 1) {
-      const [r2, c2] = [emptyCells[0][0], emptyCells[0][1]];
+      const { row: r2, col: c2 } = emptyCells[0];
       const filledSum = cage.cells
-        .filter(cell => this.board[cell[0]][cell[1]] !== 0)
-        .reduce((s, cell) => s + this.board[cell[0]][cell[1]], 0);
+        .filter(cell => this.board[cell.row][cell.col] !== 0)
+        .reduce((s, cell) => s + (this.board[cell.row][cell.col] as number), 0);
       const remaining = cage.sum - filledSum;
       if (remaining >= 1 && remaining <= 9) {
         this.grid[r2][c2] &= DIGIT_BIT[remaining];
@@ -346,16 +385,16 @@ export class CandidateGrid {
     }
   }
 
-  _applyKropki(row, col, digit) {
-    const dots = this.kropkiDots; // Map<key, 'white'|'black'>
-    const edges = [];
+  private _applyKropki(row: number, col: number, digit: number): void {
+    const dots = this.kropkiDots!; // Map<key, 'white'|'black'>
+    const edges: [number, number, string][] = [];
     if (col + 1 < 9) edges.push([row, col + 1, `${row},${col},r`]);
     if (col - 1 >= 0) edges.push([row, col - 1, `${row},${col - 1},r`]);
     if (row + 1 < 9) edges.push([row + 1, col, `${row},${col},b`]);
     if (row - 1 >= 0) edges.push([row - 1, col, `${row - 1},${col},b`]);
 
     for (const [nr, nc, key] of edges) {
-      const dot = dots.get ? dots.get(key) : dots[key];
+      const dot = dots.get ? dots.get(key) : (dots as unknown as Record<string, string>)[key];
       if (dot === 'white') {
         let allowed = 0;
         if (digit > 1) allowed |= DIGIT_BIT[digit - 1];
@@ -377,14 +416,14 @@ export class CandidateGrid {
     }
   }
 
-  _applySandwich(row, col, digit) {
+  private _applySandwich(row: number, col: number, digit: number): void {
     if (digit !== 1 && digit !== 9) return;
-    const clues = this.sandwichClues;
-    this._sandwichLine(Array.from({ length: 9 }, (_, c) => [row, c]), clues.rows[row]);
-    this._sandwichLine(Array.from({ length: 9 }, (_, r) => [r, col]), clues.cols[col]);
+    const clues = this.sandwichClues!;
+    this._sandwichLine(Array.from({ length: 9 }, (_, c) => [row, c] as [number, number]), clues.rows[row]);
+    this._sandwichLine(Array.from({ length: 9 }, (_, r) => [r, col] as [number, number]), clues.cols[col]);
   }
 
-  _sandwichLine(cells, clue) {
+  private _sandwichLine(cells: [number, number][], clue: number | null): void {
     const values = cells.map(([r, c]) => this.board[r][c]);
     const p1 = values.indexOf(1);
     const p9 = values.indexOf(9);
@@ -395,8 +434,8 @@ export class CandidateGrid {
     const emptyBetween = between.filter(([r, c]) => this.board[r][c] === 0);
     if (emptyBetween.length === 1) {
       const [r2, c2] = emptyBetween[0];
-      const filled = between.reduce((s, [r, c]) => s + this.board[r][c], 0);
-      const remaining = clue - filled;
+      const filled = between.reduce((s, [r, c]) => s + (this.board[r][c] as number), 0);
+      const remaining = (clue ?? 0) - filled;
       if (remaining >= 1 && remaining <= 9) {
         this.grid[r2][c2] &= DIGIT_BIT[remaining];
       } else {
@@ -405,15 +444,15 @@ export class CandidateGrid {
     }
   }
 
-  _applyLittleKiller(row, col, digit) {
+  private _applyLittleKiller(row: number, col: number, _digit: number): void {
     const clues = this._cellToLK.get(`${row},${col}`) || [];
     for (const clue of clues) {
-      const emptyCells = clue.cells.filter(cell => this.board[cell[0]][cell[1]] === 0);
+      const emptyCells = clue.cells.filter(cell => this.board[cell.row][cell.col] === 0);
       if (emptyCells.length === 1) {
-        const [r2, c2] = [emptyCells[0][0], emptyCells[0][1]];
+        const { row: r2, col: c2 } = emptyCells[0];
         const filled = clue.cells
-          .filter(cell => this.board[cell[0]][cell[1]] !== 0)
-          .reduce((s, cell) => s + this.board[cell[0]][cell[1]], 0);
+          .filter(cell => this.board[cell.row][cell.col] !== 0)
+          .reduce((s, cell) => s + (this.board[cell.row][cell.col] as number), 0);
         const remaining = clue.sum - filled;
         if (remaining >= 1 && remaining <= 9) {
           this.grid[r2][c2] &= DIGIT_BIT[remaining];
@@ -424,7 +463,7 @@ export class CandidateGrid {
     }
   }
 
-  eliminate(row, col, digit) {
+  eliminate(row: number, col: number, digit: number): boolean {
     const bit = DIGIT_BIT[digit];
     if (this.grid[row][col] & bit) {
       this.grid[row][col] &= ~bit;
@@ -437,30 +476,30 @@ export class CandidateGrid {
   // Query helpers
   // -------------------------------------------------------------------------
 
-  candidates(row, col) {
+  candidates(row: number, col: number): number[] {
     return bitsToDigits(this.grid[row][col]);
   }
 
-  candidateCount(row, col) {
+  candidateCount(row: number, col: number): number {
     return popcount(this.grid[row][col]);
   }
 
-  candidateBits(row, col) {
+  candidateBits(row: number, col: number): number {
     return this.grid[row][col];
   }
 
-  isEmpty(row, col) {
+  isEmpty(row: number, col: number): boolean {
     return this.board[row][col] === 0;
   }
 
-  isSolved() {
+  isSolved(): boolean {
     for (let r = 0; r < 9; r++)
       for (let c = 0; c < 9; c++)
         if (this.board[r][c] === 0) return false;
     return true;
   }
 
-  hasContradiction() {
+  hasContradiction(): boolean {
     for (let r = 0; r < 9; r++)
       for (let c = 0; c < 9; c++)
         if (this.board[r][c] === 0 && this.grid[r][c] === 0) return true;
@@ -471,10 +510,10 @@ export class CandidateGrid {
   // Houses
   // -------------------------------------------------------------------------
 
-  getHouses() {
+  getHouses(): [number, number][][] {
     if (this._housesCache) return this._housesCache;
 
-    const houses = [];
+    const houses: [number, number][][] = [];
 
     // Rows
     for (let r = 0; r < 9; r++)
@@ -501,18 +540,18 @@ export class CandidateGrid {
         );
     } else if (this.sudokuType === 'KILLER' && this.killerCages) {
       for (const cage of this.killerCages)
-        houses.push(cage.cells.map(cell => [cell[0], cell[1]]));
+        houses.push(cage.cells.map(cell => [cell.row, cell.col]));
     }
 
     this._housesCache = houses;
     return houses;
   }
 
-  getPeers(row, col) {
+  getPeers(row: number, col: number): Set<string> {
     const key = `${row},${col}`;
-    if (this._peerCache.has(key)) return this._peerCache.get(key);
+    if (this._peerCache.has(key)) return this._peerCache.get(key)!;
 
-    const peers = new Set();
+    const peers = new Set<string>();
     for (const house of this.getHouses()) {
       const inHouse = house.some(([r, c]) => r === row && c === col);
       if (inHouse) house.forEach(([r, c]) => peers.add(`${r},${c}`));
@@ -524,7 +563,7 @@ export class CandidateGrid {
   }
 
   // Helper: check if two cells are peers
-  arePeers(r1, c1, r2, c2) {
+  arePeers(r1: number, c1: number, r2: number, c2: number): boolean {
     return this.getPeers(r1, c1).has(`${r2},${c2}`);
   }
 }

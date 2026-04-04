@@ -1,10 +1,16 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '../UI/Button';
 
+interface NumberPadProps {
+  onNumberClick: (num: number) => void;
+  onClear: () => void;
+  disabled: boolean;
+}
+
 /**
  * Number pad for inputting values (1-9) and clearing cells
  */
-export function NumberPad({ onNumberClick, onClear, disabled }) {
+export function NumberPad({ onNumberClick, onClear, disabled }: NumberPadProps) {
   const { t } = useTranslation();
   const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 

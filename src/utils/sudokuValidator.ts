@@ -1,4 +1,17 @@
-import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, SUDOKU_TYPES, WINDOKU_WINDOWS, KNIGHT_MOVES, KING_MOVES } from './constants';
+import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, WINDOKU_WINDOWS, KNIGHT_MOVES, KING_MOVES } from './constants';
+import type {
+  Board,
+  CellValue,
+  SudokuTypeId,
+  CellPosition,
+  OddEvenMarkers,
+  KropkiDots,
+  GreaterThanSigns,
+  KillerCage,
+  LittleKillerClue,
+  Thermo,
+  SandwichClues,
+} from '../types/index';
 
 /**
  * Check if placing a number at a specific position is valid
@@ -16,7 +29,7 @@ import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, SUDOKU_TYPES, WINDOKU_WINDOWS, KNIGHT_
  * @param {number[]} line - 9-element array (may contain EMPTY_CELL=0)
  * @param {number} clue - target sum between 1 and 9
  */
-function checkSandwichLine(line, clue) {
+function checkSandwichLine(line: CellValue[], clue: number): boolean {
   const pos1 = line.indexOf(1);
   const pos9 = line.indexOf(9);
   if (pos1 === -1 || pos9 === -1) return true; // 1 or 9 not placed yet
@@ -33,7 +46,20 @@ function checkSandwichLine(line, clue) {
   return true;
 }
 
-export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC', oddEvenMarkers = null, kropkiDots = null, killerCages = null, littleKillerClues = null, greaterThanSigns = null, thermos = null, sandwichClues = null) {
+export function isValidMove(
+  board: Board,
+  row: number,
+  col: number,
+  num: CellValue,
+  sudokuType: SudokuTypeId = 'CLASSIC',
+  oddEvenMarkers: OddEvenMarkers | null = null,
+  kropkiDots: KropkiDots | null = null,
+  killerCages: KillerCage[] | null = null,
+  littleKillerClues: LittleKillerClue[] | null = null,
+  greaterThanSigns: GreaterThanSigns | null = null,
+  thermos: Thermo[] | null = null,
+  sandwichClues: SandwichClues | null = null,
+): boolean {
   // Check row
   for (let x = 0; x < GRID_SIZE; x++) {
     if (board[row][x] === num && x !== col) {
@@ -216,7 +242,7 @@ export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC', oddEve
       const adjVal = board[nr][nc];
       if (adjVal === EMPTY_CELL) continue;
 
-      let key;
+      let key: string;
       if (dr === 1)       key = `${row},${col},b`;
       else if (dr === -1) key = `${nr},${nc},b`;
       else if (dc === 1)  key = `${row},${col},r`;
@@ -268,7 +294,8 @@ export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC', oddEve
       if (adjVal === EMPTY_CELL) continue;
 
       // Build canonical edge key and determine if num is the left/top value
-      let key, numIsLeftOrTop;
+      let key: string;
+      let numIsLeftOrTop: boolean;
       if (dr === 1)       { key = `${row},${col},b`; numIsLeftOrTop = true; }
       else if (dr === -1) { key = `${nr},${nc},b`;   numIsLeftOrTop = false; }
       else if (dc === 1)  { key = `${row},${col},r`; numIsLeftOrTop = true; }
@@ -312,10 +339,10 @@ export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC', oddEve
   if (sudokuType === 'SANDWICH' && sandwichClues !== null) {
     // Build row with num placed, check row clue
     const rowLine = board[row].map((v, c) => c === col ? num : v);
-    if (!checkSandwichLine(rowLine, sandwichClues.rows[row])) return false;
+    if (!checkSandwichLine(rowLine, sandwichClues.rows[row] as number)) return false;
     // Build col with num placed, check col clue
     const colLine = board.map((r, ri) => ri === row ? num : r[col]);
-    if (!checkSandwichLine(colLine, sandwichClues.cols[col])) return false;
+    if (!checkSandwichLine(colLine, sandwichClues.cols[col] as number)) return false;
   }
 
   // Additional checks for Thermo Sudoku
@@ -346,8 +373,18 @@ export function isValidMove(board, row, col, num, sudokuType = 'CLASSIC', oddEve
  * @param {Map<string, string>} oddEvenMarkers - Map of cell positions to 'odd' or 'even' markers
  * @returns {Set<string>} - Set of cell coordinates with conflicts (format: "row,col")
  */
-export function findConflicts(board, sudokuType = 'CLASSIC', oddEvenMarkers = null, kropkiDots = null, killerCages = null, littleKillerClues = null, greaterThanSigns = null, thermos = null, sandwichClues = null) {
-  const conflicts = new Set();
+export function findConflicts(
+  board: Board,
+  sudokuType: SudokuTypeId = 'CLASSIC',
+  oddEvenMarkers: OddEvenMarkers | null = null,
+  kropkiDots: KropkiDots | null = null,
+  killerCages: KillerCage[] | null = null,
+  littleKillerClues: LittleKillerClue[] | null = null,
+  greaterThanSigns: GreaterThanSigns | null = null,
+  thermos: Thermo[] | null = null,
+  sandwichClues: SandwichClues | null = null,
+): Set<string> {
+  const conflicts = new Set<string>();
 
   for (let row = 0; row < GRID_SIZE; row++) {
     for (let col = 0; col < GRID_SIZE; col++) {
@@ -371,7 +408,7 @@ export function findConflicts(board, sudokuType = 'CLASSIC', oddEvenMarkers = nu
  * @param {number[][]} board - The sudoku board
  * @returns {boolean} - True if all cells are filled
  */
-export function isComplete(board) {
+export function isComplete(board: Board): boolean {
   for (let row = 0; row < GRID_SIZE; row++) {
     for (let col = 0; col < GRID_SIZE; col++) {
       if (board[row][col] === EMPTY_CELL) {
@@ -391,7 +428,17 @@ export function isComplete(board) {
  * @param {Array} killerCages - Killer cages
  * @returns {boolean} - True if the board is completely filled and has no conflicts
  */
-export function isSolved(board, sudokuType = 'CLASSIC', oddEvenMarkers = null, kropkiDots = null, killerCages = null, littleKillerClues = null, greaterThanSigns = null, thermos = null, sandwichClues = null) {
+export function isSolved(
+  board: Board,
+  sudokuType: SudokuTypeId = 'CLASSIC',
+  oddEvenMarkers: OddEvenMarkers | null = null,
+  kropkiDots: KropkiDots | null = null,
+  killerCages: KillerCage[] | null = null,
+  littleKillerClues: LittleKillerClue[] | null = null,
+  greaterThanSigns: GreaterThanSigns | null = null,
+  thermos: Thermo[] | null = null,
+  sandwichClues: SandwichClues | null = null,
+): boolean {
   return isComplete(board) && findConflicts(board, sudokuType, oddEvenMarkers, kropkiDots, killerCages, littleKillerClues, greaterThanSigns, thermos, sandwichClues).size === 0;
 }
 
@@ -400,7 +447,7 @@ export function isSolved(board, sudokuType = 'CLASSIC', oddEvenMarkers = null, k
  * @param {number[][]} board - The sudoku board
  * @returns {{row: number, col: number} | null} - Coordinates of empty cell or null
  */
-export function findEmptyCell(board) {
+export function findEmptyCell(board: Board): CellPosition | null {
   for (let row = 0; row < GRID_SIZE; row++) {
     for (let col = 0; col < GRID_SIZE; col++) {
       if (board[row][col] === EMPTY_CELL) {
@@ -416,6 +463,6 @@ export function findEmptyCell(board) {
  * @param {number[][]} board - The sudoku board
  * @returns {number[][]} - Deep copy of the board
  */
-export function copyBoard(board) {
+export function copyBoard(board: Board): Board {
   return board.map(row => [...row]);
 }

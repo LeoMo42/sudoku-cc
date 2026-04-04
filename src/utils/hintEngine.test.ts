@@ -1,22 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { findHintStep } from './hintEngine';
-import { CandidateGrid } from './candidateGrid';
+import type { Board } from '../types/index';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function emptyBoard() {
-  return Array.from({ length: 9 }, () => new Array(9).fill(0));
-}
-
-// Build a board from a CandidateGrid-style setup: start with a near-full board,
-// leave specified cells empty, then manually eliminate candidates on a CandidateGrid.
-// Since findHintStep creates its own CandidateGrid, we manipulate the input board.
-
-function boardWithEmpty(filledRows) {
-  // filledRows is an array of 9 arrays; 0 means empty
-  return filledRows.map(row => [...row]);
+function emptyBoard(): Board {
+  return Array.from({ length: 9 }, () => new Array(9).fill(0)) as Board;
 }
 
 // ---------------------------------------------------------------------------
@@ -27,7 +18,7 @@ describe('findHintStep – NAKED_SINGLE', () => {
   it('detects naked single: one empty cell with only one candidate', () => {
     // Start from solved board, leave only R0C0 empty.
     // All other digits in row 0, col 0, and box 0,0 are placed, so only 5 is possible.
-    const board = [
+    const board: Board = [
       [0, 3, 4, 6, 7, 8, 9, 1, 2],
       [6, 7, 2, 1, 9, 5, 3, 4, 8],
       [1, 9, 8, 3, 4, 2, 5, 6, 7],
@@ -40,14 +31,14 @@ describe('findHintStep – NAKED_SINGLE', () => {
     ];
     const step = findHintStep(board, 'CLASSIC');
     expect(step).not.toBeNull();
-    expect(step.technique).toBe('NAKED_SINGLE');
-    expect(step.placement).toEqual({ row: 0, col: 0, value: 5 });
-    expect(step.difficulty).toBe('EASY');
-    expect(step.eliminations).toHaveLength(0);
+    expect(step!.technique).toBe('NAKED_SINGLE');
+    expect(step!.placement).toEqual({ row: 0, col: 0, value: 5 });
+    expect(step!.difficulty).toBe('EASY');
+    expect(step!.eliminations).toHaveLength(0);
   });
 
   it('returns null for fully solved board', () => {
-    const board = [
+    const board: Board = [
       [5, 3, 4, 6, 7, 8, 9, 1, 2],
       [6, 7, 2, 1, 9, 5, 3, 4, 8],
       [1, 9, 8, 3, 4, 2, 5, 6, 7],
@@ -69,7 +60,7 @@ describe('findHintStep – NAKED_SINGLE', () => {
 describe('findHintStep – HIDDEN_SINGLE', () => {
   it('detects hidden single: digit can go only in one cell of a house', () => {
     // Near-solved board: place all digits in col 8 except row 0
-    const board = [
+    const board: Board = [
       [0, 0, 0, 0, 0, 0, 0, 0, 0],
       [6, 7, 2, 1, 9, 5, 3, 4, 8],
       [1, 9, 8, 3, 4, 2, 5, 6, 7],
@@ -103,8 +94,8 @@ describe('findHintStep – HIDDEN_SINGLE', () => {
     // → The test will accept either NAKED_SINGLE or HIDDEN_SINGLE as valid.
     const step = findHintStep(board, 'CLASSIC');
     expect(step).not.toBeNull();
-    expect(['NAKED_SINGLE', 'HIDDEN_SINGLE']).toContain(step.technique);
-    expect(step.placement).not.toBeNull();
+    expect(['NAKED_SINGLE', 'HIDDEN_SINGLE']).toContain(step!.technique);
+    expect(step!.placement).not.toBeNull();
   });
 });
 
@@ -119,16 +110,16 @@ describe('findHintStep – LOCKED_CANDIDATES', () => {
     const board = emptyBoard();
     // Place 7 in rows 1-8 in positions that don't touch row 0 cols 0-2
     // Row 1: 7 in col 3
-    board[1][3] = 7;
+    board[1]![3] = 7;
     // Row 2: 7 in col 4
-    board[2][4] = 7;
+    board[2]![4] = 7;
     // But we need 7 in box(0,0) confined to row 0. Let's eliminate 7 from cells
     // (1,0),(1,1),(1,2),(2,0),(2,1),(2,2) using the board setup:
     // Place other digits so 7 is eliminated from rows 1-2 of box(0,0).
     // Easiest: place 7 in col 0 row 3 and col 1 row 4 and col 2 row 5.
-    board[3][0] = 7; // eliminates 7 from col 0
-    board[4][1] = 7; // eliminates 7 from col 1
-    board[5][2] = 7; // eliminates 7 from col 2
+    board[3]![0] = 7; // eliminates 7 from col 0
+    board[4]![1] = 7; // eliminates 7 from col 1
+    board[5]![2] = 7; // eliminates 7 from col 2
     // Now in box(0,0), 7 can only be in row 0 (cols 0-2).
     // And row 0, cols 3-8 still have 7 as a candidate → locked candidates.
     // BUT: since 3 cells in col 0,1,2 also have 7 already eliminated from row 0's
@@ -138,9 +129,9 @@ describe('findHintStep – LOCKED_CANDIDATES', () => {
     const step = findHintStep(board, 'CLASSIC');
     expect(step).not.toBeNull();
     // Might find naked/hidden single first; we accept any valid technique
-    if (step.technique === 'LOCKED_CANDIDATES') {
-      expect(step.eliminations.length).toBeGreaterThan(0);
-      expect(step.difficulty).toBe('MEDIUM');
+    if (step!.technique === 'LOCKED_CANDIDATES') {
+      expect(step!.eliminations.length).toBeGreaterThan(0);
+      expect(step!.difficulty).toBe('MEDIUM');
     }
   });
 });
@@ -163,27 +154,27 @@ describe('findHintStep – NAKED_PAIR', () => {
     //  - No placed digit is confined to one box in any row/col → locked candidates won't fire
     const board = emptyBoard();
     // Fill box(1,1) rows 3-4
-    board[3][3] = 5; board[3][4] = 6; board[3][5] = 7;
-    board[4][3] = 8; board[4][4] = 9;
+    board[3]![3] = 5; board[3]![4] = 6; board[3]![5] = 7;
+    board[4]![3] = 8; board[4]![4] = 9;
     // Col 5: {2,3,7} via rows 0,1,3
-    board[0][5] = 2; board[1][5] = 3;
+    board[0]![5] = 2; board[1]![5] = 3;
     // (board[3][5]=7 already placed above)
     // Col 3: add {2,3} via rows 6,7 (distinct from row 3's placement of 5)
-    board[6][3] = 2; board[7][3] = 3;
+    board[6]![3] = 2; board[7]![3] = 3;
     // Col 4: add {2,3} via rows 7,8 (distinct from row 3's placement of 6 and row 4's 9)
-    board[7][4] = 2; board[8][4] = 3;
+    board[7]![4] = 2; board[8]![4] = 3;
     // After propagation:
     //   (5,3): box{5-9} + col3{5,8,2,3} → {1,4}
     //   (5,4): box{5-9} + col4{6,9,2,3} → {1,4}   ← naked pair
     //   Other row 5 cells still have many candidates → pair eliminates from them
     const step = findHintStep(board, 'CLASSIC');
     expect(step).not.toBeNull();
-    expect(['LOCKED_CANDIDATES', 'NAKED_PAIR']).toContain(step.technique);
-    expect(step.difficulty).toBe('MEDIUM');
-    expect(step.eliminations.length).toBeGreaterThan(0);
+    expect(['LOCKED_CANDIDATES', 'NAKED_PAIR']).toContain(step!.technique);
+    expect(step!.difficulty).toBe('MEDIUM');
+    expect(step!.eliminations.length).toBeGreaterThan(0);
     // When NAKED_PAIR fires, all eliminations target digit 1 or 4
-    if (step.technique === 'NAKED_PAIR') {
-      for (const e of step.eliminations) {
+    if (step!.technique === 'NAKED_PAIR') {
+      for (const e of step!.eliminations) {
         expect([1, 4]).toContain(e.digit);
       }
     }
@@ -200,18 +191,18 @@ describe('findHintStep – HIDDEN_PAIR', () => {
     // on a board constrained enough to produce an elimination technique.
     // The naked pair board from the previous test is reused.
     const board = emptyBoard();
-    board[3][3] = 5; board[3][4] = 6; board[3][5] = 7;
-    board[4][3] = 8; board[4][4] = 9;
-    board[4][0] = 2; board[4][1] = 3;
-    board[0][5] = 2; board[1][5] = 3;
+    board[3]![3] = 5; board[3]![4] = 6; board[3]![5] = 7;
+    board[4]![3] = 8; board[4]![4] = 9;
+    board[4]![0] = 2; board[4]![1] = 3;
+    board[0]![5] = 2; board[1]![5] = 3;
     const step = findHintStep(board, 'CLASSIC');
     // A step is found (NAKED_PAIR or whatever fires first)
     expect(step).not.toBeNull();
     // HIDDEN_PAIR specifically: if it fires, difficulty is MEDIUM and eliminations exist
-    if (step.technique === 'HIDDEN_PAIR') {
-      expect(step.difficulty).toBe('MEDIUM');
-      expect(step.eliminations.length).toBeGreaterThan(0);
-      for (const e of step.eliminations) {
+    if (step!.technique === 'HIDDEN_PAIR') {
+      expect(step!.difficulty).toBe('MEDIUM');
+      expect(step!.eliminations.length).toBeGreaterThan(0);
+      for (const e of step!.eliminations) {
         expect(e).toHaveProperty('row');
         expect(e).toHaveProperty('col');
         expect(e).toHaveProperty('digit');
@@ -237,13 +228,13 @@ describe('findHintStep – X_WING', () => {
     // Rows 1,2,4,5,6,7,8 = 7 rows. Place 7 in col 0 (rows 1), col 1 (rows 2),
     // col 3 (rows 4), col 4 (rows 5), col 5 (rows 6), col 7 (rows 7), col 8 (rows 8).
     // This places 7 in each of these rows but NOT in col 2 or 6.
-    board[1][0] = 7;
-    board[2][1] = 7;
-    board[4][3] = 7;
-    board[5][4] = 7;
-    board[6][5] = 7;
-    board[7][7] = 7;
-    board[8][8] = 7;
+    board[1]![0] = 7;
+    board[2]![1] = 7;
+    board[4]![3] = 7;
+    board[5]![4] = 7;
+    board[6]![5] = 7;
+    board[7]![7] = 7;
+    board[8]![8] = 7;
     // Now rows 0 and 3 don't have 7 placed → they have 7 in some cells.
     // After CandidateGrid propagation: col 0,1,3,4,5,7,8 all lose 7 (placed there).
     // So cols with 7 as a candidate: 2 and 6 (and possibly others that no 7 was placed in).
@@ -256,9 +247,9 @@ describe('findHintStep – X_WING', () => {
     // Col 2 in rows 1,2,4,5,6,7,8: rows 1,2,4,5,6,7,8 → those are cells to eliminate from.
     const step = findHintStep(board, 'CLASSIC');
     expect(step).not.toBeNull();
-    if (step.technique === 'X_WING') {
-      expect(step.difficulty).toBe('HARD');
-      expect(step.eliminations.length).toBeGreaterThan(0);
+    if (step!.technique === 'X_WING') {
+      expect(step!.difficulty).toBe('HARD');
+      expect(step!.eliminations.length).toBeGreaterThan(0);
     }
     // If something simpler fires first, that's fine
   });
@@ -289,18 +280,18 @@ describe('findHintStep – XY_WING', () => {
     // Let's place digits to restrict (0,0), (0,6), (6,0), and leave (6,6) empty with 3.
 
     // Place all digits except 1,2 in row 0 (so (0,0) loses 3-9 from row)
-    board[0][1] = 3; board[0][2] = 4; board[0][3] = 5; board[0][4] = 6;
-    board[0][5] = 7; board[0][7] = 8; board[0][8] = 9;
+    board[0]![1] = 3; board[0]![2] = 4; board[0]![3] = 5; board[0]![4] = 6;
+    board[0]![5] = 7; board[0]![7] = 8; board[0]![8] = 9;
     // Now (0,0) and (0,6) are empty in row 0. (0,0) has {1,2}, (0,6) has {1,2}.
     // We need (0,0)={1,2} and (0,6)={1,3}. Place 2 somewhere in col 6 to eliminate 2 from (0,6):
-    board[3][6] = 2; // eliminates 2 from col 6, so (0,6) won't have 2
+    board[3]![6] = 2; // eliminates 2 from col 6, so (0,6) won't have 2
     // Now (0,6) has candidates: all minus {3,4,5,6,7,8,9} (from row) minus {2} (from col) = {1}.
     // That makes (0,6) a naked single for 1 — not what we want.
     // This manual construction is too complex. Let's just test that the engine works on a known
     // XY-wing board (from the Python tests pattern).
     // Reset and use a board that nearly requires XY-Wing.
     // For simplicity: just verify the function returns a valid step structure when called.
-    const simpleBoard = [
+    const simpleBoard: Board = [
       [0, 3, 4, 6, 7, 8, 9, 1, 2],
       [6, 7, 2, 1, 9, 5, 3, 4, 8],
       [1, 9, 8, 3, 4, 2, 5, 6, 7],
@@ -314,7 +305,7 @@ describe('findHintStep – XY_WING', () => {
     const step = findHintStep(simpleBoard, 'CLASSIC');
     // Near-solved board → naked single fires
     expect(step).not.toBeNull();
-    expect(step.technique).toBe('NAKED_SINGLE');
+    expect(step!.technique).toBe('NAKED_SINGLE');
   });
 });
 
@@ -324,7 +315,7 @@ describe('findHintStep – XY_WING', () => {
 
 describe('HintStep structure', () => {
   it('placement step has correct shape', () => {
-    const board = [
+    const board: Board = [
       [0, 3, 4, 6, 7, 8, 9, 1, 2],
       [6, 7, 2, 1, 9, 5, 3, 4, 8],
       [1, 9, 8, 3, 4, 2, 5, 6, 7],
@@ -343,13 +334,13 @@ describe('HintStep structure', () => {
     expect(step).toHaveProperty('eliminations');
     expect(step).toHaveProperty('highlightCells');
     expect(step).toHaveProperty('learnMoreSlug');
-    expect(Array.isArray(step.eliminations)).toBe(true);
-    expect(Array.isArray(step.highlightCells)).toBe(true);
-    expect(typeof step.learnMoreSlug).toBe('string');
+    expect(Array.isArray(step!.eliminations)).toBe(true);
+    expect(Array.isArray(step!.highlightCells)).toBe(true);
+    expect(typeof step!.learnMoreSlug).toBe('string');
   });
 
   it('placement step: highlightCells contains target with role=target', () => {
-    const board = [
+    const board: Board = [
       [0, 3, 4, 6, 7, 8, 9, 1, 2],
       [6, 7, 2, 1, 9, 5, 3, 4, 8],
       [1, 9, 8, 3, 4, 2, 5, 6, 7],
@@ -361,7 +352,7 @@ describe('HintStep structure', () => {
       [3, 4, 5, 2, 8, 6, 1, 7, 9],
     ];
     const step = findHintStep(board, 'CLASSIC');
-    const targetCells = step.highlightCells.filter(h => h.role === 'target');
+    const targetCells = step!.highlightCells.filter(h => h.role === 'target');
     expect(targetCells.length).toBeGreaterThan(0);
     expect(targetCells[0]).toHaveProperty('row');
     expect(targetCells[0]).toHaveProperty('col');
@@ -370,8 +361,8 @@ describe('HintStep structure', () => {
   it('elimination step: eliminations list is non-empty and each has row/col/digit', () => {
     const board = emptyBoard();
     // Use naked pair setup from earlier
-    board[0][2] = 3; board[0][3] = 4; board[0][4] = 5;
-    board[0][5] = 6; board[0][6] = 7; board[0][7] = 8; board[0][8] = 9;
+    board[0]![2] = 3; board[0]![3] = 4; board[0]![4] = 5;
+    board[0]![5] = 6; board[0]![6] = 7; board[0]![7] = 8; board[0]![8] = 9;
     const step = findHintStep(board, 'CLASSIC');
     if (step && step.eliminations.length > 0) {
       for (const e of step.eliminations) {
@@ -385,7 +376,7 @@ describe('HintStep structure', () => {
   });
 
   it('difficulty values are valid', () => {
-    const board = [
+    const board: Board = [
       [0, 3, 4, 6, 7, 8, 9, 1, 2],
       [6, 7, 2, 1, 9, 5, 3, 4, 8],
       [1, 9, 8, 3, 4, 2, 5, 6, 7],
@@ -397,7 +388,7 @@ describe('HintStep structure', () => {
       [3, 4, 5, 2, 8, 6, 1, 7, 9],
     ];
     const step = findHintStep(board, 'CLASSIC');
-    expect(['EASY', 'MEDIUM', 'HARD', 'EXPERT']).toContain(step.difficulty);
+    expect(['EASY', 'MEDIUM', 'HARD', 'EXPERT']).toContain(step!.difficulty);
   });
 });
 
@@ -409,7 +400,7 @@ describe('Technique ordering', () => {
   it('NAKED_SINGLE fires before harder techniques', () => {
     // Near-solved board: only (0,0) is empty → naked single for 5.
     // This verifies NAKED_SINGLE is the first technique tried.
-    const board = [
+    const board: Board = [
       [0, 3, 4, 6, 7, 8, 9, 1, 2],
       [6, 7, 2, 1, 9, 5, 3, 4, 8],
       [1, 9, 8, 3, 4, 2, 5, 6, 7],
@@ -422,10 +413,10 @@ describe('Technique ordering', () => {
     ];
     const step = findHintStep(board, 'CLASSIC');
     expect(step).not.toBeNull();
-    expect(step.technique).toBe('NAKED_SINGLE');
-    expect(step.difficulty).toBe('EASY');
-    expect(step.placement).not.toBeNull();
-    expect(step.placement.value).toBe(5);
+    expect(step!.technique).toBe('NAKED_SINGLE');
+    expect(step!.difficulty).toBe('EASY');
+    expect(step!.placement).not.toBeNull();
+    expect(step!.placement!.value).toBe(5);
   });
 });
 
@@ -450,17 +441,17 @@ describe('Edge cases', () => {
     const board = emptyBoard();
     // Place 1-9 except one digit in a row, then also place that digit in the same col
     // so one cell has no candidates.
-    board[0][0] = 1; board[0][1] = 2; board[0][2] = 3; board[0][3] = 4;
-    board[0][4] = 5; board[0][5] = 6; board[0][6] = 7; board[0][7] = 8;
+    board[0]![0] = 1; board[0]![1] = 2; board[0]![2] = 3; board[0]![3] = 4;
+    board[0]![4] = 5; board[0]![5] = 6; board[0]![6] = 7; board[0]![7] = 8;
     // (0,8) must be 9 but let's place 9 in col 8 already:
-    board[1][8] = 9;
-    board[2][8] = 8;
-    board[3][8] = 7;
-    board[4][8] = 6;
-    board[5][8] = 5;
-    board[6][8] = 4;
-    board[7][8] = 3;
-    board[8][8] = 2;
+    board[1]![8] = 9;
+    board[2]![8] = 8;
+    board[3]![8] = 7;
+    board[4]![8] = 6;
+    board[5]![8] = 5;
+    board[6]![8] = 4;
+    board[7]![8] = 3;
+    board[8]![8] = 2;
     // (0,8) would need 9 from row (the only missing digit) but 9 is placed in col 8 at (1,8).
     // So (0,8) has no candidates → contradiction.
     // Wait, if board[0][*] has 1-8 in cols 0-7, only 9 is left for (0,8).
