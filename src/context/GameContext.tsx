@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useReducer, useCallback, useEffect, ReactNode } from 'react';
 import { createPuzzle } from '../utils/sudokuGenerator';
 import { findConflicts, isSolved, copyBoard } from '../utils/sudokuValidator';
@@ -9,16 +10,15 @@ import type {
   DifficultyLevel,
   SudokuTypeId,
   CellValue,
+  BoardSnapshot,
   OddEvenMarkers,
   KropkiDots,
   GreaterThanSigns,
 } from '../types/index';
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const GameContext = createContext<GameContextValue | null>(null);
 
-// Action types
-const Actions = {
+export const Actions = {
   NEW_GAME: 'NEW_GAME',
   SET_CELL_VALUE: 'SET_CELL_VALUE',
   SELECT_CELL: 'SELECT_CELL',
@@ -28,6 +28,8 @@ const Actions = {
   DISMISS_HINT: 'DISMISS_HINT',
   TOGGLE_NOTES_MODE: 'TOGGLE_NOTES_MODE',
   SET_NOTE: 'SET_NOTE',
+  UNDO: 'UNDO',
+  REDO: 'REDO',
   PAUSE_GAME: 'PAUSE_GAME',
   RESUME_GAME: 'RESUME_GAME',
   UPDATE_TIME: 'UPDATE_TIME',
@@ -63,6 +65,8 @@ const initialState: GameState = {
   greaterThanSigns: null,
   thermos: null,
   sandwichClues: null,
+  history: [],
+  historyIndex: -1,
 };
 
 // Validate that a parsed object looks like a saved game state
@@ -96,16 +100,30 @@ function migrateSavedState(data: Record<string, unknown>): Record<string, unknow
   return data;
 }
 
-// Reducer
-function gameReducer(state: GameState, action: GameAction): GameState {
+function cloneNotes(notes: Map<string, Set<number>>): Map<string, Set<number>> {
+  const copy = new Map<string, Set<number>>();
+  for (const [k, v] of notes) copy.set(k, new Set(v));
+  return copy;
+}
+
+function pushHistory(state: GameState, newBoard: number[][], newNotes: Map<string, Set<number>>): Pick<GameState, 'history' | 'historyIndex'> {
+  // Truncate any future entries after current index, then push new state
+  const history = state.history.slice(0, state.historyIndex + 1);
+  history.push({ board: copyBoard(newBoard), notes: cloneNotes(newNotes) });
+  return { history, historyIndex: history.length - 1 };
+}
+
+// Reducer (exported for testing)
+export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case Actions.NEW_GAME: {
       const { difficulty, sudokuType } = action.payload as { difficulty: DifficultyLevel; sudokuType: SudokuTypeId };
       const { puzzle, solution, oddEvenMarkers, kropkiDots, killerCages, littleKillerClues, greaterThanSigns, thermos, sandwichClues } = createPuzzle(difficulty, sudokuType);
 
+      const startBoard = copyBoard(puzzle);
       return {
         ...initialState,
-        board: copyBoard(puzzle),
+        board: startBoard,
         initialBoard: copyBoard(puzzle),
         solution,
         difficulty,
@@ -120,6 +138,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         greaterThanSigns: greaterThanSigns || null,
         thermos: thermos || null,
         sandwichClues: sandwichClues || null,
+        history: [{ board: copyBoard(startBoard), notes: new Map() }],
+        historyIndex: 0,
       };
     }
 
@@ -155,6 +175,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         errors,
         gameStatus,
         notes: newNotes,
+        ...pushHistory(state, newBoard, newNotes),
       };
     }
 
@@ -242,6 +263,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         errors,
         gameStatus: solved ? GAME_STATUS.COMPLETED : state.gameStatus,
         activeHint: null,
+        ...pushHistory(state, newBoard, newNotes),
       };
     }
 
@@ -249,6 +271,39 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         activeHint: null,
+      };
+    }
+
+    case Actions.UNDO: {
+      if (state.historyIndex <= 0) return state;
+      const prevIndex = state.historyIndex - 1;
+      const snapshot = state.history[prevIndex]!;
+      const board = copyBoard(snapshot.board);
+      const errors = findConflicts(board, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
+      return {
+        ...state,
+        board,
+        notes: cloneNotes(snapshot.notes),
+        errors,
+        historyIndex: prevIndex,
+        gameStatus: state.gameStatus === GAME_STATUS.COMPLETED ? GAME_STATUS.PLAYING : state.gameStatus,
+      };
+    }
+
+    case Actions.REDO: {
+      if (state.historyIndex >= state.history.length - 1) return state;
+      const nextIndex = state.historyIndex + 1;
+      const snapshot = state.history[nextIndex]!;
+      const board = copyBoard(snapshot.board);
+      const errors = findConflicts(board, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
+      const solved = isSolved(board, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
+      return {
+        ...state,
+        board,
+        notes: cloneNotes(snapshot.notes),
+        errors,
+        historyIndex: nextIndex,
+        gameStatus: solved ? GAME_STATUS.COMPLETED : state.gameStatus,
       };
     }
 
@@ -289,6 +344,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         notes: newNotes,
+        ...pushHistory(state, state.board, newNotes),
       };
     }
 
@@ -362,6 +418,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         greaterThanSigns: state.greaterThanSigns ? Array.from(state.greaterThanSigns.entries()) : null,
         thermos: state.thermos,
         sandwichClues: state.sandwichClues,
+        history: undefined,
+        historyIndex: undefined,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
     }
@@ -423,6 +481,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch({ type: Actions.SET_NOTE, payload: { row, col, number } });
   }, []);
 
+  const undo = useCallback(() => {
+    dispatch({ type: Actions.UNDO });
+  }, []);
+
+  const redo = useCallback(() => {
+    dispatch({ type: Actions.REDO });
+  }, []);
+
   const pauseGame = useCallback(() => {
     dispatch({ type: Actions.PAUSE_GAME });
   }, []);
@@ -447,6 +513,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       dismissHint,
       toggleNotesMode,
       setNote,
+      undo,
+      redo,
       pauseGame,
       resumeGame,
       updateTime,

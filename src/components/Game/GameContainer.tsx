@@ -60,6 +60,26 @@ export function GameContainer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
+  // Undo/redo keyboard shortcuts (work without cell selection)
+  useEffect(() => {
+    const handleUndoRedo = (e: KeyboardEvent) => {
+      if (state.gameStatus !== GAME_STATUS.PLAYING) return;
+      const ctrlOrMeta = e.ctrlKey || e.metaKey;
+      if (ctrlOrMeta && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        actions.undo();
+      } else if (ctrlOrMeta && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        actions.redo();
+      } else if (ctrlOrMeta && e.key === 'y') {
+        e.preventDefault();
+        actions.redo();
+      }
+    };
+    window.addEventListener('keydown', handleUndoRedo);
+    return () => window.removeEventListener('keydown', handleUndoRedo);
+  }, [state.gameStatus, actions]);
+
   // Handle keyboard input
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -323,6 +343,8 @@ export function GameContainer() {
                 onNewGame={handleNewGame}
                 onCheck={actions.checkSolution}
                 onHint={actions.getHint}
+                onUndo={actions.undo}
+                onRedo={actions.redo}
                 onPause={actions.pauseGame}
                 onResume={actions.resumeGame}
                 onToggleNotes={actions.toggleNotesMode}
@@ -330,6 +352,8 @@ export function GameContainer() {
                 maxHints={maxHints}
                 gameStatus={state.gameStatus}
                 notesMode={state.notesMode}
+                canUndo={state.historyIndex > 0}
+                canRedo={state.historyIndex < state.history.length - 1}
               />
             </div>
 
