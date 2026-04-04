@@ -30,6 +30,7 @@ export default defineConfig([globalIgnores(['dist', 'storybook-static']), {
     '@typescript-eslint': tseslint,
   },
   rules: {
+    'no-undef': 'off', // TypeScript handles this
     'no-unused-vars': 'off',
     '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_' }],
   },
