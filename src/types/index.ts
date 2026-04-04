@@ -147,6 +147,12 @@ export interface PuzzleResult {
   sandwichClues?: SandwichClues | null;
 }
 
+// Snapshot for undo/redo history
+export interface BoardSnapshot {
+  board: Board;
+  notes: Map<string, Set<number>>;
+}
+
 // Game state
 export interface GameState {
   board: Board;
@@ -169,6 +175,8 @@ export interface GameState {
   greaterThanSigns: GreaterThanSigns | null;
   thermos: Thermo[] | null;
   sandwichClues: SandwichClues | null;
+  history: BoardSnapshot[];
+  historyIndex: number;
 }
 
 // Game actions
@@ -182,6 +190,8 @@ export interface GameActions {
   dismissHint: () => void;
   toggleNotesMode: () => void;
   setNote: (row: number, col: number, number: number) => void;
+  undo: () => void;
+  redo: () => void;
   pauseGame: () => void;
   resumeGame: () => void;
   updateTime: () => void;

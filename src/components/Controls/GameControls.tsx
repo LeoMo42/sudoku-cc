@@ -7,6 +7,8 @@ interface GameControlsProps {
   onNewGame: () => void;
   onCheck: () => void;
   onHint: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
   onPause: () => void;
   onResume: () => void;
   onToggleNotes: () => void;
@@ -14,6 +16,8 @@ interface GameControlsProps {
   maxHints: number;
   gameStatus: GameStatus;
   notesMode: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 /**
@@ -23,6 +27,8 @@ export function GameControls({
   onNewGame,
   onCheck,
   onHint,
+  onUndo,
+  onRedo,
   onPause,
   onResume,
   onToggleNotes,
@@ -30,6 +36,8 @@ export function GameControls({
   maxHints,
   gameStatus,
   notesMode,
+  canUndo,
+  canRedo,
 }: GameControlsProps) {
   const { t } = useTranslation();
   const isPaused = gameStatus === GAME_STATUS.PAUSED;
@@ -62,6 +70,14 @@ export function GameControls({
               variant={notesMode ? 'primary' : 'secondary'}
             >
               {notesMode ? '✓ ' : ''}{t('game.notes')}
+            </Button>
+
+            <Button onClick={onUndo} variant="secondary" disabled={!canUndo}>
+              {t('game.undo')}
+            </Button>
+
+            <Button onClick={onRedo} variant="secondary" disabled={!canRedo}>
+              {t('game.redo')}
             </Button>
           </>
         )}

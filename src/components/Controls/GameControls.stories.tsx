@@ -10,92 +10,109 @@ export default {
   tags: ['autodocs'],
 };
 
+const baseActions = {
+  onNewGame: () => console.log('New game'),
+  onCheck: () => console.log('Check solution'),
+  onHint: () => console.log('Get hint'),
+  onUndo: () => console.log('Undo'),
+  onRedo: () => console.log('Redo'),
+  onPause: () => console.log('Pause game'),
+  onResume: () => console.log('Resume game'),
+  onToggleNotes: () => console.log('Toggle notes'),
+};
+
 export const Playing = {
   args: {
-    onNewGame: () => console.log('New game'),
-    onCheck: () => console.log('Check solution'),
-    onHint: () => console.log('Get hint'),
-    onPause: () => console.log('Pause game'),
-    onResume: () => console.log('Resume game'),
-    onToggleNotes: () => console.log('Toggle notes'),
+    ...baseActions,
     hintsUsed: 2,
     maxHints: 10,
     gameStatus: GAME_STATUS.PLAYING,
     notesMode: false,
+    canUndo: true,
+    canRedo: false,
   },
 };
 
 export const PlayingWithNotes = {
   args: {
-    onNewGame: () => console.log('New game'),
-    onCheck: () => console.log('Check solution'),
-    onHint: () => console.log('Get hint'),
-    onPause: () => console.log('Pause game'),
-    onResume: () => console.log('Resume game'),
-    onToggleNotes: () => console.log('Toggle notes'),
+    ...baseActions,
     hintsUsed: 1,
     maxHints: 10,
     gameStatus: GAME_STATUS.PLAYING,
     notesMode: true,
+    canUndo: true,
+    canRedo: true,
   },
 };
 
 export const NoHintsLeft = {
   args: {
-    onNewGame: () => console.log('New game'),
-    onCheck: () => console.log('Check solution'),
-    onHint: () => console.log('Get hint'),
-    onPause: () => console.log('Pause game'),
-    onResume: () => console.log('Resume game'),
-    onToggleNotes: () => console.log('Toggle notes'),
+    ...baseActions,
     hintsUsed: 10,
     maxHints: 10,
     gameStatus: GAME_STATUS.PLAYING,
     notesMode: false,
+    canUndo: true,
+    canRedo: false,
+  },
+};
+
+export const UndoRedoDisabled = {
+  args: {
+    ...baseActions,
+    hintsUsed: 0,
+    maxHints: 10,
+    gameStatus: GAME_STATUS.PLAYING,
+    notesMode: false,
+    canUndo: false,
+    canRedo: false,
+  },
+};
+
+export const UndoRedoAvailable = {
+  args: {
+    ...baseActions,
+    hintsUsed: 2,
+    maxHints: 10,
+    gameStatus: GAME_STATUS.PLAYING,
+    notesMode: false,
+    canUndo: true,
+    canRedo: true,
   },
 };
 
 export const Paused = {
   args: {
-    onNewGame: () => console.log('New game'),
-    onCheck: () => console.log('Check solution'),
-    onHint: () => console.log('Get hint'),
-    onPause: () => console.log('Pause game'),
-    onResume: () => console.log('Resume game'),
-    onToggleNotes: () => console.log('Toggle notes'),
+    ...baseActions,
     hintsUsed: 2,
     maxHints: 10,
     gameStatus: GAME_STATUS.PAUSED,
     notesMode: false,
+    canUndo: false,
+    canRedo: false,
   },
 };
 
 export const Completed = {
   args: {
-    onNewGame: () => console.log('New game'),
-    onCheck: () => console.log('Check solution'),
-    onHint: () => console.log('Get hint'),
-    onPause: () => console.log('Pause game'),
-    onResume: () => console.log('Resume game'),
-    onToggleNotes: () => console.log('Toggle notes'),
+    ...baseActions,
     hintsUsed: 3,
     maxHints: 10,
     gameStatus: GAME_STATUS.COMPLETED,
     notesMode: false,
+    canUndo: false,
+    canRedo: false,
   },
 };
 
 export const Idle = {
   args: {
-    onNewGame: () => console.log('New game'),
-    onCheck: () => console.log('Check solution'),
-    onHint: () => console.log('Get hint'),
-    onPause: () => console.log('Pause game'),
-    onResume: () => console.log('Resume game'),
-    onToggleNotes: () => console.log('Toggle notes'),
+    ...baseActions,
     hintsUsed: 0,
     maxHints: 10,
     gameStatus: GAME_STATUS.IDLE,
     notesMode: false,
+    canUndo: false,
+    canRedo: false,
   },
 };

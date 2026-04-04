@@ -16,7 +16,9 @@
     "completed": "🎉 Congratulations! You solved the puzzle!",
     "hintsUsed": "{{used}}/{{max}}",
     "soundOn": "Sound on (click to mute)",
-    "soundOff": "Sound off (click to enable)"
+    "soundOff": "Sound off (click to enable)",
+    "undo": "Undo",
+    "redo": "Redo"
   },
   "difficulty": {
     "EASY": "Easy",
@@ -25,7 +27,7 @@
     "EXPERT": "Expert"
   },
   "controls": {
-    "keyboard": "Use keys 1-9, arrows for navigation, Backspace to clear, N for notes"
+    "keyboard": "Use keys 1-9, arrows for navigation, Backspace to clear, N for notes, Ctrl+Z/Ctrl+Y for undo/redo"
   },
   "hint": {
     "title": "Hint",
