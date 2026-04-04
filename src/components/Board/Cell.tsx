@@ -216,9 +216,9 @@ export const Cell = memo(function Cell({
       {oddEvenMarker && (
         <div className="absolute top-0.5 left-0.5 w-3 h-3">
           {oddEvenMarker === 'odd' ? (
-            <div className="w-full h-full rounded-full bg-blue-400 border border-blue-600" title="Odd" />
+            <div className="w-full h-full rounded-full bg-blue-400 border border-blue-600" />
           ) : (
-            <div className="w-full h-full bg-orange-400 border border-orange-600" title="Even" />
+            <div className="w-full h-full bg-orange-400 border border-orange-600" />
           )}
         </div>
       )}

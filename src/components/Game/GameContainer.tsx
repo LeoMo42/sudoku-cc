@@ -250,7 +250,7 @@ export function GameContainer() {
               {/* Sudoku Type Selector */}
               <div className="bg-white rounded-lg shadow-md p-3 sm:p-4 flex-1 lg:flex-none">
                 <h3 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
-                  {t('game.type', 'Тип:')}
+                  {t('game.type')}
                 </h3>
                 <SudokuTypeSelector
                   currentType={state.sudokuType}
