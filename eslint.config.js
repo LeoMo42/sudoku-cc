@@ -9,7 +9,7 @@ import tseslint from '@typescript-eslint/eslint-plugin'
 import tsparser from '@typescript-eslint/parser'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
-export default defineConfig([globalIgnores(['dist', 'storybook-static']), {
+export default defineConfig([globalIgnores(['dist', 'storybook-static', '.claude']), {
   files: ['**/*.{ts,tsx}'],
   extends: [
     js.configs.recommended,
