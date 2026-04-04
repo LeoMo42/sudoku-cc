@@ -121,8 +121,6 @@ function areWindowsValid(board: Board): boolean {
  * @returns Valid X-Sudoku board
  */
 function generateXSudoku(): Board {
-  console.log('🎲 Generating X-Sudoku from base template...');
-
   // Create a random permutation of digits 1-9
   const permutation = shuffle<CellValue>([1, 2, 3, 4, 5, 6, 7, 8, 9]);
 
@@ -135,9 +133,6 @@ function generateXSudoku(): Board {
     }
   }
 
-  console.log('✅ X-Sudoku generated successfully via digit permutation');
-  console.log('  Permutation:', [1, 2, 3, 4, 5, 6, 7, 8, 9], '→', permutation);
-
   return board;
 }
 
@@ -146,8 +141,6 @@ function generateXSudoku(): Board {
  * @returns Valid Windoku board
  */
 function generateWindoku(): Board {
-  console.log('🎲 Generating Windoku...');
-
   const maxAttempts = 100;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -158,12 +151,10 @@ function generateWindoku(): Board {
 
     // Check if windows are valid
     if (areWindowsValid(board)) {
-      console.log(`✅ Windoku generated successfully on attempt ${attempt + 1}`);
       return board;
     }
   }
 
-  console.warn(`❌ Could not generate valid Windoku after ${maxAttempts} attempts, using classic`);
   // Fallback to classic
   const board = createEmptyBoard();
   fillDiagonal(board);
@@ -176,8 +167,6 @@ function generateWindoku(): Board {
  * @returns Valid Anti-Knight board
  */
 function generateAntiKnight(): Board {
-  console.log('🎲 Generating Anti-Knight Sudoku...');
-
   const maxAttempts = 50;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -186,12 +175,10 @@ function generateAntiKnight(): Board {
 
     // Try to fill with anti-knight constraints
     if (fillRemaining(board, 0, BOX_SIZE, 'ANTI_KNIGHT', { count: 0 })) {
-      console.log(`✅ Anti-Knight Sudoku generated successfully on attempt ${attempt + 1}`);
       return board;
     }
   }
 
-  console.warn(`❌ Could not generate valid Anti-Knight after ${maxAttempts} attempts, using classic`);
   // Fallback to classic
   const board = createEmptyBoard();
   fillDiagonal(board);
@@ -220,8 +207,6 @@ const BASE_ANTI_KING_SUDOKU: Board = [
  * @returns Valid Anti-King board
  */
 function generateAntiKing(): Board {
-  console.log('🎲 Generating Anti-King Sudoku...');
-
   // Create a deep copy of the base template
   const board: Board = BASE_ANTI_KING_SUDOKU.map(row => [...row]) as Board;
 
@@ -242,7 +227,6 @@ function generateAntiKing(): Board {
     }
   }
 
-  console.log('✅ Anti-King Sudoku generated using template with digit permutation');
   return board;
 }
 
@@ -267,8 +251,6 @@ const BASE_NON_CONSECUTIVE_SUDOKU: Board = [
  * @returns Valid Non-Consecutive board
  */
 function generateNonConsecutive(): Board {
-  console.log('🎲 Generating Non-Consecutive Sudoku...');
-
   // Create a deep copy of the base template
   const board: Board = BASE_NON_CONSECUTIVE_SUDOKU.map(row => [...row]) as Board;
 
@@ -289,7 +271,6 @@ function generateNonConsecutive(): Board {
     }
   }
 
-  console.log('✅ Non-Consecutive Sudoku generated using template with digit permutation');
   return board;
 }
 
