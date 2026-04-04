@@ -16,12 +16,14 @@ export function DifficultySelector({ currentDifficulty, onDifficultyChange, disa
   const difficulties = Object.keys(DIFFICULTY_LEVELS) as DifficultyLevel[];
 
   return (
-    <div className="flex gap-2 flex-wrap">
+    <div className="flex gap-2 flex-wrap" role="radiogroup" aria-label={t('game.difficulty')}>
       {difficulties.map((level) => (
         <button
           key={level}
           onClick={() => onDifficultyChange(level)}
           disabled={disabled}
+          role="radio"
+          aria-checked={currentDifficulty === level}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             currentDifficulty === level
               ? 'bg-blue-600 text-white'

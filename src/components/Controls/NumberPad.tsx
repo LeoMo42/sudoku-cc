@@ -15,7 +15,7 @@ export function NumberPad({ onNumberClick, onClear, disabled }: NumberPadProps) 
   const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" role="group" aria-label={t('game.numberInput')}>
       {/* 3x3 grid for numbers */}
       <div className="grid grid-cols-3 gap-2">
         {numbers.map((num) => (
@@ -25,6 +25,7 @@ export function NumberPad({ onNumberClick, onClear, disabled }: NumberPadProps) 
             disabled={disabled}
             variant="secondary"
             className="w-12 h-12 sm:w-14 sm:h-14 text-lg font-bold"
+            aria-label={String(num)}
           >
             {num}
           </Button>
