@@ -1,4 +1,4 @@
-import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, DIFFICULTY_LEVELS, WINDOKU_WINDOWS } from './constants';
+import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, DIFFICULTY_LEVELS } from './constants';
 import { isValidMove, copyBoard } from './sudokuValidator';
 import { hasUniqueSolution } from './sudokuSolver';
 import type {
@@ -92,28 +92,20 @@ const BASE_X_SUDOKU: Board = [
   [8, 2, 9, 7, 6, 5, 1, 3, 4],
 ] as Board;
 
+
 /**
- * Check if all Windoku windows are valid (contain all digits 1-9)
- * @param board - The board to check
- * @returns True if all windows are valid
+ * Apply a random digit permutation to a template board
+ * Preserves all structural constraints (rows, cols, boxes, variant-specific)
  */
-function areWindowsValid(board: Board): boolean {
-  for (const window of WINDOKU_WINDOWS) {
-    const digits = new Set<CellValue>();
-    for (let i = 0; i < BOX_SIZE; i++) {
-      for (let j = 0; j < BOX_SIZE; j++) {
-        const value = board[window.row + i][window.col + j];
-        if (value === EMPTY_CELL || digits.has(value)) {
-          return false;
-        }
-        digits.add(value);
-      }
-    }
-    if (digits.size !== GRID_SIZE) {
-      return false;
+function permuteTemplate(template: Board): Board {
+  const permutation = shuffle<CellValue>([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const board = createEmptyBoard();
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      board[r][c] = permutation[template[r][c] - 1];
     }
   }
-  return true;
+  return board;
 }
 
 /**
@@ -121,69 +113,55 @@ function areWindowsValid(board: Board): boolean {
  * @returns Valid X-Sudoku board
  */
 function generateXSudoku(): Board {
-  // Create a random permutation of digits 1-9
-  const permutation = shuffle<CellValue>([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-
-  // Apply permutation to base template
-  const board = createEmptyBoard();
-  for (let r = 0; r < GRID_SIZE; r++) {
-    for (let c = 0; c < GRID_SIZE; c++) {
-      const originalDigit = BASE_X_SUDOKU[r][c];
-      board[r][c] = permutation[originalDigit - 1];
-    }
-  }
-
-  return board;
+  return permuteTemplate(BASE_X_SUDOKU);
 }
 
 /**
- * Generate Windoku by trying classic sudoku until windows are valid
+ * Base valid Windoku template (generated via backtracking with window constraints)
+ * Windows at (1,1), (1,5), (5,1), (5,5) each contain digits 1-9
+ */
+const BASE_WINDOKU: Board = [
+  [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  [4, 5, 6, 7, 8, 9, 1, 2, 3],
+  [7, 8, 9, 1, 2, 3, 4, 5, 6],
+  [5, 3, 4, 2, 9, 7, 8, 6, 1],
+  [2, 1, 7, 8, 6, 5, 3, 9, 4],
+  [6, 9, 8, 3, 1, 4, 5, 7, 2],
+  [3, 4, 2, 6, 7, 8, 9, 1, 5],
+  [9, 7, 1, 5, 4, 2, 6, 3, 8],
+  [8, 6, 5, 9, 3, 1, 2, 4, 7],
+] as Board;
+
+/**
+ * Generate Windoku using template-based approach with digit permutations
  * @returns Valid Windoku board
  */
 function generateWindoku(): Board {
-  const maxAttempts = 100;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    // Generate a classic sudoku
-    const board = createEmptyBoard();
-    fillDiagonal(board);
-    fillRemaining(board, 0, BOX_SIZE, 'CLASSIC', { count: 0 });
-
-    // Check if windows are valid
-    if (areWindowsValid(board)) {
-      return board;
-    }
-  }
-
-  // Fallback to classic
-  const board = createEmptyBoard();
-  fillDiagonal(board);
-  fillRemaining(board, 0, BOX_SIZE, 'CLASSIC', { count: 0 });
-  return board;
+  return permuteTemplate(BASE_WINDOKU);
 }
 
 /**
- * Generate Anti-Knight Sudoku using backtracking with knight constraints
+ * Base valid Anti-Knight template (generated via backtracking with knight constraints)
+ * No two cells a knight's move apart contain the same digit
+ */
+const BASE_ANTI_KNIGHT: Board = [
+  [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  [4, 5, 6, 7, 8, 9, 1, 2, 3],
+  [7, 8, 9, 1, 2, 3, 4, 5, 6],
+  [2, 3, 1, 5, 6, 4, 8, 9, 7],
+  [5, 6, 4, 8, 9, 7, 2, 3, 1],
+  [8, 9, 7, 2, 3, 1, 5, 6, 4],
+  [3, 1, 2, 6, 4, 5, 9, 7, 8],
+  [6, 4, 5, 9, 7, 8, 3, 1, 2],
+  [9, 7, 8, 3, 1, 2, 6, 4, 5],
+] as Board;
+
+/**
+ * Generate Anti-Knight Sudoku using template-based approach with digit permutations
  * @returns Valid Anti-Knight board
  */
 function generateAntiKnight(): Board {
-  const maxAttempts = 50;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const board = createEmptyBoard();
-    fillDiagonal(board);
-
-    // Try to fill with anti-knight constraints
-    if (fillRemaining(board, 0, BOX_SIZE, 'ANTI_KNIGHT', { count: 0 })) {
-      return board;
-    }
-  }
-
-  // Fallback to classic
-  const board = createEmptyBoard();
-  fillDiagonal(board);
-  fillRemaining(board, 0, BOX_SIZE, 'CLASSIC', { count: 0 });
-  return board;
+  return permuteTemplate(BASE_ANTI_KNIGHT);
 }
 
 /**
@@ -207,27 +185,7 @@ const BASE_ANTI_KING_SUDOKU: Board = [
  * @returns Valid Anti-King board
  */
 function generateAntiKing(): Board {
-  // Create a deep copy of the base template
-  const board: Board = BASE_ANTI_KING_SUDOKU.map(row => [...row]) as Board;
-
-  // Apply random digit permutations
-  const digits: CellValue[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  const shuffledDigits = shuffle<CellValue>([...digits]);
-
-  // Create permutation mapping
-  const permutation: Record<number, CellValue> = {};
-  for (let i = 0; i < 9; i++) {
-    permutation[digits[i]] = shuffledDigits[i];
-  }
-
-  // Apply permutation to the board
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
-      board[row][col] = permutation[board[row][col]];
-    }
-  }
-
-  return board;
+  return permuteTemplate(BASE_ANTI_KING_SUDOKU);
 }
 
 /**
@@ -251,27 +209,7 @@ const BASE_NON_CONSECUTIVE_SUDOKU: Board = [
  * @returns Valid Non-Consecutive board
  */
 function generateNonConsecutive(): Board {
-  // Create a deep copy of the base template
-  const board: Board = BASE_NON_CONSECUTIVE_SUDOKU.map(row => [...row]) as Board;
-
-  // Apply random digit permutations
-  const digits: CellValue[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  const shuffledDigits = shuffle<CellValue>([...digits]);
-
-  // Create permutation mapping
-  const permutation: Record<number, CellValue> = {};
-  for (let i = 0; i < 9; i++) {
-    permutation[digits[i]] = shuffledDigits[i];
-  }
-
-  // Apply permutation to the board
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
-      board[row][col] = permutation[board[row][col]];
-    }
-  }
-
-  return board;
+  return permuteTemplate(BASE_NON_CONSECUTIVE_SUDOKU);
 }
 
 /**
