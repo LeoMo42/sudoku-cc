@@ -57,7 +57,7 @@ export function getSolution(board: Board, sudokuType: SudokuTypeId = 'CLASSIC'):
  * @param {string} sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns {number} - Number of solutions found (capped at limit)
  */
-export function countSolutions(board: Board, limit: number = 2, sudokuType: SudokuTypeId = 'CLASSIC'): number {
+function countSolutions(board: Board, limit: number = 2, sudokuType: SudokuTypeId = 'CLASSIC'): number {
   let count = 0;
 
   function solve(currentBoard: Board): void {

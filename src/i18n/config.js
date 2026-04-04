@@ -29,4 +29,4 @@ i18n.on('languageChanged', (lng) => {
   localStorage.setItem('language', lng);
 });
 
-export default i18n;
+// Imported for side effects in main.tsx (no default export needed)
