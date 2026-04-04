@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useCallback, useRef, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGameState } from '../../hooks/useGameState';
 import { useTimer } from '../../hooks/useTimer';
@@ -186,63 +186,103 @@ export function GameContainer() {
     return map;
   }, [state.activeHint]);
 
+  // Responsive board scaling: measure container width and scale board to fit
+  const boardContainerRef = useRef<HTMLDivElement>(null);
+  const [boardScale, setBoardScale] = useState(1);
+
+  // Native board width varies by variant
+  const nativeBoardWidth = state.sudokuType === 'LITTLE_KILLER' ? 536
+    : state.sudokuType === 'SANDWICH' ? 506
+    : 466; // 450 grid + 16 padding (p-2 = 8px * 2)
+
+  useEffect(() => {
+    const container = boardContainerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const availableWidth = entry.contentRect.width;
+        const scale = Math.min(1, availableWidth / nativeBoardWidth);
+        setBoardScale(scale);
+      }
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [nativeBoardWidth]);
+
+  const boardElement = (
+    <Board
+      board={state.board}
+      initialBoard={state.initialBoard}
+      selectedCell={state.selectedCell}
+      errors={state.errors}
+      notes={state.notes}
+      sudokuType={state.sudokuType}
+      oddEvenMarkers={state.oddEvenMarkers}
+      kropkiDots={state.kropkiDots}
+      killerCages={state.killerCages}
+      littleKillerClues={state.littleKillerClues as never}
+      greaterThanSigns={state.greaterThanSigns}
+      thermos={state.thermos}
+      sandwichClues={state.sandwichClues}
+      hintHighlights={hintHighlights}
+      onCellClick={handleCellClick}
+    />
+  );
+
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
+    <div className="min-h-screen bg-gray-100 py-4 px-2 sm:py-8 sm:px-4">
       <div className="max-w-6xl mx-auto">
         {/* Header with title and language switcher */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-4xl font-bold text-gray-900">
+        <div className="flex items-center justify-between mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900">
             {t('game.title')}
           </h1>
           <LanguageSwitcher />
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 items-start justify-center">
           {/* Left side - Board with Type and Difficulty */}
-          <div className="flex flex-col gap-4">
-            {/* Sudoku Type Selector */}
-            <div className="bg-white rounded-lg shadow-md p-4">
-              <h3 className="text-sm font-medium text-gray-600 mb-3">
-                {t('game.type', 'Тип:')}
-              </h3>
-              <SudokuTypeSelector
-                currentType={state.sudokuType}
-                onTypeChange={handleTypeChange}
-                disabled={false}
-              />
+          <div className="flex flex-col gap-3 lg:gap-4 w-full lg:w-auto">
+            {/* Type + Difficulty row on mobile, stacked on desktop */}
+            <div className="flex flex-col sm:flex-row lg:flex-col gap-3 lg:gap-4">
+              {/* Sudoku Type Selector */}
+              <div className="bg-white rounded-lg shadow-md p-3 sm:p-4 flex-1 lg:flex-none">
+                <h3 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
+                  {t('game.type', 'Тип:')}
+                </h3>
+                <SudokuTypeSelector
+                  currentType={state.sudokuType}
+                  onTypeChange={handleTypeChange}
+                  disabled={false}
+                />
+              </div>
+
+              {/* Difficulty Selector */}
+              <div className="bg-white rounded-lg shadow-md p-3 sm:p-4 flex-1 lg:flex-none">
+                <h3 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
+                  {t('game.difficulty')}
+                </h3>
+                <DifficultySelector
+                  currentDifficulty={state.difficulty}
+                  onDifficultyChange={handleDifficultyChange}
+                  disabled={false}
+                />
+              </div>
             </div>
 
-            {/* Difficulty Selector */}
-            <div className="bg-white rounded-lg shadow-md p-4">
-              <h3 className="text-sm font-medium text-gray-600 mb-3">
-                {t('game.difficulty')}
-              </h3>
-              <DifficultySelector
-                currentDifficulty={state.difficulty}
-                onDifficultyChange={handleDifficultyChange}
-                disabled={false}
-              />
-            </div>
-
-            {/* Board */}
-            <div className="flex flex-col items-center">
-              <Board
-                board={state.board}
-                initialBoard={state.initialBoard}
-                selectedCell={state.selectedCell}
-                errors={state.errors}
-                notes={state.notes}
-                sudokuType={state.sudokuType}
-                oddEvenMarkers={state.oddEvenMarkers}
-                kropkiDots={state.kropkiDots}
-                killerCages={state.killerCages}
-                littleKillerClues={state.littleKillerClues as never}
-                greaterThanSigns={state.greaterThanSigns}
-                thermos={state.thermos}
-                sandwichClues={state.sandwichClues}
-                hintHighlights={hintHighlights}
-                onCellClick={handleCellClick}
-              />
+            {/* Board - responsive scaling */}
+            <div ref={boardContainerRef} className="flex flex-col items-center w-full">
+              <div
+                style={{
+                  transform: `scale(${boardScale})`,
+                  transformOrigin: 'top center',
+                  height: boardScale < 1 ? `${nativeBoardWidth * boardScale}px` : 'auto',
+                }}
+              >
+                {boardElement}
+              </div>
 
               {/* Odd-Even Legend */}
               {state.sudokuType === 'ODD_EVEN' && <OddEvenLegend />}
@@ -250,9 +290,9 @@ export function GameContainer() {
           </div>
 
           {/* Right side - Controls */}
-          <div className="flex flex-col gap-6 w-full lg:w-auto">
-            {/* Timer and Status */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex flex-col gap-4 lg:gap-6 w-full lg:w-auto">
+            {/* Timer and Game Controls - combined on mobile */}
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm font-medium text-gray-600">{t('game.time')}</span>
                 <div className="flex items-center gap-3">
@@ -277,7 +317,7 @@ export function GameContainer() {
             </div>
 
             {/* Game Controls */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
               <GameControls
                 onNewGame={handleNewGame}
                 onCheck={actions.checkSolution}
@@ -300,20 +340,18 @@ export function GameContainer() {
             />
 
             {/* Number Pad */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
               <h3 className="text-sm font-medium text-gray-600 mb-3 text-center">
                 {t('game.numberInput')}
               </h3>
               <div className="flex justify-center">
-                <div className="max-w-[180px]">
-                  <NumberPad
-                    onNumberClick={handleNumberClick}
-                    onClear={handleClear}
-                    disabled={
-                      !state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING
-                    }
-                  />
-                </div>
+                <NumberPad
+                  onNumberClick={handleNumberClick}
+                  onClear={handleClear}
+                  disabled={
+                    !state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING
+                  }
+                />
               </div>
               <p className="text-xs text-gray-500 mt-3 text-center">
                 {t('controls.keyboard')}

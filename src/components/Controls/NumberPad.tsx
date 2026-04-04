@@ -24,7 +24,7 @@ export function NumberPad({ onNumberClick, onClear, disabled }: NumberPadProps) 
             onClick={() => onNumberClick(num)}
             disabled={disabled}
             variant="secondary"
-            className="w-14 h-14 text-lg font-bold"
+            className="w-12 h-12 sm:w-14 sm:h-14 text-lg font-bold"
           >
             {num}
           </Button>
