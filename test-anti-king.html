@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anti-King Sudoku Test</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #1a1a1a;
+      color: #00ff00;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(9, 30px);
+      gap: 1px;
+      background: #444;
+      margin: 20px 0;
+      width: fit-content;
+    }
+    .cell {
+      width: 30px;
+      height: 30px;
+      background: #2a2a2a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .violation {
+      background: #ff3333 !important;
+      color: white;
+      font-weight: bold;
+    }
+    .success {
+      color: #00ff00;
+    }
+    .error {
+      color: #ff3333;
+    }
+    pre {
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Anti-King Sudoku Validation Test</h1>
+  <p>Testing Anti-King Sudoku from <a href="https://sortedpuzzles.com/anti-king-sudoku-king-5-010p/" target="_blank" style="color: #00aaff;">sortedpuzzles.com</a></p>
+
+  <div id="output"></div>
+  <div id="grid"></div>
+
+  <script type="module">
+    // Anti-King Sudoku solution
+    const antiKingSolution = [
+      [7, 8, 4, 3, 9, 5, 1, 2, 6],
+      [6, 9, 5, 2, 1, 7, 3, 4, 8],
+      [2, 3, 1, 4, 6, 8, 5, 9, 7],
+      [8, 7, 9, 5, 2, 4, 6, 3, 1],
+      [1, 5, 6, 8, 3, 9, 2, 7, 4],
+      [3, 4, 2, 1, 7, 6, 8, 5, 9],
+      [5, 6, 7, 9, 8, 3, 4, 1, 2],
+      [9, 2, 3, 6, 4, 1, 7, 8, 5],
+      [4, 1, 8, 7, 5, 2, 9, 6, 3]
+    ];
+
+    const KING_MOVES = [
+      { row: -1, col: -1 }, { row: -1, col: 0 }, { row: -1, col: 1 },
+      { row: 0, col: -1 }, { row: 0, col: 1 },
+      { row: 1, col: -1 }, { row: 1, col: 0 }, { row: 1, col: 1 }
+    ];
+
+    const output = document.getElementById('output');
+    const gridDiv = document.getElementById('grid');
+
+    let log = '';
+    function println(text = '', isError = false) {
+      log += `<div class="${isError ? 'error' : 'success'}">${text}</div>`;
+    }
+
+    println('═══════════════════════════════════════');
+    println('🔍 TESTING ANTI-KING SUDOKU');
+    println('═══════════════════════════════════════');
+    println();
+
+    // Test 1: Check basic Sudoku rules
+    println('Test 1: Checking basic Sudoku rules...');
+    let basicValid = true;
+
+    // Check rows
+    for (let row = 0; row < 9; row++) {
+      const rowSet = new Set(antiKingSolution[row]);
+      if (rowSet.size !== 9) {
+        println(`  ❌ Row ${row} has duplicates`, true);
+        basicValid = false;
+      }
+    }
+
+    // Check columns
+    for (let col = 0; col < 9; col++) {
+      const colSet = new Set(antiKingSolution.map(row => row[col]));
+      if (colSet.size !== 9) {
+        println(`  ❌ Column ${col} has duplicates`, true);
+        basicValid = false;
+      }
+    }
+
+    // Check 3x3 boxes
+    for (let boxRow = 0; boxRow < 3; boxRow++) {
+      for (let boxCol = 0; boxCol < 3; boxCol++) {
+        const boxNums = [];
+        for (let i = 0; i < 3; i++) {
+          for (let j = 0; j < 3; j++) {
+            boxNums.push(antiKingSolution[boxRow * 3 + i][boxCol * 3 + j]);
+          }
+        }
+        const boxSet = new Set(boxNums);
+        if (boxSet.size !== 9) {
+          println(`  ❌ Box [${boxRow},${boxCol}] has duplicates`, true);
+          basicValid = false;
+        }
+      }
+    }
+
+    if (basicValid) {
+      println('  ✅ All rows, columns, and boxes are valid');
+    }
+    println();
+
+    // Test 2: Check Anti-King constraint
+    println('Test 2: Checking Anti-King constraint...');
+    println('  (No two adjacent cells can have the same digit)');
+
+    const violations = new Set();
+    let violationCount = 0;
+
+    for (let row = 0; row < 9; row++) {
+      for (let col = 0; col < 9; col++) {
+        const num = antiKingSolution[row][col];
+
+        for (const move of KING_MOVES) {
+          const newRow = row + move.row;
+          const newCol = col + move.col;
+
+          if (newRow >= 0 && newRow < 9 && newCol >= 0 && newCol < 9) {
+            if (antiKingSolution[newRow][newCol] === num) {
+              violations.add(`${row},${col}`);
+              violations.add(`${newRow},${newCol}`);
+              violationCount++;
+              println(`  ❌ Cells [${row},${col}] and [${newRow},${newCol}] both have ${num}`, true);
+            }
+          }
+        }
+      }
+    }
+
+    if (violationCount === 0) {
+      println('  ✅ No adjacent cells have the same digit');
+    } else {
+      println(`  ❌ Found ${violationCount} Anti-King violations`, true);
+    }
+    println();
+
+    // Summary
+    println('═══════════════════════════════════════');
+    println('SUMMARY:');
+    println('═══════════════════════════════════════');
+
+    if (basicValid && violationCount === 0) {
+      println('🎉 SUCCESS! This is a valid Anti-King Sudoku');
+      println('✅ All constraints satisfied');
+    } else {
+      println('❌ FAILURE! Issues detected:', true);
+      if (!basicValid) println('  - Basic Sudoku rules violated', true);
+      if (violationCount > 0) println(`  - ${violationCount} Anti-King violations`, true);
+    }
+    println('═══════════════════════════════════════');
+
+    output.innerHTML = `<pre>${log}</pre>`;
+
+    // Draw grid
+    gridDiv.className = 'grid';
+    for (let row = 0; row < 9; row++) {
+      for (let col = 0; col < 9; col++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.textContent = antiKingSolution[row][col];
+
+        if (violations.has(`${row},${col}`)) {
+          cell.classList.add('violation');
+        }
+
+        gridDiv.appendChild(cell);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -21,11 +21,62 @@
     @apply bg-red-100 text-red-600;
   }
 
+  /* Hint highlighting */
+  .cell-hint-target {
+    @apply bg-emerald-200 ring-2 ring-emerald-500;
+  }
+  .cell-hint-cause {
+    @apply bg-violet-100 ring-1 ring-violet-400;
+  }
+  .cell-hint-eliminate {
+    @apply bg-orange-100 ring-1 ring-orange-400;
+  }
+
   .cell-selected {
     @apply ring-2 ring-blue-500;
   }
 
   .cell-highlighted {
     @apply bg-blue-50;
+  }
+
+  .cell-diagonal {
+    @apply bg-purple-100;
+  }
+
+  .cell-diagonal.cell-initial {
+    @apply bg-purple-200;
+  }
+
+  .cell-diagonal.cell-highlighted {
+    @apply bg-purple-100;
+  }
+
+  .cell-window {
+    @apply bg-green-100;
+  }
+
+  .cell-window.cell-initial {
+    @apply bg-green-200;
+  }
+
+  .cell-window.cell-highlighted {
+    @apply bg-green-100;
+  }
+
+  .cell-knight-target {
+    @apply bg-amber-100;
+  }
+
+  .cell-knight-target.cell-initial {
+    @apply bg-amber-200;
+  }
+
+  .cell-king-diagonal {
+    @apply bg-teal-100;
+  }
+
+  .cell-king-diagonal.cell-initial {
+    @apply bg-teal-200;
   }
 }
