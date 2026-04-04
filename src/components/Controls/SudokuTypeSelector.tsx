@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SUDOKU_TYPES } from '../../utils/constants';
 import type { SudokuTypeId } from '../../types/index';
@@ -10,36 +11,108 @@ interface SudokuTypeSelectorProps {
 
 /**
  * Sudoku type selector component
+ * Renders as a dropdown on mobile, full button list on large screens
  */
 export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: SudokuTypeSelectorProps) {
   const { t } = useTranslation();
   const types = Object.values(SUDOKU_TYPES);
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
 
   return (
-    <div className="flex flex-col gap-2">
-      {types.map((type) => (
+    <>
+      {/* Mobile/tablet: collapsible dropdown */}
+      <div className="lg:hidden" ref={dropdownRef}>
         <button
-          key={type.id}
-          onClick={() => onTypeChange(type.id)}
+          onClick={() => setOpen(!open)}
           disabled={disabled}
-          className={`
-            px-4 py-3 rounded-lg font-medium transition-colors text-left
-            ${
-              currentType === type.id
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-            }
-            disabled:opacity-50 disabled:cursor-not-allowed
-          `}
+          className="w-full px-4 py-3 rounded-lg font-medium bg-purple-600 text-white text-left flex items-center justify-between disabled:opacity-50"
         >
-          <div className="font-bold text-sm">
-            {t(`sudokuTypes.${type.id}.name`)}
+          <div>
+            <div className="font-bold text-sm">
+              {t(`sudokuTypes.${currentType}.name`)}
+            </div>
+            <div className="text-xs opacity-90 mt-0.5">
+              {t(`sudokuTypes.${currentType}.description`)}
+            </div>
           </div>
-          <div className="text-xs opacity-90 mt-1">
-            {t(`sudokuTypes.${type.id}.description`)}
-          </div>
+          <svg
+            className={`w-5 h-5 ml-2 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
-      ))}
-    </div>
+
+        {open && (
+          <div className="mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50 relative">
+            {types.map((type) => (
+              <button
+                key={type.id}
+                onClick={() => {
+                  onTypeChange(type.id);
+                  setOpen(false);
+                }}
+                disabled={disabled}
+                className={`
+                  w-full px-4 py-2.5 text-left transition-colors border-b border-gray-100 last:border-b-0
+                  ${currentType === type.id
+                    ? 'bg-purple-50 text-purple-700'
+                    : 'text-gray-900 hover:bg-gray-50'
+                  }
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+              >
+                <div className="font-bold text-sm">
+                  {t(`sudokuTypes.${type.id}.name`)}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {t(`sudokuTypes.${type.id}.description`)}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: full button list */}
+      <div className="hidden lg:flex flex-col gap-2">
+        {types.map((type) => (
+          <button
+            key={type.id}
+            onClick={() => onTypeChange(type.id)}
+            disabled={disabled}
+            className={`
+              px-4 py-3 rounded-lg font-medium transition-colors text-left
+              ${
+                currentType === type.id
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+              }
+              disabled:opacity-50 disabled:cursor-not-allowed
+            `}
+          >
+            <div className="font-bold text-sm">
+              {t(`sudokuTypes.${type.id}.name`)}
+            </div>
+            <div className="text-xs opacity-90 mt-1">
+              {t(`sudokuTypes.${type.id}.description`)}
+            </div>
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
