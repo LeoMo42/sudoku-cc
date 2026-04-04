@@ -13,7 +13,7 @@ export function OddEvenLegend() {
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded-full bg-blue-400 border border-blue-600" />
           <span className="text-gray-700 font-medium">
-            {t('oddEven.odd', 'Нечетные')}: 1, 3, 5, 7, 9
+            {t('oddEven.odd')}: 1, 3, 5, 7, 9
           </span>
         </div>
 
@@ -21,7 +21,7 @@ export function OddEvenLegend() {
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-orange-400 border border-orange-600" />
           <span className="text-gray-700 font-medium">
-            {t('oddEven.even', 'Четные')}: 2, 4, 6, 8
+            {t('oddEven.even')}: 2, 4, 6, 8
           </span>
         </div>
       </div>
