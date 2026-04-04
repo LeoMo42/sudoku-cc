@@ -38,6 +38,8 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
         <button
           onClick={() => setOpen(!open)}
           disabled={disabled}
+          aria-expanded={open}
+          aria-haspopup="listbox"
           className="w-full px-4 py-3 rounded-lg font-medium bg-purple-600 text-white text-left flex items-center justify-between disabled:opacity-50"
         >
           <div>
@@ -57,7 +59,7 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
         </button>
 
         {open && (
-          <div className="mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50 relative">
+          <div className="mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50 relative" role="listbox">
             {types.map((type) => (
               <button
                 key={type.id}

@@ -220,6 +220,8 @@ export function Board({
       <div
         className="grid grid-cols-9 grid-rows-9 gap-0 bg-white relative"
         style={{ width: '450px', height: '450px' }}
+        role="grid"
+        aria-label="Sudoku board"
       >
         {cellGrid}
       </div>
