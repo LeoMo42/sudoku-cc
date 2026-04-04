@@ -337,12 +337,16 @@ export function isValidMove(
 
   // Additional checks for Sandwich Sudoku
   if (sudokuType === 'SANDWICH' && sandwichClues !== null) {
-    // Build row with num placed, check row clue
-    const rowLine = board[row].map((v, c) => c === col ? num : v);
-    if (!checkSandwichLine(rowLine, sandwichClues.rows[row] as number)) return false;
-    // Build col with num placed, check col clue
-    const colLine = board.map((r, ri) => ri === row ? num : r[col]);
-    if (!checkSandwichLine(colLine, sandwichClues.cols[col] as number)) return false;
+    const rowClue = sandwichClues.rows[row];
+    if (rowClue !== null && rowClue !== undefined) {
+      const rowLine = board[row].map((v, c) => c === col ? num : v);
+      if (!checkSandwichLine(rowLine, rowClue)) return false;
+    }
+    const colClue = sandwichClues.cols[col];
+    if (colClue !== null && colClue !== undefined) {
+      const colLine = board.map((r, ri) => ri === row ? num : r[col]);
+      if (!checkSandwichLine(colLine, colClue)) return false;
+    }
   }
 
   // Additional checks for Thermo Sudoku
