@@ -32,7 +32,7 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
   }, [open]);
 
   return (
-    <div ref={dropdownRef}>
+    <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
         disabled={disabled}
@@ -57,10 +57,12 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
       </button>
 
       {open && (
-        <div className="mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50 relative" role="listbox">
+        <div className="absolute mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50" role="listbox">
           {types.map((type) => (
             <button
               key={type.id}
+              role="option"
+              aria-selected={currentType === type.id}
               onClick={() => {
                 onTypeChange(type.id);
                 setOpen(false);
