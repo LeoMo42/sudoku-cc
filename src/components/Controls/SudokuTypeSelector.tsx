@@ -35,6 +35,7 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
+        onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
         disabled={disabled}
         aria-expanded={open}
         aria-haspopup="listbox"
