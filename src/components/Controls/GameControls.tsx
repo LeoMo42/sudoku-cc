@@ -47,7 +47,7 @@ export function GameControls({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex gap-2 flex-wrap">
-        <Button onClick={onNewGame} variant="primary">
+        <Button onClick={onNewGame} variant="primary" data-testid="new-game-button">
           {t('game.newGame')}
         </Button>
 

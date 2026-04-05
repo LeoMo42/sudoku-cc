@@ -1,5 +1,5 @@
 {
-  "ignore": [".claude/**"],
+  "ignore": [".claude/**", "e2e/**"],
   "ignoreDependencies": [
     "@testing-library/react",
     "@testing-library/user-event"

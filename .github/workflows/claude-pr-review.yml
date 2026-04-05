@@ -1,0 +1,86 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    branches: [dev]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  claude-review:
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login == 'LeoMo42'
+    runs-on: ubuntu-latest
+    name: Claude Code Review
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run Claude Code Review
+      uses: anthropics/claude-code-action@v1
+      with:
+        claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        prompt: |
+          REPO: ${{ github.repository }}
+          PR NUMBER: ${{ github.event.pull_request.number }}
+
+          You are reviewing a PR for Sudoku Sensei, a React 19 + TypeScript + Vite sudoku app
+          with 13 variant types (Classic, Diagonal, Killer, Thermo, Sandwich, Kropki, etc.).
+
+          Stack: React 19, TypeScript (strict), Vite 7, Tailwind CSS 3.4, Vitest, Playwright, i18next (ru/en).
+
+          Please review this pull request focusing on:
+
+          ## Code Quality
+          - React best practices (hooks, memo, useCallback)
+          - TypeScript type safety (no `any`, proper generics)
+          - State management (useReducer in GameContext)
+          - Performance (81 cells render on every move, memo matters)
+
+          ## Game Logic
+          - Sudoku constraint validation correctness
+          - Puzzle generation (unique solutions, proper difficulty)
+          - Variant-specific rules (diagonal, anti-knight, sandwich, etc.)
+          - Undo/redo history consistency
+
+          ## Security & Browser Compatibility
+          - localStorage safety (try-catch for private browsing)
+          - Cross-browser issues (Safari/iOS, Firefox)
+          - No XSS in user-facing strings (i18n keys)
+
+          ## Testing
+          - Unit tests present for new logic
+          - E2e tests if UI changes are significant
+          - Edge cases covered (empty board, full board, invalid input)
+
+          ## Your Task:
+
+          1. Use `gh pr diff ${{ github.event.pull_request.number }}` to see the changes
+          2. Review the code thoroughly
+          3. Structure your review with:
+             - Summary: Brief overview of changes
+             - Strengths: What was done well
+             - Critical Issues: Must fix before merge (bugs, data loss, breaking changes)
+             - Important Issues: Should be addressed (performance, best practices)
+             - Suggestions: Nice-to-have improvements
+             - Testing: What to test
+          4. Use `gh pr comment ${{ github.event.pull_request.number }} --body "your review"` to post your review
+
+          **Guidelines:**
+          - Be specific: reference files and line numbers
+          - Explain WHY something is an issue, not just WHAT
+          - Be constructive
+          - Keep it concise, no fluff
+
+          See the CLAUDE.md file in the repository for project context.
+
+        claude_args: '--allowed-tools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh pr list:*)"'
