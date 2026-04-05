@@ -15,8 +15,11 @@ export default defineConfig({
     projects: [
       // Unit tests project
       {
+        extends: true,
         test: {
           name: 'unit',
+          environment: 'jsdom',
+          setupFiles: './src/test/setup.ts',
           include: ['src/**/*.test.{ts,tsx}'],
           exclude: ['node_modules/**', 'src/**/*.stories.tsx']
         }
