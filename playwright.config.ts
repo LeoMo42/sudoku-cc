@@ -8,12 +8,12 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [['list'], ['html']] : 'html',
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: 'http://localhost:4173/sudoku-cc/',
     trace: 'on-first-retry',
   },
   webServer: {
     command: process.env.CI ? 'npx vite preview --port 4173' : 'npx vite build && npx vite preview --port 4173',
-    url: 'http://localhost:4173',
+    url: 'http://localhost:4173/sudoku-cc/',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
