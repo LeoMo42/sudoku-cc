@@ -321,7 +321,7 @@ export function GameContainer() {
                   <button
                     onClick={toggleSound}
                     title={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
-                    className="text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
                   >
                     {soundEnabled ? '🔊' : '🔇'}
                   </button>
