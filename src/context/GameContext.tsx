@@ -95,7 +95,7 @@ export function migrateSavedState(data: Record<string, unknown>): Record<string,
     return { ...data, version: 1 };
   }
 
-  return { ...data };
+  return data;
 }
 
 function cloneNotes(notes: Map<string, Set<number>>): Map<string, Set<number>> {

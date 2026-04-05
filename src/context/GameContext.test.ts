@@ -293,6 +293,24 @@ describe('gameReducer', () => {
       });
       expect(next.activeHint).toBeNull();
     });
+
+    it('should preserve history across load (pre-existing behavior)', () => {
+      let state = createTestState();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5 },
+      });
+      expect(state.history.length).toBe(2);
+
+      const next = gameReducer(state, {
+        type: Actions.LOAD_STATE,
+        payload: {},
+      });
+      // LOAD_STATE currently does not reset history.
+      // TODO: consider resetting history on load to prevent undo into stale state.
+      expect(next.history.length).toBe(2);
+      expect(next.historyIndex).toBe(1);
+    });
   });
 
   describe('CHECK_SOLUTION', () => {
@@ -319,6 +337,8 @@ describe('gameReducer', () => {
       const state = createTestState();
       state.board = solved.map(r => [...r]);
       state.solution = solved.map(r => [...r]);
+      // Realistic initialBoard: some cells are givens, rest are empty
+      state.initialBoard = solved.map(r => r.map((v, i) => i % 3 === 0 ? v : EMPTY_CELL));
       const next = gameReducer(state, { type: Actions.CHECK_SOLUTION });
       expect(next.errors.size).toBe(0);
       expect(next.gameStatus).toBe(GAME_STATUS.COMPLETED);
