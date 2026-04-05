@@ -80,6 +80,29 @@ describe('gameReducer', () => {
       expect(state.notes.has('0,0')).toBe(false);
     });
 
+    it('should clear multiple notes when value is set', () => {
+      let state = createTestState();
+      state = gameReducer(state, {
+        type: Actions.SET_NOTE,
+        payload: { row: 0, col: 0, number: 1 },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_NOTE,
+        payload: { row: 0, col: 0, number: 3 },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_NOTE,
+        payload: { row: 0, col: 0, number: 7 },
+      });
+      expect(state.notes.get('0,0')?.size).toBe(3);
+
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5 },
+      });
+      expect(state.notes.has('0,0')).toBe(false);
+    });
+
     it('should detect row conflicts', () => {
       const state = createTestState();
       state.board[0]![0] = 5;
@@ -280,6 +303,26 @@ describe('gameReducer', () => {
       const next = gameReducer(state, { type: Actions.CHECK_SOLUTION });
       expect(next.errors.size).toBeGreaterThan(0);
     });
+
+    it('should mark game as completed when board is fully solved', () => {
+      const solved = [
+        [5,3,4,6,7,8,9,1,2],
+        [6,7,2,1,9,5,3,4,8],
+        [1,9,8,3,4,2,5,6,7],
+        [8,5,9,7,6,1,4,2,3],
+        [4,2,6,8,5,3,7,9,1],
+        [7,1,3,9,2,4,8,5,6],
+        [9,6,1,5,3,7,2,8,4],
+        [2,8,7,4,1,9,6,3,5],
+        [3,4,5,2,8,6,1,7,9],
+      ];
+      const state = createTestState();
+      state.board = solved.map(r => [...r]);
+      state.solution = solved.map(r => [...r]);
+      const next = gameReducer(state, { type: Actions.CHECK_SOLUTION });
+      expect(next.errors.size).toBe(0);
+      expect(next.gameStatus).toBe(GAME_STATUS.COMPLETED);
+    });
   });
 });
 
@@ -357,6 +400,7 @@ describe('Undo/Redo', () => {
     });
     expect(next.notes.get('0,0')?.has(5)).toBe(true);
     expect(next.history.length).toBe(2);
+    expect(next.historyIndex).toBe(1);
   });
 
   it('should undo a note toggle', () => {
@@ -484,5 +528,11 @@ describe('migrateSavedState', () => {
     const result = migrateSavedState(data);
     expect(result.difficulty).toBe('HARD');
     expect(result.elapsedTime).toBe(99);
+  });
+
+  it('should not mutate the input', () => {
+    const data: Record<string, unknown> = { board: [] };
+    migrateSavedState(data);
+    expect(data.version).toBeUndefined();
   });
 });

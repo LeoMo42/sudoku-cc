@@ -92,10 +92,10 @@ export function migrateSavedState(data: Record<string, unknown>): Record<string,
 
   // Version 0 → 1: add version field (no structural changes needed)
   if (version < 1) {
-    data.version = 1;
+    return { ...data, version: 1 };
   }
 
-  return data;
+  return { ...data };
 }
 
 function cloneNotes(notes: Map<string, Set<number>>): Map<string, Set<number>> {
