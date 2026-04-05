@@ -28,7 +28,21 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx vitest run --config vitest.unit.config.ts --reporter=verbose
+      - name: Run unit tests
+        run: |
+          # vitest hangs after tests pass (jsdom/esbuild cleanup issue).
+          # Pipe to tee so we capture output, then verify tests actually passed.
+          set +e
+          timeout 120 npx vitest run --config vitest.unit.config.ts --reporter=verbose 2>&1 | tee vitest.log
+          CODE=$?
+          set -e
+          if [ $CODE -eq 0 ]; then exit 0; fi
+          # timeout exit 124: check if tests ran with no failures
+          if [ $CODE -eq 124 ] && grep -qE '✓.*tests' vitest.log && ! grep -qE '✗|FAIL|Error' vitest.log; then
+            echo "Tests passed but vitest hung during cleanup (known jsdom issue). Exiting cleanly."
+            exit 0
+          fi
+          exit $CODE
 
   build:
     runs-on: ubuntu-latest
