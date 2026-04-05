@@ -252,8 +252,8 @@ export function Board({
               className="absolute flex flex-col items-center justify-center pointer-events-none"
               style={{ left: `${left}px`, top: `${top}px`, transform: 'translate(-50%, -50%)', width: '30px' }}
             >
-              <span className="text-[11px] font-bold text-indigo-700 leading-tight">{arrow}</span>
-              <span className="text-[10px] font-bold text-gray-800 leading-tight">{clue.sum}</span>
+              <span className="text-[11px] font-bold text-indigo-700 leading-[1.1]">{arrow}</span>
+              <span className="text-[10px] font-bold text-gray-800 leading-[1.1]">{clue.sum}</span>
             </div>
           );
         })}
