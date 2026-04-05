@@ -266,10 +266,10 @@ export function GameContainer() {
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 items-start justify-center">
           {/* Left side - Board with Type and Difficulty */}
           <div className="flex flex-col gap-3 lg:gap-4 w-full lg:w-auto">
-            {/* Type + Difficulty row on mobile, stacked on desktop */}
-            <div className="flex flex-col sm:flex-row lg:flex-col gap-3 lg:gap-4">
+            {/* Type + Difficulty row */}
+            <div className="flex flex-col sm:flex-row gap-3 lg:gap-4">
               {/* Sudoku Type Selector */}
-              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex-1 lg:flex-none">
+              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex-1">
                 <h2 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
                   {t('game.type')}
                 </h2>
@@ -281,7 +281,7 @@ export function GameContainer() {
               </div>
 
               {/* Difficulty Selector */}
-              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex-1 lg:flex-none">
+              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex-1">
                 <h2 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
                   {t('game.difficulty')}
                 </h2>
