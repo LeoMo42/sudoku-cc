@@ -491,6 +491,15 @@ describe('isValidSavedState', () => {
     })).toBe(false);
   });
 
+  it('should reject missing sudokuType', () => {
+    const board = Array(9).fill(null).map(() => Array(9).fill(0));
+    expect(isValidSavedState({
+      board,
+      difficulty: 'EASY',
+      gameStatus: 'playing',
+    })).toBe(false);
+  });
+
   it('should reject missing difficulty', () => {
     const board = Array(9).fill(null).map(() => Array(9).fill(0));
     expect(isValidSavedState({
