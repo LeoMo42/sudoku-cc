@@ -270,9 +270,9 @@ export function GameContainer() {
             <div className="flex flex-col sm:flex-row lg:flex-col gap-3 lg:gap-4">
               {/* Sudoku Type Selector */}
               <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex-1 lg:flex-none">
-                <span className="block text-sm font-medium text-gray-600 mb-2 lg:mb-3">
+                <h2 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
                   {t('game.type')}
-                </span>
+                </h2>
                 <SudokuTypeSelector
                   currentType={state.sudokuType}
                   onTypeChange={handleTypeChange}
@@ -282,9 +282,9 @@ export function GameContainer() {
 
               {/* Difficulty Selector */}
               <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex-1 lg:flex-none">
-                <span className="block text-sm font-medium text-gray-600 mb-2 lg:mb-3">
+                <h2 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
                   {t('game.difficulty')}
-                </span>
+                </h2>
                 <DifficultySelector
                   currentDifficulty={state.difficulty}
                   onDifficultyChange={handleDifficultyChange}
@@ -366,9 +366,9 @@ export function GameContainer() {
 
             {/* Number Pad */}
             <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
-              <span className="block text-sm font-medium text-gray-600 mb-3 text-center">
+              <h2 className="text-sm font-medium text-gray-600 mb-3 text-center">
                 {t('game.numberInput')}
-              </span>
+              </h2>
               <div className="flex justify-center">
                 <NumberPad
                   onNumberClick={handleNumberClick}
