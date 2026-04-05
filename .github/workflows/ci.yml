@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [dev, main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -38,7 +42,7 @@ jobs:
           set -e
           if [ $CODE -eq 0 ]; then exit 0; fi
           # timeout exit 124: check if tests ran with no failures
-          if [ $CODE -eq 124 ] && grep -qE '[1-9][0-9]* tests' vitest.log && ! grep -qE '^\s*(FAIL|×)' vitest.log; then
+          if [ $CODE -eq 124 ] && grep -qE '[1-9][0-9]* tests?' vitest.log && ! grep -qE '^\s*(FAIL|×)' vitest.log; then
             echo "Tests passed but vitest hung during cleanup (known jsdom issue). Exiting cleanly."
             exit 0
           fi
@@ -63,6 +67,7 @@ jobs:
   e2e:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         browser: [chromium, firefox, webkit]
