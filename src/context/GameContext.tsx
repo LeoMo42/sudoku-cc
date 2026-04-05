@@ -383,7 +383,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         errors: new Set(payload.errors || []),
         notes: loadedNotes,
         activeHint: null,
-        history: [{ board: copyBoard(loadedBoard as number[][]), notes: new Map(loadedNotes) }],
+        history: [{ board: copyBoard(loadedBoard as number[][]), notes: cloneNotes(loadedNotes) }],
         historyIndex: 0,
         oddEvenMarkers: payload.oddEvenMarkers ? new Map(payload.oddEvenMarkers) as OddEvenMarkers : null,
         kropkiDots: payload.kropkiDots ? new Map(payload.kropkiDots) as KropkiDots : null,

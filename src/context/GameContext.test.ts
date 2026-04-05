@@ -324,6 +324,23 @@ describe('gameReducer', () => {
       expect(next.history.length).toBe(1);
       expect(next.historyIndex).toBe(0);
     });
+
+    it('should deep-clone notes in history snapshot so edits after load do not corrupt undo', () => {
+      const state = createTestState();
+      const next = gameReducer(state, {
+        type: Actions.LOAD_STATE,
+        payload: { notes: [['0,0', [1, 3]]] },
+      });
+      // Toggle note 1 off — history snapshot should be unaffected
+      const after = gameReducer(next, {
+        type: Actions.SET_NOTE,
+        payload: { row: 0, col: 0, number: 1 },
+      });
+      // Undo should restore the original notes including note 1
+      const undone = gameReducer(after, { type: Actions.UNDO });
+      expect(undone.notes.get('0,0')?.has(1)).toBe(true);
+      expect(undone.notes.get('0,0')?.has(3)).toBe(true);
+    });
   });
 
   describe('CHECK_SOLUTION', () => {
@@ -336,7 +353,8 @@ describe('gameReducer', () => {
     });
 
     it('should mark game as completed when board is fully solved', () => {
-      // Valid Classic Sudoku solution (not exercising variant rules like Diagonal/Anti-Knight)
+      // Valid Classic Sudoku solution. Variant-specific completion tests (Diagonal, Anti-Knight, etc.)
+      // should be added separately as they require variant-valid grids.
       const solved = [
         [5,3,4,6,7,8,9,1,2],
         [6,7,2,1,9,5,3,4,8],
@@ -470,6 +488,8 @@ describe('Undo/Redo', () => {
     state = gameReducer(state, { type: Actions.UNDO });
     state = gameReducer(state, { type: Actions.UNDO });
     expect(state.board[0]![0]).toBe(EMPTY_CELL);
+    expect(state.board[0]![1]).toBe(EMPTY_CELL);
+    expect(state.board[0]![2]).toBe(EMPTY_CELL);
     expect(state.historyIndex).toBe(0);
 
     state = gameReducer(state, { type: Actions.REDO });
@@ -579,7 +599,8 @@ describe('migrateSavedState', () => {
 
   it('should not mutate the input', () => {
     const data: Record<string, unknown> = { board: [] };
-    migrateSavedState(data);
+    const result = migrateSavedState(data);
     expect(data.version).toBeUndefined();
+    expect(result).not.toBe(data);
   });
 });
