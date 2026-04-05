@@ -14,12 +14,18 @@ export function useSound(): UseSoundReturn {
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
-    const saved = localStorage.getItem(SOUND_ENABLED_KEY);
-    return saved === null ? true : saved === 'true';
+    try {
+      const saved = localStorage.getItem(SOUND_ENABLED_KEY);
+      return saved === null ? true : saved === 'true';
+    } catch {
+      return true;
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem(SOUND_ENABLED_KEY, String(soundEnabled));
+    try {
+      localStorage.setItem(SOUND_ENABLED_KEY, String(soundEnabled));
+    } catch { /* private browsing or quota exceeded */ }
   }, [soundEnabled]);
 
   const getCtx = useCallback((): AudioContext => {

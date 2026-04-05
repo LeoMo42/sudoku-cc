@@ -22,6 +22,14 @@
     "react-dom": "^19.2.0",
     "react-i18next": "^16.5.4"
   },
+  "browserslist": [
+    ">0.5%",
+    "last 2 versions",
+    "Firefox ESR",
+    "not dead",
+    "iOS >= 14",
+    "Safari >= 14"
+  ],
   "devDependencies": {
     "@chromatic-com/storybook": "^5.0.1",
     "@eslint/js": "^9.39.1",
