@@ -38,7 +38,7 @@ jobs:
           set -e
           if [ $CODE -eq 0 ]; then exit 0; fi
           # timeout exit 124: check if tests ran with no failures
-          if [ $CODE -eq 124 ] && grep -qE '✓.*tests' vitest.log && ! grep -qE '✗|FAIL|Error' vitest.log; then
+          if [ $CODE -eq 124 ] && grep -qE '[0-9]+ tests' vitest.log && ! grep -qiE 'FAIL|failed|error' vitest.log; then
             echo "Tests passed but vitest hung during cleanup (known jsdom issue). Exiting cleanly."
             exit 0
           fi
@@ -54,6 +54,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx vite build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
 
   e2e:
     needs: build
@@ -68,6 +73,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
       - run: npx playwright install --with-deps ${{ matrix.browser }}
       - run: npx playwright test --project=${{ matrix.browser }}
       - uses: actions/upload-artifact@v4
