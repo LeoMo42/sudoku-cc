@@ -370,7 +370,7 @@ export function GameContainer() {
                 {t('game.numberInput')}
               </h2>
               {!state.selectedCell && state.gameStatus === GAME_STATUS.PLAYING && (
-                <p className="text-xs text-blue-500 mb-3 text-center">
+                <p className="text-xs text-blue-500 mb-3 text-center" aria-live="polite">
                   {t('game.selectCellHint')}
                 </p>
               )}

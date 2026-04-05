@@ -17,7 +17,7 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
   const { t } = useTranslation();
   const types = Object.values(SUDOKU_TYPES);
   const [open, setOpen] = useState(false);
-  const [showScrollHint, setShowScrollHint] = useState(false);
+  const [showScrollHint, setShowScrollHint] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listboxRef = useRef<HTMLDivElement>(null);
@@ -48,14 +48,15 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
     }
   }, [open]);
 
-  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
+  const handleScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
     setShowScrollHint(!atBottom);
-  };
+  }, []);
 
   const close = useCallback(() => {
     setOpen(false);
+    setShowScrollHint(true);
     triggerRef.current?.focus();
   }, []);
 
@@ -176,7 +177,7 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
             ))}
           </div>
           {showScrollHint && (
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent rounded-b-lg pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent rounded-b-lg pointer-events-none" aria-hidden="true" />
           )}
         </div>
       )}
