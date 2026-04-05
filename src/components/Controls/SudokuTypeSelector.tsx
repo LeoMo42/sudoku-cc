@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type UIEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SUDOKU_TYPES } from '../../utils/constants';
 import type { SudokuTypeId } from '../../types/index';
@@ -17,6 +17,7 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
   const { t } = useTranslation();
   const types = Object.values(SUDOKU_TYPES);
   const [open, setOpen] = useState(false);
+  const [showScrollHint, setShowScrollHint] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listboxRef = useRef<HTMLDivElement>(null);
@@ -37,13 +38,21 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
     };
   }, [open]);
 
-  // Focus first option when listbox opens, return focus to trigger on close
+  // Focus first option when listbox opens; check if scrollable
   useEffect(() => {
     if (open) {
       const firstOption = listboxRef.current?.querySelector<HTMLButtonElement>('[role="option"]');
       firstOption?.focus();
+      const el = listboxRef.current;
+      if (el) setShowScrollHint(el.scrollHeight > el.clientHeight);
     }
   }, [open]);
+
+  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+    setShowScrollHint(!atBottom);
+  };
 
   const close = useCallback(() => {
     setOpen(false);
@@ -120,49 +129,55 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
       </button>
 
       {open && (
-        <div
-          ref={listboxRef}
-          id={listboxId}
-          className="absolute mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50"
-          role="listbox"
-          aria-labelledby={triggerId}
-          onKeyDown={handleListboxKeyDown}
-        >
-          {types.map((type) => (
-            <button
-              key={type.id}
-              role="option"
-              aria-selected={currentType === type.id}
-              onClick={() => {
-                onTypeChange(type.id);
-                close();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
+        <div className="absolute mt-1 w-full z-50">
+          <div
+            ref={listboxRef}
+            id={listboxId}
+            className="w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+            role="listbox"
+            aria-labelledby={triggerId}
+            onKeyDown={handleListboxKeyDown}
+            onScroll={handleScroll}
+          >
+            {types.map((type) => (
+              <button
+                key={type.id}
+                role="option"
+                aria-selected={currentType === type.id}
+                onClick={() => {
                   onTypeChange(type.id);
                   close();
-                }
-              }}
-              disabled={disabled}
-              tabIndex={-1}
-              className={`
-                w-full px-4 py-2.5 text-left transition-colors border-b border-gray-100 last:border-b-0
-                ${currentType === type.id
-                  ? 'bg-purple-50 text-purple-700'
-                  : 'text-gray-900 hover:bg-gray-50'
-                }
-                disabled:opacity-50 disabled:cursor-not-allowed
-              `}
-            >
-              <div className="font-bold text-sm">
-                {t(`sudokuTypes.${type.id}.name`)}
-              </div>
-              <div className="text-xs text-gray-500 mt-0.5">
-                {t(`sudokuTypes.${type.id}.description`)}
-              </div>
-            </button>
-          ))}
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onTypeChange(type.id);
+                    close();
+                  }
+                }}
+                disabled={disabled}
+                tabIndex={-1}
+                className={`
+                  w-full px-4 py-2.5 text-left transition-colors border-b border-gray-100 last:border-b-0
+                  ${currentType === type.id
+                    ? 'bg-purple-50 text-purple-700'
+                    : 'text-gray-900 hover:bg-gray-50'
+                  }
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+              >
+                <div className="font-bold text-sm">
+                  {t(`sudokuTypes.${type.id}.name`)}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {t(`sudokuTypes.${type.id}.description`)}
+                </div>
+              </button>
+            ))}
+          </div>
+          {showScrollHint && (
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent rounded-b-lg pointer-events-none" />
+          )}
         </div>
       )}
     </div>

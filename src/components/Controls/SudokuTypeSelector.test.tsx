@@ -17,11 +17,11 @@ describe('SudokuTypeSelector', () => {
   };
 
   it('should close dropdown on touchstart outside', () => {
-    const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+    render(<SudokuTypeSelector {...defaultProps} />);
 
-    // Open the mobile dropdown
-    const button = container.querySelector('.lg\\:hidden button')!;
-    fireEvent.click(button);
+    // Open dropdown via trigger button
+    const trigger = screen.getByRole('button', { expanded: false });
+    fireEvent.click(trigger);
 
     // Dropdown should be open
     expect(screen.getByRole('listbox')).toBeDefined();
@@ -34,10 +34,10 @@ describe('SudokuTypeSelector', () => {
   });
 
   it('should close dropdown on mousedown outside', () => {
-    const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+    render(<SudokuTypeSelector {...defaultProps} />);
 
-    const button = container.querySelector('.lg\\:hidden button')!;
-    fireEvent.click(button);
+    const trigger = screen.getByRole('button', { expanded: false });
+    fireEvent.click(trigger);
 
     expect(screen.getByRole('listbox')).toBeDefined();
 
@@ -48,16 +48,16 @@ describe('SudokuTypeSelector', () => {
 
   it('should call onTypeChange when selecting a type', () => {
     const onTypeChange = vi.fn();
-    const { container } = render(
+    render(
       <SudokuTypeSelector {...defaultProps} onTypeChange={onTypeChange} />
     );
 
     // Open dropdown
-    const button = container.querySelector('.lg\\:hidden button')!;
-    fireEvent.click(button);
+    const trigger = screen.getByRole('button', { expanded: false });
+    fireEvent.click(trigger);
 
     // Click a type option (second one, DIAGONAL)
-    const options = screen.getByRole('listbox').querySelectorAll('button');
+    const options = screen.getAllByRole('option');
     fireEvent.click(options[1]!);
 
     expect(onTypeChange).toHaveBeenCalledWith('DIAGONAL');
