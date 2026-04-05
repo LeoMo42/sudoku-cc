@@ -65,9 +65,6 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     // Wait for game to load
     await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
 
-    // Snapshot initial cell count before clicking new game
-    const initialCount = await page.locator('.cell-initial').count();
-
     const newGameBtn = page.locator('[data-testid="new-game-button"]');
     await expect(newGameBtn).toBeVisible({ timeout: 5000 });
     await newGameBtn.click();
@@ -76,11 +73,7 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     const cells = page.locator('[data-testid="cell"]');
     await expect(cells).toHaveCount(81);
 
-    // Wait for new puzzle to load and verify it changed
+    // Wait for new puzzle to load
     await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
-    const newCount = await page.locator('.cell-initial').count();
-    // Different puzzle almost certainly has different number of initial cells
-    // (or at minimum the grid re-rendered)
-    expect(newCount).toBeGreaterThan(0);
   });
 });
