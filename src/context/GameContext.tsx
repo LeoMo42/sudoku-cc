@@ -69,6 +69,7 @@ const initialState: GameState = {
   historyIndex: -1,
 };
 
+// Structural validation only; cell values and enum variants are not checked here.
 export function isValidSavedState(data: unknown): data is Record<string, unknown> {
   if (!data || typeof data !== 'object') return false;
   const obj = data as Record<string, unknown>;

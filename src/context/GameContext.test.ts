@@ -349,7 +349,8 @@ describe('gameReducer', () => {
       state.board[0]![0] = 5;
       state.board[0]![1] = 5; // duplicate in row
       const next = gameReducer(state, { type: Actions.CHECK_SOLUTION });
-      expect(next.errors.size).toBeGreaterThan(0);
+      expect(next.errors.has('0,0')).toBe(true);
+      expect(next.errors.has('0,1')).toBe(true);
     });
 
     it('should mark game as completed when board is fully solved', () => {
@@ -465,6 +466,7 @@ describe('Undo/Redo', () => {
       type: Actions.SET_NOTE,
       payload: { row: 0, col: 0, number: 5 },
     });
+    expect(state.notes.get('0,0')?.has(5)).toBe(true);
     const undone = gameReducer(state, { type: Actions.UNDO });
     expect(undone.notes.get('0,0')).toBeUndefined();
   });
