@@ -27,7 +27,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx vitest run --project unit
+      - run: npx vitest run --config vitest.unit.config.ts
 
   build:
     runs-on: ubuntu-latest
