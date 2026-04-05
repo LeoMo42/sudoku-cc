@@ -20,6 +20,7 @@ describe('formatTime', () => {
   it('should handle large values', () => {
     expect(formatTime(3600)).toBe('60:00');
     expect(formatTime(5999)).toBe('99:59');
+    expect(formatTime(6000)).toBe('100:00');
   });
 
   it('should pad single digits with leading zero', () => {
