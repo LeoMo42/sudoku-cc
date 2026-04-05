@@ -44,22 +44,17 @@ test.describe('Sudoku Sensei – smoke tests', () => {
   });
 
   test('type selector dropdown opens and closes', async ({ page }) => {
-    // Need mobile viewport for dropdown (desktop uses different component).
-    // beforeEach already navigated, but we need to reload at mobile size.
-    await page.setViewportSize({ width: 375, height: 812 });
-    await page.reload();
-
-    const trigger = page.locator('[aria-haspopup="listbox"]');
+    const trigger = page.locator('[aria-haspopup="true"]');
     await expect(trigger).toBeVisible({ timeout: 5000 });
     await trigger.click();
 
-    // Listbox should appear
-    const listbox = page.locator('[role="listbox"]');
-    await expect(listbox).toBeVisible();
+    // Menu should appear
+    const menu = page.locator('[role="menu"]');
+    await expect(menu).toBeVisible();
 
     // Click outside to close
     await page.mouse.click(10, 10);
-    await expect(listbox).not.toBeVisible();
+    await expect(menu).not.toBeVisible();
   });
 
   test('new game button generates a fresh puzzle', async ({ page }) => {
