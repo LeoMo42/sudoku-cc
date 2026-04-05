@@ -69,8 +69,8 @@ const initialState: GameState = {
   historyIndex: -1,
 };
 
-// Validate that a parsed object looks like a saved game state
-function isValidSavedState(data: unknown): data is Record<string, unknown> {
+// Structural validation only; cell values and enum variants are not checked here.
+export function isValidSavedState(data: unknown): data is Record<string, unknown> {
   if (!data || typeof data !== 'object') return false;
   const obj = data as Record<string, unknown>;
 
@@ -88,13 +88,12 @@ function isValidSavedState(data: unknown): data is Record<string, unknown> {
   return true;
 }
 
-// Migrate saved state from older versions to current
-function migrateSavedState(data: Record<string, unknown>): Record<string, unknown> {
+export function migrateSavedState(data: Record<string, unknown>): Record<string, unknown> {
   const version = typeof data.version === 'number' ? data.version : 0;
 
   // Version 0 → 1: add version field (no structural changes needed)
   if (version < 1) {
-    data.version = 1;
+    return { ...data, version: 1 };
   }
 
   return data;
@@ -377,12 +376,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         kropkiDots?: [string, string][] | null;
         greaterThanSigns?: [string, string][] | null;
       };
+      const loadedNotes = new Map((payload.notes || []).map(([k, v]) => [k, new Set(v)]));
+      const loadedBoard = payload.board ?? state.board;
       return {
         ...state,
         ...payload,
         errors: new Set(payload.errors || []),
-        notes: new Map((payload.notes || []).map(([k, v]) => [k, new Set(v)])),
+        notes: loadedNotes,
         activeHint: null,
+        history: [{ board: copyBoard(loadedBoard as number[][]), notes: cloneNotes(loadedNotes) }],
+        historyIndex: 0,
         oddEvenMarkers: payload.oddEvenMarkers ? new Map(payload.oddEvenMarkers) as OddEvenMarkers : null,
         kropkiDots: payload.kropkiDots ? new Map(payload.kropkiDots) as KropkiDots : null,
         killerCages: payload.killerCages || null,
