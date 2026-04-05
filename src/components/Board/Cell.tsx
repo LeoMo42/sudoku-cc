@@ -133,6 +133,7 @@ export const Cell = memo(function Cell({
       onClick={() => onClick(row, col)}
       role="button"
       tabIndex={0}
+      data-testid="cell"
       aria-label={`R${row + 1}C${col + 1}${value !== EMPTY_CELL ? `: ${value}` : ''}`}
     >
       {/* Thermo: tube segments and bulb/center circle, rendered behind everything */}
