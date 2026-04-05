@@ -252,8 +252,8 @@ export function Board({
               className="absolute flex flex-col items-center justify-center pointer-events-none"
               style={{ left: `${left}px`, top: `${top}px`, transform: 'translate(-50%, -50%)', width: '30px' }}
             >
-              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#4338ca', lineHeight: 1.1 }}>{arrow}</span>
-              <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#1f2937', lineHeight: 1.1 }}>{clue.sum}</span>
+              <span className="text-[11px] font-bold text-indigo-700 leading-tight">{arrow}</span>
+              <span className="text-[10px] font-bold text-gray-800 leading-tight">{clue.sum}</span>
             </div>
           );
         })}
@@ -282,7 +282,7 @@ export function Board({
             className="absolute flex items-center justify-center pointer-events-none"
             style={{ left: `${OFFSET + c * CELL_PX}px`, top: '20px', transform: 'translate(-50%, -50%)' }}
           >
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e40af' }}>{sum}</span>
+            <span className="text-xs font-bold text-blue-800">{sum}</span>
           </div>
         ))}
         {/* Row clues (left of grid) */}
@@ -292,7 +292,7 @@ export function Board({
             className="absolute flex items-center justify-center pointer-events-none"
             style={{ top: `${OFFSET + r * CELL_PX}px`, left: '20px', transform: 'translate(-50%, -50%)' }}
           >
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e40af' }}>{sum}</span>
+            <span className="text-xs font-bold text-blue-800">{sum}</span>
           </div>
         ))}
       </div>

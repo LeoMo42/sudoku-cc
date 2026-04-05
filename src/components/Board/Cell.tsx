@@ -167,14 +167,13 @@ export const Cell = memo(function Cell({
       )}
 
       {/* Killer Sudoku: dashed cage borders */}
-      {cageTop    && <div className="absolute top-0 left-0 right-0 h-0 pointer-events-none z-20" style={{ borderTop:    '2px dashed #7c3aed' }} />}
-      {cageRight  && <div className="absolute top-0 right-0 bottom-0 w-0 pointer-events-none z-20" style={{ borderRight:  '2px dashed #7c3aed' }} />}
-      {cageBottom && <div className="absolute left-0 right-0 bottom-0 h-0 pointer-events-none z-20" style={{ borderBottom: '2px dashed #7c3aed' }} />}
-      {cageLeft   && <div className="absolute top-0 left-0 bottom-0 w-0 pointer-events-none z-20" style={{ borderLeft:   '2px dashed #7c3aed' }} />}
+      {cageTop    && <div className="absolute top-0 left-0 right-0 h-0 pointer-events-none z-20 border-t-2 border-dashed border-violet-600" />}
+      {cageRight  && <div className="absolute top-0 right-0 bottom-0 w-0 pointer-events-none z-20 border-r-2 border-dashed border-violet-600" />}
+      {cageBottom && <div className="absolute left-0 right-0 bottom-0 h-0 pointer-events-none z-20 border-b-2 border-dashed border-violet-600" />}
+      {cageLeft   && <div className="absolute top-0 left-0 bottom-0 w-0 pointer-events-none z-20 border-l-2 border-dashed border-violet-600" />}
       {/* Killer Sudoku: cage sum in top-left corner */}
       {cageSum !== null && (
-        <span className="absolute top-0.5 left-0.5 z-20 pointer-events-none text-violet-700 font-bold leading-none select-none"
-              style={{ fontSize: '9px' }}>
+        <span className="absolute top-0.5 left-0.5 z-20 pointer-events-none text-violet-700 font-bold leading-none select-none text-[9px]">
           {cageSum}
         </span>
       )}
@@ -204,8 +203,7 @@ export const Cell = memo(function Cell({
       {/* Greater Than: inequality sign on right border */}
       {rightSign && col < 8 && (
         <div
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 pointer-events-none flex items-center justify-center bg-white rounded-sm"
-          style={{ fontSize: '9px', fontWeight: 'bold', color: '#4338ca', width: '14px', height: '14px' }}
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 pointer-events-none flex items-center justify-center bg-white rounded-sm w-3.5 h-3.5 text-[9px] font-bold text-indigo-700"
         >
           {rightSign === '>' ? '>' : '<'}
         </div>
@@ -213,8 +211,7 @@ export const Cell = memo(function Cell({
       {/* Greater Than: inequality sign on bottom border */}
       {bottomSign && row < 8 && (
         <div
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-10 pointer-events-none flex items-center justify-center bg-white rounded-sm"
-          style={{ fontSize: '9px', fontWeight: 'bold', color: '#4338ca', width: '14px', height: '14px' }}
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-10 pointer-events-none flex items-center justify-center bg-white rounded-sm w-3.5 h-3.5 text-[9px] font-bold text-indigo-700"
         >
           {bottomSign === '>' ? '∨' : '∧'}
         </div>
