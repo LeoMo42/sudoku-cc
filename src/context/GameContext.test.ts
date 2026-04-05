@@ -161,6 +161,21 @@ describe('gameReducer', () => {
       expect(state.notes.has('0,0')).toBe(false);
     });
 
+    it('should not leave empty Set in notes map after toggling last note off', () => {
+      let state = createTestState();
+      state = gameReducer(state, {
+        type: Actions.SET_NOTE,
+        payload: { row: 0, col: 0, number: 3 },
+      });
+      expect(state.notes.size).toBe(1);
+      state = gameReducer(state, {
+        type: Actions.SET_NOTE,
+        payload: { row: 0, col: 0, number: 3 },
+      });
+      expect(state.notes.has('0,0')).toBe(false);
+      expect(state.notes.size).toBe(0);
+    });
+
     it('should not set notes on initial cells', () => {
       const state = createTestState();
       state.initialBoard[0]![0] = 5;
@@ -294,7 +309,7 @@ describe('gameReducer', () => {
       expect(next.activeHint).toBeNull();
     });
 
-    it('should preserve history across load (pre-existing behavior)', () => {
+    it('should reset history on load to prevent undo into stale state', () => {
       let state = createTestState();
       state = gameReducer(state, {
         type: Actions.SET_CELL_VALUE,
@@ -306,10 +321,8 @@ describe('gameReducer', () => {
         type: Actions.LOAD_STATE,
         payload: {},
       });
-      // LOAD_STATE currently does not reset history.
-      // TODO: consider resetting history on load to prevent undo into stale state.
-      expect(next.history.length).toBe(2);
-      expect(next.historyIndex).toBe(1);
+      expect(next.history.length).toBe(1);
+      expect(next.historyIndex).toBe(0);
     });
   });
 
@@ -323,6 +336,7 @@ describe('gameReducer', () => {
     });
 
     it('should mark game as completed when board is fully solved', () => {
+      // Valid Classic Sudoku solution (not exercising variant rules like Diagonal/Anti-Knight)
       const solved = [
         [5,3,4,6,7,8,9,1,2],
         [6,7,2,1,9,5,3,4,8],
@@ -335,6 +349,7 @@ describe('gameReducer', () => {
         [3,4,5,2,8,6,1,7,9],
       ];
       const state = createTestState();
+      state.sudokuType = 'CLASSIC';
       state.board = solved.map(r => [...r]);
       state.solution = solved.map(r => [...r]);
       // Realistic initialBoard: some cells are givens, rest are empty
@@ -365,6 +380,7 @@ describe('Undo/Redo', () => {
       type: Actions.SET_CELL_VALUE,
       payload: { row: 0, col: 0, value: 5 },
     });
+    expect(state.board[0]![0]).toBe(5);
     const undone = gameReducer(state, { type: Actions.UNDO });
     expect(undone.board[0]![0]).toBe(EMPTY_CELL);
     expect(undone.historyIndex).toBe(0);
@@ -376,7 +392,9 @@ describe('Undo/Redo', () => {
       type: Actions.SET_CELL_VALUE,
       payload: { row: 0, col: 0, value: 5 },
     });
+    expect(state.board[0]![0]).toBe(5);
     state = gameReducer(state, { type: Actions.UNDO });
+    expect(state.board[0]![0]).toBe(EMPTY_CELL);
     const redone = gameReducer(state, { type: Actions.REDO });
     expect(redone.board[0]![0]).toBe(5);
     expect(redone.historyIndex).toBe(1);

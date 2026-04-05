@@ -375,12 +375,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         kropkiDots?: [string, string][] | null;
         greaterThanSigns?: [string, string][] | null;
       };
+      const loadedNotes = new Map((payload.notes || []).map(([k, v]) => [k, new Set(v)]));
+      const loadedBoard = payload.board ?? state.board;
       return {
         ...state,
         ...payload,
         errors: new Set(payload.errors || []),
-        notes: new Map((payload.notes || []).map(([k, v]) => [k, new Set(v)])),
+        notes: loadedNotes,
         activeHint: null,
+        history: [{ board: copyBoard(loadedBoard as number[][]), notes: new Map(loadedNotes) }],
+        historyIndex: 0,
         oddEvenMarkers: payload.oddEvenMarkers ? new Map(payload.oddEvenMarkers) as OddEvenMarkers : null,
         kropkiDots: payload.kropkiDots ? new Map(payload.kropkiDots) as KropkiDots : null,
         killerCages: payload.killerCages || null,
