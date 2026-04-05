@@ -83,8 +83,12 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Install Playwright browser and system deps
+        run: npx playwright install --with-deps ${{ matrix.browser }}
         if: steps.pw-cache.outputs.cache-hit != 'true'
+      - name: Install system deps only (browser cached)
+        run: npx playwright install-deps ${{ matrix.browser }}
+        if: steps.pw-cache.outputs.cache-hit == 'true'
       - run: npx playwright test --project=${{ matrix.browser }}
       - uses: actions/upload-artifact@v4
         if: failure()
