@@ -9,7 +9,7 @@ If gstack skills aren't working, run `cd .claude/skills/gstack && ./setup` to bu
 ## Health Stack
 
 - lint: npx eslint .
-- test: npx vitest run --project unit
+- test: npx vitest run --config vitest.unit.config.ts
 - e2e: npx playwright test
 - deadcode: npx knip
 - shell: shellcheck ci.sh
