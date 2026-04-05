@@ -44,17 +44,17 @@ test.describe('Sudoku Sensei – smoke tests', () => {
   });
 
   test('type selector dropdown opens and closes', async ({ page }) => {
-    const trigger = page.locator('[aria-haspopup="true"]');
+    const trigger = page.locator('[aria-haspopup="listbox"]');
     await expect(trigger).toBeVisible({ timeout: 5000 });
     await trigger.click();
 
-    // Menu should appear
-    const menu = page.locator('[role="menu"]');
-    await expect(menu).toBeVisible();
+    // Listbox should appear
+    const listbox = page.locator('[role="listbox"]');
+    await expect(listbox).toBeVisible();
 
     // Click outside to close
     await page.mouse.click(10, 10);
-    await expect(menu).not.toBeVisible();
+    await expect(listbox).not.toBeVisible();
   });
 
   test('new game button generates a fresh puzzle', async ({ page }) => {

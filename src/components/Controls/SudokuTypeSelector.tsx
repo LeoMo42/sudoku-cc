@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SUDOKU_TYPES } from '../../utils/constants';
 import type { SudokuTypeId } from '../../types/index';
@@ -18,6 +18,8 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
   const types = Object.values(SUDOKU_TYPES);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -31,22 +33,70 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
+  // Focus first option when listbox opens, return focus to trigger on close
+  useEffect(() => {
+    if (open) {
+      const firstOption = listboxRef.current?.querySelector<HTMLButtonElement>('[role="option"]');
+      firstOption?.focus();
+    }
+  }, [open]);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
+
+  const handleListboxKeyDown = (e: React.KeyboardEvent) => {
+    const options = listboxRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
+    if (!options?.length) return;
+
+    const focused = document.activeElement as HTMLButtonElement;
+    const currentIndex = Array.from(options).indexOf(focused);
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        options[Math.min(currentIndex + 1, options.length - 1)]?.focus();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        options[Math.max(currentIndex - 1, 0)]?.focus();
+        break;
+      case 'Home':
+        e.preventDefault();
+        options[0]?.focus();
+        break;
+      case 'End':
+        e.preventDefault();
+        options[options.length - 1]?.focus();
+        break;
+      case 'Escape':
+        e.preventDefault();
+        close();
+        break;
+      case 'Tab':
+        close();
+        break;
+    }
+  };
+
   const triggerId = 'type-selector-trigger';
-  const menuId = 'type-selector-menu';
+  const listboxId = 'type-selector-listbox';
 
   return (
-    <div
-      ref={dropdownRef}
-      className="relative"
-      onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
-    >
+    <div ref={dropdownRef} className="relative">
       <button
+        ref={triggerRef}
         id={triggerId}
         onClick={() => setOpen(!open)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') setOpen(false);
+          if (e.key === 'ArrowDown' && !open) { e.preventDefault(); setOpen(true); }
+        }}
         disabled={disabled}
         aria-expanded={open}
-        aria-haspopup="true"
-        aria-controls={open ? menuId : undefined}
+        aria-haspopup="listbox"
+        aria-controls={listboxId}
         className="w-full px-4 py-3 rounded-lg font-medium bg-purple-600 text-white text-left flex items-center justify-between disabled:opacity-50"
       >
         <div>
@@ -67,20 +117,31 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
 
       {open && (
         <div
-          id={menuId}
+          ref={listboxRef}
+          id={listboxId}
           className="absolute mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50"
-          role="menu"
+          role="listbox"
           aria-labelledby={triggerId}
+          onKeyDown={handleListboxKeyDown}
         >
           {types.map((type) => (
             <button
               key={type.id}
-              role="menuitem"
+              role="option"
+              aria-selected={currentType === type.id}
               onClick={() => {
                 onTypeChange(type.id);
-                setOpen(false);
+                close();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onTypeChange(type.id);
+                  close();
+                }
               }}
               disabled={disabled}
+              tabIndex={-1}
               className={`
                 w-full px-4 py-2.5 text-left transition-colors border-b border-gray-100 last:border-b-0
                 ${currentType === type.id
