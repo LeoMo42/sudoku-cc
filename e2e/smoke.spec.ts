@@ -6,20 +6,16 @@ test.describe('Sudoku Sensei – smoke tests', () => {
   });
 
   test('app loads and renders 81 cells', async ({ page }) => {
-    // Wait for the grid to render
     const cells = page.locator('[data-testid="cell"]');
     await expect(cells).toHaveCount(81);
   });
 
   test('select cell and enter digit via number pad', async ({ page }) => {
-    // Wait for game to finish generating: initial cells appear AND board is stable
+    // Wait for game to finish generating (initial cells appear)
     await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
-    // Extra wait for React effects to settle (newGame dispatch + re-render)
-    await page.waitForTimeout(500);
 
-    // Click an initial cell first to confirm interactivity, then click empty
+    // Click an initial cell to confirm interactivity
     await page.locator('.cell-initial').first().click();
-    await page.waitForTimeout(100);
 
     // Find an empty cell's aria-label from the DOM, then click by that label
     const emptyLabel = await page.evaluate(() => {
@@ -35,14 +31,14 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     const emptyCell = page.locator(`[aria-label="${emptyLabel}"]`);
     await emptyCell.click();
 
-    // Wait for number pad to become enabled
+    // Wait for number pad to become enabled (cell selected + game playing)
     const numBtn = page.getByRole('button', { name: '5', exact: true });
     await expect(numBtn).toBeEnabled({ timeout: 5000 });
 
     // Click the number
     await numBtn.click();
 
-    // After placing 5, aria-label changes to include the value (e.g. "R1C1: 5")
+    // After placing 5, aria-label changes to include the value
     const filledCell = page.locator(`[aria-label="${emptyLabel}: 5"]`);
     await expect(filledCell).toHaveText('5', { timeout: 3000 });
   });
@@ -52,29 +48,29 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
 
-    // Find the type selector button (mobile dropdown trigger)
     const trigger = page.locator('[aria-haspopup="listbox"]');
-    if (await trigger.isVisible()) {
-      await trigger.click();
+    await expect(trigger).toBeVisible({ timeout: 5000 });
+    await trigger.click();
 
-      // Listbox should appear
-      const listbox = page.locator('[role="listbox"]');
-      await expect(listbox).toBeVisible();
+    // Listbox should appear
+    const listbox = page.locator('[role="listbox"]');
+    await expect(listbox).toBeVisible();
 
-      // Click outside to close
-      await page.mouse.click(10, 10);
-      await expect(listbox).not.toBeVisible();
-    }
+    // Click outside to close
+    await page.mouse.click(10, 10);
+    await expect(listbox).not.toBeVisible();
   });
 
   test('new game button generates a fresh puzzle', async ({ page }) => {
-    // Find and click "New Game" button
+    // Wait for game to load
+    await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
+
     const newGameBtn = page.getByRole('button', { name: /new.*game|новая.*игра/i });
-    if (await newGameBtn.isVisible()) {
-      await newGameBtn.click();
-      // Grid should still have 81 cells after new game
-      const cells = page.locator('[data-testid="cell"]');
-      await expect(cells).toHaveCount(81);
-    }
+    await expect(newGameBtn).toBeVisible({ timeout: 5000 });
+    await newGameBtn.click();
+
+    // Grid should still have 81 cells after new game
+    const cells = page.locator('[data-testid="cell"]');
+    await expect(cells).toHaveCount(81);
   });
 });

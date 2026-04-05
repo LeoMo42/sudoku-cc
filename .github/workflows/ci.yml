@@ -28,12 +28,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Run unit tests
-        shell: bash {0}
-        run: |
-          timeout 120 npx vitest run --config vitest.unit.config.ts --reporter=verbose
-          EXIT=$?
-          if [ $EXIT -eq 0 ] || [ $EXIT -eq 124 ]; then exit 0; else exit $EXIT; fi
+      - run: npx vitest run --config vitest.unit.config.ts --reporter=verbose
 
   build:
     runs-on: ubuntu-latest
@@ -47,6 +42,7 @@ jobs:
       - run: npx vite build
 
   e2e:
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       matrix:
