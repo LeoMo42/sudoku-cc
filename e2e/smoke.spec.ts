@@ -44,9 +44,10 @@ test.describe('Sudoku Sensei – smoke tests', () => {
   });
 
   test('type selector dropdown opens and closes', async ({ page }) => {
-    // Set mobile viewport before navigation to avoid double load
+    // Need mobile viewport for dropdown (desktop uses different component).
+    // beforeEach already navigated, but we need to reload at mobile size.
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto('/');
+    await page.reload();
 
     const trigger = page.locator('[aria-haspopup="listbox"]');
     await expect(trigger).toBeVisible({ timeout: 5000 });
