@@ -74,7 +74,7 @@ export const Cell = memo(function Cell({
   hintRole = null,
   onClick,
 }: CellProps) {
-  const baseStyles = 'w-full h-full flex items-center justify-center text-xl font-medium cursor-pointer select-none transition-colors relative';
+  const baseStyles = 'w-full h-full flex items-center justify-center text-xl font-medium cursor-pointer select-none transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset';
 
   let cellStyles = '';
   if (isError) {
