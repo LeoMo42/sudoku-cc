@@ -62,4 +62,44 @@ describe('SudokuTypeSelector', () => {
 
     expect(onTypeChange).toHaveBeenCalledWith('DIAGONAL');
   });
+
+  it('should show scroll hint gradient when listbox is scrollable', () => {
+    // Mock scrollHeight > clientHeight to simulate scrollable list
+    const originalGetter = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 500; } });
+    const clientGetter = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get() { return 256; } });
+
+    const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+    const trigger = screen.getByRole('button', { expanded: false });
+    fireEvent.click(trigger);
+
+    // Gradient overlay should be present
+    const gradient = container.querySelector('[aria-hidden="true"]');
+    expect(gradient).not.toBeNull();
+
+    // Restore
+    if (originalGetter) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', originalGetter);
+    if (clientGetter) Object.defineProperty(HTMLElement.prototype, 'clientHeight', clientGetter);
+  });
+
+  it('should hide scroll hint when not scrollable', () => {
+    // Mock scrollHeight === clientHeight
+    const originalGetter = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 200; } });
+    const clientGetter = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get() { return 200; } });
+
+    const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+    const trigger = screen.getByRole('button', { expanded: false });
+    fireEvent.click(trigger);
+
+    // Gradient overlay should NOT be present
+    const gradient = container.querySelector('[aria-hidden="true"]');
+    expect(gradient).toBeNull();
+
+    // Restore
+    if (originalGetter) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', originalGetter);
+    if (clientGetter) Object.defineProperty(HTMLElement.prototype, 'clientHeight', clientGetter);
+  });
 });

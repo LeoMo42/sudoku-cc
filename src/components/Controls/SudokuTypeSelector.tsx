@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, type UIEvent } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, type UIEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SUDOKU_TYPES } from '../../utils/constants';
 import type { SudokuTypeId } from '../../types/index';
@@ -38,13 +38,19 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
     };
   }, [open]);
 
-  // Focus first option when listbox opens; check if scrollable
+  // Measure scrollability synchronously before paint to avoid gradient flash
+  useLayoutEffect(() => {
+    if (open) {
+      const el = listboxRef.current;
+      if (el) setShowScrollHint(el.scrollHeight > el.clientHeight);
+    }
+  }, [open]);
+
+  // Focus first option when listbox opens
   useEffect(() => {
     if (open) {
       const firstOption = listboxRef.current?.querySelector<HTMLButtonElement>('[role="option"]');
       firstOption?.focus();
-      const el = listboxRef.current;
-      if (el) setShowScrollHint(el.scrollHeight > el.clientHeight);
     }
   }, [open]);
 
