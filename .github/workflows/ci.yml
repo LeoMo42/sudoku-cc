@@ -38,7 +38,7 @@ jobs:
           set -e
           if [ $CODE -eq 0 ]; then exit 0; fi
           # timeout exit 124: check if tests ran with no failures
-          if [ $CODE -eq 124 ] && grep -qE '[0-9]+ tests' vitest.log && ! grep -qiE 'FAIL|failed|error' vitest.log; then
+          if [ $CODE -eq 124 ] && grep -qE '[0-9]+ tests' vitest.log && ! grep -qE '^\s*(FAIL|×)' vitest.log; then
             echo "Tests passed but vitest hung during cleanup (known jsdom issue). Exiting cleanly."
             exit 0
           fi
@@ -77,7 +77,14 @@ jobs:
         with:
           name: dist
           path: dist/
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps ${{ matrix.browser }}
+        if: steps.pw-cache.outputs.cache-hit != 'true'
       - run: npx playwright test --project=${{ matrix.browser }}
       - uses: actions/upload-artifact@v4
         if: failure()

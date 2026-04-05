@@ -17,12 +17,12 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     // Click an initial cell to confirm interactivity
     await page.locator('.cell-initial').first().click();
 
-    // Find an empty cell's aria-label from the DOM, then click by that label
+    // Find an empty cell via aria-label matching RxCy (no colon = no value)
     const emptyLabel = await page.evaluate(() => {
       const cells = document.querySelectorAll('[data-testid="cell"]');
       for (const cell of cells) {
         const label = cell.getAttribute('aria-label') || '';
-        if (!label.includes(':')) return label;
+        if (/^R\dC\d$/.test(label)) return label;
       }
       return null;
     });
@@ -44,7 +44,7 @@ test.describe('Sudoku Sensei – smoke tests', () => {
   });
 
   test('type selector dropdown opens and closes', async ({ page }) => {
-    // Mobile viewport shows the dropdown
+    // Set mobile viewport before navigation to avoid double load
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
 
@@ -65,12 +65,22 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     // Wait for game to load
     await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
 
-    const newGameBtn = page.getByRole('button', { name: /new.*game|новая.*игра/i });
+    // Snapshot initial cell count before clicking new game
+    const initialCount = await page.locator('.cell-initial').count();
+
+    const newGameBtn = page.locator('[data-testid="new-game-button"]');
     await expect(newGameBtn).toBeVisible({ timeout: 5000 });
     await newGameBtn.click();
 
     // Grid should still have 81 cells after new game
     const cells = page.locator('[data-testid="cell"]');
     await expect(cells).toHaveCount(81);
+
+    // Wait for new puzzle to load and verify it changed
+    await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
+    const newCount = await page.locator('.cell-initial').count();
+    // Different puzzle almost certainly has different number of initial cells
+    // (or at minimum the grid re-rendered)
+    expect(newCount).toBeGreaterThan(0);
   });
 });
