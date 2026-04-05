@@ -131,6 +131,12 @@ export const Cell = memo(function Cell({
     <div
       className={`${baseStyles} ${cellStyles} ${borderStyles.join(' ')}`}
       onClick={() => onClick(row, col)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(row, col);
+        }
+      }}
       role="button"
       tabIndex={0}
       data-testid="cell"
