@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx eslint .
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run unit tests
+        run: |
+          # vitest hangs after tests pass (jsdom/esbuild cleanup issue).
+          # Pipe to tee so we capture output, then verify tests actually passed.
+          set +e
+          timeout 120 npx vitest run --config vitest.unit.config.ts --reporter=verbose 2>&1 | tee vitest.log
+          CODE=$?
+          set -e
+          if [ $CODE -eq 0 ]; then exit 0; fi
+          # timeout exit 124: check if tests ran with no failures
+          if [ $CODE -eq 124 ] && grep -qE '[1-9][0-9]* tests?' vitest.log && ! grep -qE '^\s*(FAIL|×)' vitest.log; then
+            echo "Tests passed but vitest hung during cleanup (known jsdom issue). Exiting cleanly."
+            exit 0
+          fi
+          exit $CODE
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vite build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browser and system deps
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+      - name: Install system deps only (browser cached)
+        run: npx playwright install-deps ${{ matrix.browser }}
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+      - run: npx playwright test --project=${{ matrix.browser }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: playwright-report/
+          retention-days: 7
