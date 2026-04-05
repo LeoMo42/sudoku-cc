@@ -11,7 +11,7 @@ interface SudokuTypeSelectorProps {
 
 /**
  * Sudoku type selector component
- * Renders as a dropdown on mobile, full button list on large screens
+ * Collapsible dropdown on all viewports
  */
 export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: SudokuTypeSelectorProps) {
   const { t } = useTranslation();
@@ -31,14 +31,22 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
+  const triggerId = 'type-selector-trigger';
+  const menuId = 'type-selector-menu';
+
   return (
-    <div ref={dropdownRef} className="relative">
+    <div
+      ref={dropdownRef}
+      className="relative"
+      onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
+    >
       <button
+        id={triggerId}
         onClick={() => setOpen(!open)}
-        onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
         disabled={disabled}
         aria-expanded={open}
-        aria-haspopup="listbox"
+        aria-haspopup="true"
+        aria-controls={open ? menuId : undefined}
         className="w-full px-4 py-3 rounded-lg font-medium bg-purple-600 text-white text-left flex items-center justify-between disabled:opacity-50"
       >
         <div>
@@ -58,12 +66,16 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
       </button>
 
       {open && (
-        <div className="absolute mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50" role="listbox">
+        <div
+          id={menuId}
+          className="absolute mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50"
+          role="menu"
+          aria-labelledby={triggerId}
+        >
           {types.map((type) => (
             <button
               key={type.id}
-              role="option"
-              aria-selected={currentType === type.id}
+              role="menuitem"
               onClick={() => {
                 onTypeChange(type.id);
                 setOpen(false);
