@@ -269,10 +269,10 @@ export function GameContainer() {
             {/* Type + Difficulty row */}
             <div className="flex flex-col sm:flex-row gap-3 lg:gap-4">
               {/* Sudoku Type Selector */}
-              <div className="bg-white rounded-lg shadow-md p-3 sm:p-4 flex-1">
-                <h3 className="text-sm font-medium text-gray-600 mb-2">
+              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex-1">
+                <h2 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
                   {t('game.type')}
-                </h3>
+                </h2>
                 <SudokuTypeSelector
                   currentType={state.sudokuType}
                   onTypeChange={handleTypeChange}
@@ -281,10 +281,10 @@ export function GameContainer() {
               </div>
 
               {/* Difficulty Selector */}
-              <div className="bg-white rounded-lg shadow-md p-3 sm:p-4 flex-1">
-                <h3 className="text-sm font-medium text-gray-600 mb-2">
+              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex-1">
+                <h2 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
                   {t('game.difficulty')}
-                </h3>
+                </h2>
                 <DifficultySelector
                   currentDifficulty={state.difficulty}
                   onDifficultyChange={handleDifficultyChange}
@@ -321,7 +321,7 @@ export function GameContainer() {
                   <button
                     onClick={toggleSound}
                     title={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
-                    className="text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
                   >
                     {soundEnabled ? '🔊' : '🔇'}
                   </button>
@@ -366,9 +366,9 @@ export function GameContainer() {
 
             {/* Number Pad */}
             <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
-              <h3 className="text-sm font-medium text-gray-600 mb-3 text-center">
+              <h2 className="text-sm font-medium text-gray-600 mb-3 text-center">
                 {t('game.numberInput')}
-              </h3>
+              </h2>
               <div className="flex justify-center">
                 <NumberPad
                   onNumberClick={handleNumberClick}
