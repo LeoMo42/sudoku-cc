@@ -28,7 +28,7 @@ export function LanguageSwitcher() {
           key={lang.code}
           onClick={() => handleLanguageChange(lang.code)}
           className={`
-            px-3 min-h-[44px] flex items-center rounded-lg font-medium transition-colors text-sm
+            px-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg font-medium transition-colors text-sm
             ${
               i18n.language === lang.code
                 ? 'bg-blue-600 text-white'
