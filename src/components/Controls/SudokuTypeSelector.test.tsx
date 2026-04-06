@@ -20,7 +20,7 @@ describe('SudokuTypeSelector', () => {
     render(<SudokuTypeSelector {...defaultProps} />);
 
     // Open dropdown via trigger button
-    const trigger = screen.getByRole('button', { expanded: false });
+    const trigger = screen.getByRole('button', { name: /classic/i });
     fireEvent.click(trigger);
 
     // Dropdown should be open
@@ -36,7 +36,7 @@ describe('SudokuTypeSelector', () => {
   it('should close dropdown on mousedown outside', () => {
     render(<SudokuTypeSelector {...defaultProps} />);
 
-    const trigger = screen.getByRole('button', { expanded: false });
+    const trigger = screen.getByRole('button', { name: /classic/i });
     fireEvent.click(trigger);
 
     expect(screen.getByRole('listbox')).toBeDefined();
@@ -53,7 +53,7 @@ describe('SudokuTypeSelector', () => {
     );
 
     // Open dropdown
-    const trigger = screen.getByRole('button', { expanded: false });
+    const trigger = screen.getByRole('button', { name: /classic/i });
     fireEvent.click(trigger);
 
     // Click a type option (second one, DIAGONAL)
@@ -71,7 +71,7 @@ describe('SudokuTypeSelector', () => {
 
     try {
       const { container } = render(<SudokuTypeSelector {...defaultProps} />);
-      const trigger = screen.getByRole('button', { expanded: false });
+      const trigger = screen.getByRole('button', { name: /classic/i });
       fireEvent.click(trigger);
 
       const gradient = container.querySelector('[data-testid="scroll-gradient"]');
@@ -90,7 +90,7 @@ describe('SudokuTypeSelector', () => {
 
     try {
       const { container } = render(<SudokuTypeSelector {...defaultProps} />);
-      const trigger = screen.getByRole('button', { expanded: false });
+      const trigger = screen.getByRole('button', { name: /classic/i });
       fireEvent.click(trigger);
 
       const gradient = container.querySelector('[data-testid="scroll-gradient"]');

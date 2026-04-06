@@ -371,7 +371,7 @@ export function GameContainer() {
               </h2>
               <div className="min-h-[1.25rem] mb-2" aria-live="polite">
                 {!state.selectedCell && state.gameStatus === GAME_STATUS.PLAYING && (
-                  <p className="text-xs text-blue-500 text-center" role="status">
+                  <p className="text-xs text-blue-500 text-center">
                     {t('game.selectCellHint')}
                   </p>
                 )}
