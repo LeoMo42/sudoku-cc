@@ -22,12 +22,18 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listboxRef = useRef<HTMLDivElement>(null);
 
+  const close = useCallback(() => {
+    setOpen(false);
+    setShowScrollHint(true);
+    triggerRef.current?.focus();
+  }, []);
+
   // Close dropdown on outside click
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent | TouchEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        close();
       }
     };
     document.addEventListener('mousedown', handleClick);
@@ -36,7 +42,7 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
       document.removeEventListener('mousedown', handleClick);
       document.removeEventListener('touchstart', handleClick);
     };
-  }, [open]);
+  }, [open, close]);
 
   // Measure scrollability synchronously before paint to avoid gradient flash
   useLayoutEffect(() => {
@@ -59,12 +65,6 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
     // 8px accounts for sub-pixel rounding across browsers
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
     setShowScrollHint(!atBottom);
-  }, []);
-
-  const close = useCallback(() => {
-    setOpen(false);
-    setShowScrollHint(true);
-    triggerRef.current?.focus();
   }, []);
 
   const handleListboxKeyDown = (e: React.KeyboardEvent) => {

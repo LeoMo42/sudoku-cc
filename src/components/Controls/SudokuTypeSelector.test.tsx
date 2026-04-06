@@ -63,41 +63,65 @@ describe('SudokuTypeSelector', () => {
     expect(onTypeChange).toHaveBeenCalledWith('DIAGONAL');
   });
 
-  it('should show scroll hint gradient when listbox is scrollable', () => {
-    const originalGetter = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
-    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 500; } });
-    const clientGetter = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
-    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get() { return 256; } });
+  describe('scroll hint gradient', () => {
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
+    const originalClientHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
 
-    try {
-      const { container } = render(<SudokuTypeSelector {...defaultProps} />);
-      const trigger = screen.getByRole('button', { name: /classic/i });
-      fireEvent.click(trigger);
-
-      const gradient = container.querySelector('[data-testid="scroll-gradient"]');
-      expect(gradient).not.toBeNull();
-    } finally {
-      if (originalGetter) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', originalGetter);
-      if (clientGetter) Object.defineProperty(HTMLElement.prototype, 'clientHeight', clientGetter);
+    function mockScrollDimensions(scrollH: number, clientH: number) {
+      Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return scrollH; } });
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get() { return clientH; } });
     }
-  });
 
-  it('should hide scroll hint when not scrollable', () => {
-    const originalGetter = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
-    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 200; } });
-    const clientGetter = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
-    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get() { return 200; } });
-
-    try {
-      const { container } = render(<SudokuTypeSelector {...defaultProps} />);
-      const trigger = screen.getByRole('button', { name: /classic/i });
-      fireEvent.click(trigger);
-
-      const gradient = container.querySelector('[data-testid="scroll-gradient"]');
-      expect(gradient).toBeNull();
-    } finally {
-      if (originalGetter) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', originalGetter);
-      if (clientGetter) Object.defineProperty(HTMLElement.prototype, 'clientHeight', clientGetter);
+    function restoreScrollDimensions() {
+      if (originalScrollHeight) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollHeight', originalScrollHeight);
+      } else {
+        delete (HTMLElement.prototype as Record<string, unknown>).scrollHeight;
+      }
+      if (originalClientHeight) {
+        Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
+      } else {
+        delete (HTMLElement.prototype as Record<string, unknown>).clientHeight;
+      }
     }
+
+    afterEach(() => {
+      restoreScrollDimensions();
+    });
+
+    it('should show gradient when listbox is scrollable', () => {
+      mockScrollDimensions(500, 256);
+
+      const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /classic/i }));
+
+      expect(container.querySelector('[data-testid="scroll-gradient"]')).not.toBeNull();
+    });
+
+    it('should hide gradient when not scrollable', () => {
+      mockScrollDimensions(200, 200);
+
+      const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /classic/i }));
+
+      expect(container.querySelector('[data-testid="scroll-gradient"]')).toBeNull();
+    });
+
+    it('should hide gradient when scrolled to bottom', () => {
+      mockScrollDimensions(500, 256);
+
+      const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /classic/i }));
+
+      // Gradient should be visible initially
+      expect(container.querySelector('[data-testid="scroll-gradient"]')).not.toBeNull();
+
+      // Simulate scrolling to bottom
+      const listbox = screen.getByRole('listbox');
+      Object.defineProperty(listbox, 'scrollTop', { configurable: true, value: 244 });
+      fireEvent.scroll(listbox);
+
+      expect(container.querySelector('[data-testid="scroll-gradient"]')).toBeNull();
+    });
   });
 });
