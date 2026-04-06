@@ -12,6 +12,7 @@
     "type": "Type:",
     "difficulty": "Difficulty:",
     "numberInput": "Number Input:",
+    "selectCellHint": "Select a cell to enter a number",
     "paused": "Game Paused",
     "completed": "🎉 Congratulations! You solved the puzzle!",
     "hintsUsed": "{{used}}/{{max}}",

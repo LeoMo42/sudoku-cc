@@ -369,6 +369,13 @@ export function GameContainer() {
               <h2 className="text-sm font-medium text-gray-600 mb-3 text-center">
                 {t('game.numberInput')}
               </h2>
+              <div className="min-h-[1.25rem] mb-2" aria-live="polite">
+                {!state.selectedCell && state.gameStatus === GAME_STATUS.PLAYING && (
+                  <p className="text-xs text-blue-500 text-center">
+                    {t('game.selectCellHint')}
+                  </p>
+                )}
+              </div>
               <div className="flex justify-center">
                 <NumberPad
                   onNumberClick={handleNumberClick}

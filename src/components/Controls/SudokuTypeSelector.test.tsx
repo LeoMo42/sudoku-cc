@@ -17,11 +17,11 @@ describe('SudokuTypeSelector', () => {
   };
 
   it('should close dropdown on touchstart outside', () => {
-    const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+    render(<SudokuTypeSelector {...defaultProps} />);
 
-    // Open the mobile dropdown
-    const button = container.querySelector('.lg\\:hidden button')!;
-    fireEvent.click(button);
+    // Open dropdown via trigger button
+    const trigger = screen.getByRole('button', { name: /classic/i });
+    fireEvent.click(trigger);
 
     // Dropdown should be open
     expect(screen.getByRole('listbox')).toBeDefined();
@@ -34,10 +34,10 @@ describe('SudokuTypeSelector', () => {
   });
 
   it('should close dropdown on mousedown outside', () => {
-    const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+    render(<SudokuTypeSelector {...defaultProps} />);
 
-    const button = container.querySelector('.lg\\:hidden button')!;
-    fireEvent.click(button);
+    const trigger = screen.getByRole('button', { name: /classic/i });
+    fireEvent.click(trigger);
 
     expect(screen.getByRole('listbox')).toBeDefined();
 
@@ -48,18 +48,80 @@ describe('SudokuTypeSelector', () => {
 
   it('should call onTypeChange when selecting a type', () => {
     const onTypeChange = vi.fn();
-    const { container } = render(
+    render(
       <SudokuTypeSelector {...defaultProps} onTypeChange={onTypeChange} />
     );
 
     // Open dropdown
-    const button = container.querySelector('.lg\\:hidden button')!;
-    fireEvent.click(button);
+    const trigger = screen.getByRole('button', { name: /classic/i });
+    fireEvent.click(trigger);
 
     // Click a type option (second one, DIAGONAL)
-    const options = screen.getByRole('listbox').querySelectorAll('button');
+    const options = screen.getAllByRole('option');
     fireEvent.click(options[1]!);
 
     expect(onTypeChange).toHaveBeenCalledWith('DIAGONAL');
+  });
+
+  describe('scroll hint gradient', () => {
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
+    const originalClientHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
+
+    function mockScrollDimensions(scrollH: number, clientH: number) {
+      Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return scrollH; } });
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get() { return clientH; } });
+    }
+
+    function restoreScrollDimensions() {
+      if (originalScrollHeight) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollHeight', originalScrollHeight);
+      } else {
+        delete (HTMLElement.prototype as Record<string, unknown>).scrollHeight;
+      }
+      if (originalClientHeight) {
+        Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
+      } else {
+        delete (HTMLElement.prototype as Record<string, unknown>).clientHeight;
+      }
+    }
+
+    afterEach(() => {
+      restoreScrollDimensions();
+    });
+
+    it('should show gradient when listbox is scrollable', () => {
+      mockScrollDimensions(500, 256);
+
+      const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /classic/i }));
+
+      expect(container.querySelector('[data-testid="scroll-gradient"]')).not.toBeNull();
+    });
+
+    it('should hide gradient when not scrollable', () => {
+      mockScrollDimensions(200, 200);
+
+      const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /classic/i }));
+
+      expect(container.querySelector('[data-testid="scroll-gradient"]')).toBeNull();
+    });
+
+    it('should hide gradient when scrolled to bottom', () => {
+      mockScrollDimensions(500, 256);
+
+      const { container } = render(<SudokuTypeSelector {...defaultProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /classic/i }));
+
+      // Gradient should be visible initially
+      expect(container.querySelector('[data-testid="scroll-gradient"]')).not.toBeNull();
+
+      // Simulate scrolling to bottom
+      const listbox = screen.getByRole('listbox');
+      Object.defineProperty(listbox, 'scrollTop', { configurable: true, value: 244 });
+      fireEvent.scroll(listbox);
+
+      expect(container.querySelector('[data-testid="scroll-gradient"]')).toBeNull();
+    });
   });
 });

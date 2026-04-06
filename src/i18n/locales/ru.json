@@ -12,6 +12,7 @@
     "type": "Тип:",
     "difficulty": "Сложность:",
     "numberInput": "Ввод чисел:",
+    "selectCellHint": "Выберите ячейку для ввода числа",
     "paused": "Игра на паузе",
     "completed": "🎉 Поздравляем! Вы решили головоломку!",
     "hintsUsed": "{{used}}/{{max}}",
