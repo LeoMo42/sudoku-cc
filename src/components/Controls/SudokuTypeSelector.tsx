@@ -56,6 +56,7 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
 
   const handleScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
+    // 8px accounts for sub-pixel rounding across browsers
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
     setShowScrollHint(!atBottom);
   }, []);
@@ -183,7 +184,7 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
             ))}
           </div>
           {showScrollHint && (
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent rounded-b-lg pointer-events-none" aria-hidden="true" />
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent rounded-b-lg pointer-events-none" aria-hidden="true" data-testid="scroll-gradient" />
           )}
         </div>
       )}
