@@ -46,8 +46,24 @@ jobs:
              approaches the author already defended.
           2. Run `gh pr diff ${{ github.event.pull_request.number }}` to see the changes.
              Review ONLY what the diff shows. Do not audit unchanged code, do not crawl
-             the broader codebase looking for things to flag.
-          3. Post your review with `gh pr comment ${{ github.event.pull_request.number }} --body "..."`.
+             the broader codebase looking for things to flag. You MAY use `Read` / `Grep`
+             / `Glob` on files touched by the diff to verify a finding before reporting it,
+             but stay within the diff scope.
+          3. **MANDATORY FINAL STEP** — Post your review with
+             `gh pr comment ${{ github.event.pull_request.number }} --body "..."`.
+             You MUST post exactly one comment before ending your turn, no exceptions.
+             If you have nothing to flag after the analysis above, post this exact body:
+
+             ```
+             **Summary** — <one sentence on what the PR does>
+
+             No Critical, Important, or Suggestions to flag. Diff looks clean.
+
+             **Testing** — <1–2 things to manually verify>
+             ```
+
+             Do not end your turn without posting. A turn that ends with no `gh pr comment`
+             call is a failed review.
 
           ## What to look for (in order of priority)
 
@@ -105,4 +121,4 @@ jobs:
 
           See the CLAUDE.md file in the repository for project context.
 
-        claude_args: '--allowed-tools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh pr list:*)"'
+        claude_args: '--allowed-tools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh pr list:*),Read,Grep,Glob"'
