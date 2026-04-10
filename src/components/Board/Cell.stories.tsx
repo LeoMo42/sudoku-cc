@@ -88,7 +88,10 @@ export const MatchingValue = {
     col: 0,
     isInitial: false,
     isSelected: false,
-    isHighlighted: true,
+    // isHighlighted is intentionally false: the matching-value branch
+    // sits above the highlighted branch in Cell's else-if chain, so
+    // setting both would let one silently mask the other in this story.
+    isHighlighted: false,
     isMatchingValue: true,
     isError: false,
     onClick: () => console.log('Cell clicked'),

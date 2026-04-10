@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 
 const HIGHLIGHT_ENABLED_KEY = 'sudoku-highlights-enabled';
 
@@ -10,6 +10,10 @@ interface UseHighlightSettingReturn {
 /**
  * Persisted toggle for related-cell + matching-value highlighting on the board.
  * Defaults to enabled. Respects localStorage failures (private mode, quota).
+ *
+ * The setItem call is folded into the toggle callback rather than a
+ * useEffect: there's no first-mount churn to guard against, and the
+ * write only ever happens on user-initiated changes.
  */
 export function useHighlightSetting(): UseHighlightSettingReturn {
   const [highlightsEnabled, setHighlightsEnabled] = useState<boolean>(() => {
@@ -21,21 +25,14 @@ export function useHighlightSetting(): UseHighlightSettingReturn {
     }
   });
 
-  // Skip the initial-mount write so we don't churn localStorage on every
-  // cold start with a value that already matches what we just read.
-  const isFirstRender = useRef(true);
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    try {
-      localStorage.setItem(HIGHLIGHT_ENABLED_KEY, String(highlightsEnabled));
-    } catch { /* private browsing or quota exceeded */ }
-  }, [highlightsEnabled]);
-
   const toggleHighlights = useCallback((): void => {
-    setHighlightsEnabled((prev) => !prev);
+    setHighlightsEnabled((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(HIGHLIGHT_ENABLED_KEY, String(next));
+      } catch { /* private browsing or quota exceeded */ }
+      return next;
+    });
   }, []);
 
   return { highlightsEnabled, toggleHighlights };

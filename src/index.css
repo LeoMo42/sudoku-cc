@@ -67,7 +67,13 @@
      after .cell-matching-value below in source order, so without these
      compound rules their bg-* would silently override the matching-value
      background (the inset ring would still draw). Each variant keeps its
-     own hue but darkens to convey the matching-value state. */
+     own hue but darkens to convey the matching-value state.
+
+     Coverage note: only diagonal / window / knight-target / king-diagonal
+     apply a background to the cell itself. All other variants
+     (Killer cages, Thermo, Kropki, Greater-Than, Non-Consecutive,
+     Sandwich, Odd-Even) decorate via absolute-positioned overlay divs
+     and never set a bg-* on cellStyles, so they need no compound rule. */
   .cell-diagonal.cell-matching-value {
     @apply bg-purple-300;
   }

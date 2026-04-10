@@ -57,6 +57,65 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     await expect(listbox).not.toBeVisible();
   });
 
+  test('selecting a filled cell highlights matching digits, toggle persists', async ({ page }) => {
+    // Wait for puzzle to render
+    await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
+
+    // Find any filled cell (initial cells expose their value via aria-label "RxCy: N")
+    const filledLabel = await page.evaluate(() => {
+      const cells = document.querySelectorAll('[data-testid="cell"]');
+      for (const cell of cells) {
+        const label = cell.getAttribute('aria-label') || '';
+        if (/^R\dC\d: \d$/.test(label)) return label;
+      }
+      return null;
+    });
+    expect(filledLabel).not.toBeNull();
+    const digit = filledLabel!.slice(-1);
+
+    await page.locator(`[aria-label="${filledLabel}"]`).click();
+
+    // At least one OTHER cell with the same digit should now have
+    // cell-matching-value applied (the selected cell itself does not).
+    const matchingCount = await page.locator('.cell-matching-value').count();
+    expect(matchingCount).toBeGreaterThan(0);
+
+    // Sanity check: peer cells in the same row/col/box also light up
+    const highlightedCount = await page.locator('.cell-highlighted').count();
+    expect(highlightedCount).toBeGreaterThan(0);
+
+    // Toggle highlights off via the button (aria-pressed flips)
+    const toggle = page.locator('button[aria-pressed]').first();
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+
+    // After toggling off, no cell should carry either highlight class
+    await expect(page.locator('.cell-matching-value')).toHaveCount(0);
+    await expect(page.locator('.cell-highlighted')).toHaveCount(0);
+
+    // Reload — the disabled state must persist via localStorage
+    await page.reload();
+    await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
+
+    // Re-select a cell with the same digit and confirm highlights stay off
+    const sameDigitCell = await page.evaluate((d) => {
+      const cells = document.querySelectorAll('[data-testid="cell"]');
+      for (const cell of cells) {
+        const label = cell.getAttribute('aria-label') || '';
+        if (label.endsWith(`: ${d}`)) return label;
+      }
+      return null;
+    }, digit);
+    if (sameDigitCell) {
+      await page.locator(`[aria-label="${sameDigitCell}"]`).click();
+      await expect(page.locator('.cell-matching-value')).toHaveCount(0);
+      await expect(page.locator('.cell-highlighted')).toHaveCount(0);
+    }
+
+    // Re-enable for the next test (toggle button starts pressed=false now)
+    await toggle.click();
+  });
+
   test('new game button generates a fresh puzzle', async ({ page }) => {
     // Wait for game to load
     await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
