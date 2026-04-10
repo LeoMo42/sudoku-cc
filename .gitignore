@@ -34,3 +34,4 @@ __pycache__
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+.gstack/

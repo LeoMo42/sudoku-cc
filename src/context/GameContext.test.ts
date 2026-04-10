@@ -17,6 +17,7 @@ function createTestState(): GameState {
     elapsedTime: 0,
     hintsUsed: 0,
     errors: new Set(),
+    mistakeCount: 0,
     notesMode: false,
     notes: new Map(),
     activeHint: null,
@@ -576,6 +577,204 @@ describe('isValidSavedState', () => {
       difficulty: 'EASY',
       sudokuType: 'CLASSIC',
     })).toBe(false);
+  });
+});
+
+describe('mistake counter', () => {
+  // Helper: build a state with a known solution so we can deterministically
+  // call placements right or wrong without running the real generator.
+  function withSolution(): GameState {
+    const state = createTestState();
+    // Solution[0][0] = 5 (the rest stays empty / irrelevant for these tests).
+    state.solution[0]![0] = 5;
+    state.solution[0]![1] = 7;
+    return state;
+  }
+
+  it('does not increment when placing the correct digit', () => {
+    const state = withSolution();
+    const next = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 5, mistakeLimit: null },
+    });
+    expect(next.mistakeCount).toBe(0);
+  });
+
+  it('increments when placing a wrong digit', () => {
+    const state = withSolution();
+    const next = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+    });
+    expect(next.mistakeCount).toBe(1);
+  });
+
+  it('does not increment when re-confirming the same wrong digit', () => {
+    let state = withSolution();
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+    });
+    expect(state.mistakeCount).toBe(1);
+    // Same wrong digit again — should be a no-op for the counter.
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+    });
+    expect(state.mistakeCount).toBe(1);
+  });
+
+  it('increments again when replacing wrong with another wrong digit', () => {
+    let state = withSolution();
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+    });
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 8, mistakeLimit: null },
+    });
+    expect(state.mistakeCount).toBe(2);
+  });
+
+  it('does not increment when replacing wrong with the correct digit', () => {
+    let state = withSolution();
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+    });
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 5, mistakeLimit: null },
+    });
+    expect(state.mistakeCount).toBe(1);
+  });
+
+  it('does not increment when clearing a wrong cell', () => {
+    let state = withSolution();
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+    });
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: EMPTY_CELL, mistakeLimit: null },
+    });
+    expect(state.mistakeCount).toBe(1);
+  });
+
+  it('counts wrong-clear-wrong as two mistakes', () => {
+    let state = withSolution();
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+    });
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: EMPTY_CELL, mistakeLimit: null },
+    });
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+    });
+    expect(state.mistakeCount).toBe(2);
+  });
+
+  it('does not decrement on undo', () => {
+    let state = withSolution();
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+    });
+    expect(state.mistakeCount).toBe(1);
+    state = gameReducer(state, { type: Actions.UNDO });
+    // Counter is monotonic — undo restores board state but not history.
+    expect(state.mistakeCount).toBe(1);
+  });
+
+  it('NEW_GAME resets mistakeCount to 0', () => {
+    const state = withSolution();
+    state.mistakeCount = 7;
+    const next = gameReducer(state, {
+      type: Actions.NEW_GAME,
+      payload: { difficulty: 'EASY', sudokuType: 'CLASSIC' },
+    });
+    expect(next.mistakeCount).toBe(0);
+  });
+
+  it('transitions to lost state when limit is reached', () => {
+    let state = withSolution();
+    state.solution[0]![0] = 5;
+    state.solution[0]![1] = 7;
+    state.solution[0]![2] = 3;
+    // Limit = 2: 2 mistakes triggers lost.
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: 2 },
+    });
+    expect(state.gameStatus).toBe(GAME_STATUS.PLAYING);
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 1, value: 9, mistakeLimit: 2 },
+    });
+    expect(state.mistakeCount).toBe(2);
+    expect(state.gameStatus).toBe(GAME_STATUS.LOST);
+  });
+
+  it('does not transition to lost when limit is null even past threshold', () => {
+    let state = withSolution();
+    state.solution[0]![0] = 5;
+    state.solution[0]![1] = 7;
+    // Two wrong placements, no limit set.
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+    });
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 1, value: 9, mistakeLimit: null },
+    });
+    expect(state.mistakeCount).toBe(2);
+    expect(state.gameStatus).toBe(GAME_STATUS.PLAYING);
+  });
+
+  it('blocks further writes once lost', () => {
+    let state = withSolution();
+    state.gameStatus = GAME_STATUS.LOST;
+    const before = state;
+    state = gameReducer(state, {
+      type: Actions.SET_CELL_VALUE,
+      payload: { row: 0, col: 0, value: 5, mistakeLimit: null },
+    });
+    expect(state).toBe(before);
+  });
+
+  it('SET_NOTE never affects mistakeCount', () => {
+    let state = withSolution();
+    state = gameReducer(state, {
+      type: Actions.SET_NOTE,
+      payload: { row: 0, col: 0, number: 9 },
+    });
+    expect(state.mistakeCount).toBe(0);
+  });
+
+  it('LOAD_STATE restores mistakeCount when present', () => {
+    const state = createTestState();
+    const next = gameReducer(state, {
+      type: Actions.LOAD_STATE,
+      payload: { mistakeCount: 4 },
+    });
+    expect(next.mistakeCount).toBe(4);
+  });
+
+  it('LOAD_STATE defaults mistakeCount to 0 for old saves', () => {
+    const state = createTestState();
+    state.mistakeCount = 99;
+    const next = gameReducer(state, {
+      type: Actions.LOAD_STATE,
+      payload: {},
+    });
+    expect(next.mistakeCount).toBe(0);
   });
 });
 
