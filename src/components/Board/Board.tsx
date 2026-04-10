@@ -119,16 +119,6 @@ export function Board({
               selectedCell.row === rowIndex &&
               selectedCell.col === colIndex;
 
-            // Highlight cells in same row, column, or 3x3 box as selected cell
-            const isHighlighted =
-              highlightsEnabled &&
-              selectedCell &&
-              !isSelected &&
-              (selectedCell.row === rowIndex ||
-                selectedCell.col === colIndex ||
-                (Math.floor(selectedCell.row / 3) === Math.floor(rowIndex / 3) &&
-                  Math.floor(selectedCell.col / 3) === Math.floor(colIndex / 3)));
-
             const isError = errors.has(`${rowIndex},${colIndex}`);
 
             // Highlight cells whose digit matches the selected cell's digit.
@@ -141,6 +131,21 @@ export function Board({
               !isError &&
               value !== EMPTY_CELL &&
               value === selectedValue;
+
+            // Highlight cells in the same row, column, or 3x3 box as the
+            // selected cell. Mutually exclusive with isMatchingValue: a peer
+            // that also shares the digit is the more informative state, so
+            // we collapse the flag here rather than relying on Cell's
+            // else-if ordering.
+            const isPeer =
+              highlightsEnabled &&
+              selectedCell &&
+              !isSelected &&
+              (selectedCell.row === rowIndex ||
+                selectedCell.col === colIndex ||
+                (Math.floor(selectedCell.row / 3) === Math.floor(rowIndex / 3) &&
+                  Math.floor(selectedCell.col / 3) === Math.floor(colIndex / 3)));
+            const isHighlighted = isPeer && !isMatchingValue;
 
             const cellNotes = notes.get(`${rowIndex},${colIndex}`);
 

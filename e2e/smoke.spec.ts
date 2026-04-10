@@ -5,6 +5,14 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     await page.goto('/');
   });
 
+  // Clear any test-set localStorage so a failed test cannot leak state
+  // (e.g. a disabled highlights toggle) into the next test in the run.
+  test.afterEach(async ({ page }) => {
+    try {
+      await page.evaluate(() => localStorage.clear());
+    } catch { /* page may already be closed */ }
+  });
+
   test('app loads and renders 81 cells', async ({ page }) => {
     const cells = page.locator('[data-testid="cell"]');
     await expect(cells).toHaveCount(81);
@@ -113,8 +121,8 @@ test.describe('Sudoku Sensei – smoke tests', () => {
       await expect(page.locator('.cell-highlighted')).toHaveCount(0);
     }
 
-    // Re-enable for the next test (toggle button starts pressed=false now)
-    await toggle.click();
+    // afterEach clears localStorage so we don't need to manually re-enable
+    // the toggle here.
   });
 
   test('new game button generates a fresh puzzle', async ({ page }) => {

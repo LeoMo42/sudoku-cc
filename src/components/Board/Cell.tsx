@@ -113,6 +113,9 @@ export const Cell = memo(function Cell({
   } else if (isMatchingValue && !isError) {
     // Matching-value highlight wins over plain peer highlight,
     // since a peer that also matches is the more informative state.
+    // The `!isError` guard is defense-in-depth: Board already excludes
+    // errors from isMatchingValue, but keeping the check here mirrors the
+    // hint-role pattern above and protects direct callers (e.g. stories).
     cellStyles += ' cell-matching-value';
   } else if (isHighlighted) {
     cellStyles += ' cell-highlighted';

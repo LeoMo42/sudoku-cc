@@ -67,6 +67,7 @@ export const WithMatchingDigitHighlight = {
     board: samplePuzzle,
     initialBoard: samplePuzzle,
     selectedCell: { row: 0, col: 0 }, // value 5
+    highlightsEnabled: true,
     errors: new Set(),
     notes: new Map(),
     onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),

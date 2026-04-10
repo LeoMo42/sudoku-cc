@@ -329,14 +329,15 @@ export function GameContainer() {
                     data-testid="toggle-highlights"
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
                   >
-                    {highlightsEnabled ? '🔆' : '🔅'}
+                    <span aria-hidden="true">{highlightsEnabled ? '🔆' : '🔅'}</span>
                   </button>
                   <button
                     onClick={toggleSound}
                     title={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
+                    aria-label={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
                   >
-                    {soundEnabled ? '🔊' : '🔇'}
+                    <span aria-hidden="true">{soundEnabled ? '🔊' : '🔇'}</span>
                   </button>
                 </div>
               </div>
