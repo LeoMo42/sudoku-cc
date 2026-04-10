@@ -43,6 +43,7 @@ interface BoardProps {
   thermos?: Thermo[] | null;
   sandwichClues?: SandwichClues | null;
   hintHighlights?: Map<string, HighlightRole> | null;
+  highlightsEnabled?: boolean;
   onCellClick: (row: number, col: number) => void;
 }
 
@@ -61,8 +62,15 @@ export function Board({
   thermos = null,
   sandwichClues = null,
   hintHighlights = null,
+  highlightsEnabled = true,
   onCellClick,
 }: BoardProps) {
+  // Value of the currently selected cell (if any) — used to highlight all
+  // cells that share this digit. Empty cells never produce matches.
+  const selectedValue =
+    selectedCell && board[selectedCell.row]?.[selectedCell.col] !== EMPTY_CELL
+      ? board[selectedCell.row]![selectedCell.col]
+      : null;
   // Build lookup maps for Killer Sudoku cage borders and sums
   const cellToCageMap = new Map<string, KillerCage & { id: number }>();
   const cageTopLeftSet = new Set<string>();
@@ -112,12 +120,22 @@ export function Board({
 
             // Highlight cells in same row, column, or 3x3 box as selected cell
             const isHighlighted =
+              highlightsEnabled &&
               selectedCell &&
               !isSelected &&
               (selectedCell.row === rowIndex ||
                 selectedCell.col === colIndex ||
                 (Math.floor(selectedCell.row / 3) === Math.floor(rowIndex / 3) &&
                   Math.floor(selectedCell.col / 3) === Math.floor(colIndex / 3)));
+
+            // Highlight cells whose digit matches the selected cell's digit.
+            // Empty cells (value === EMPTY_CELL) never participate.
+            const isMatchingValue =
+              highlightsEnabled &&
+              selectedValue !== null &&
+              !isSelected &&
+              value !== EMPTY_CELL &&
+              value === selectedValue;
 
             const isError = errors.has(`${rowIndex},${colIndex}`);
             const cellNotes = notes.get(`${rowIndex},${colIndex}`);
@@ -190,6 +208,7 @@ export function Board({
                 isInitial={isInitial}
                 isSelected={isSelected}
                 isHighlighted={isHighlighted}
+                isMatchingValue={isMatchingValue}
                 isError={isError}
                 isOnDiagonal={isOnDiagonal}
                 isInWindow={isInWindow}

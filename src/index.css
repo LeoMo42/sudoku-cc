@@ -40,6 +40,17 @@
     @apply bg-blue-50;
   }
 
+  /* Cells sharing the selected cell's digit — stronger highlight than peers.
+     Uses both background luminance and an inset ring so it remains
+     distinguishable for color-blind users (not relying on hue alone). */
+  .cell-matching-value {
+    @apply bg-blue-200 ring-1 ring-inset ring-blue-400;
+  }
+
+  .cell-matching-value.cell-initial {
+    @apply bg-blue-300;
+  }
+
   .cell-diagonal {
     @apply bg-purple-100;
   }

@@ -60,6 +60,33 @@ export const WithSelection = {
   },
 };
 
+// Selecting a filled cell highlights row/col/box peers AND every other
+// cell containing the same digit (issue #60).
+export const WithMatchingDigitHighlight = {
+  args: {
+    board: samplePuzzle,
+    initialBoard: samplePuzzle,
+    selectedCell: { row: 0, col: 0 }, // value 5
+    errors: new Set(),
+    notes: new Map(),
+    onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),
+  },
+};
+
+// Same selection but with the highlights toggle disabled — verifies the
+// "no highlights" mode for users who prefer a quieter board.
+export const WithHighlightsDisabled = {
+  args: {
+    board: samplePuzzle,
+    initialBoard: samplePuzzle,
+    selectedCell: { row: 0, col: 0 },
+    highlightsEnabled: false,
+    errors: new Set(),
+    notes: new Map(),
+    onCellClick: (row, col) => console.log(`Clicked cell [${row}, ${col}]`),
+  },
+};
+
 export const WithErrors = {
   args: {
     board: [

@@ -21,6 +21,7 @@ interface CellProps {
   isInitial: boolean;
   isSelected: boolean | null | undefined;
   isHighlighted: boolean | null | undefined;
+  isMatchingValue: boolean | null | undefined;
   isError: boolean;
   isOnDiagonal: boolean;
   isInWindow: boolean;
@@ -53,6 +54,7 @@ export const Cell = memo(function Cell({
   isInitial,
   isSelected,
   isHighlighted,
+  isMatchingValue,
   isError,
   isOnDiagonal,
   isInWindow,
@@ -108,6 +110,10 @@ export const Cell = memo(function Cell({
     else if (hintRole === 'eliminate') cellStyles += ' cell-hint-eliminate';
   } else if (isSelected) {
     cellStyles += ' cell-selected';
+  } else if (isMatchingValue && !isError) {
+    // Matching-value highlight wins over plain peer highlight,
+    // since a peer that also matches is the more informative state.
+    cellStyles += ' cell-matching-value';
   } else if (isHighlighted) {
     cellStyles += ' cell-highlighted';
   }
@@ -257,6 +263,7 @@ export const Cell = memo(function Cell({
     prevProps.isInitial === nextProps.isInitial &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
+    prevProps.isMatchingValue === nextProps.isMatchingValue &&
     prevProps.isError === nextProps.isError &&
     prevProps.isOnDiagonal === nextProps.isOnDiagonal &&
     prevProps.isInWindow === nextProps.isInWindow &&

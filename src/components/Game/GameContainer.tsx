@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useGameState } from '../../hooks/useGameState';
 import { useTimer } from '../../hooks/useTimer';
 import { useSound } from '../../hooks/useSound';
+import { useHighlightSetting } from '../../hooks/useHighlightSetting';
 import { Board } from '../Board/Board';
 import { Timer } from '../Controls/Timer';
 import { NumberPad } from '../Controls/NumberPad';
@@ -22,6 +23,7 @@ export function GameContainer() {
   const { t } = useTranslation();
   const { state, actions } = useGameState();
   const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
+  const { highlightsEnabled, toggleHighlights } = useHighlightSetting();
 
   // Timer hook
   useTimer(state.gameStatus, actions.updateTime);
@@ -248,6 +250,7 @@ export function GameContainer() {
       thermos={state.thermos}
       sandwichClues={state.sandwichClues}
       hintHighlights={hintHighlights}
+      highlightsEnabled={highlightsEnabled}
       onCellClick={handleCellClick}
     />
   );
@@ -318,6 +321,15 @@ export function GameContainer() {
                 <span className="text-sm font-medium text-gray-600">{t('game.time')}</span>
                 <div className="flex items-center gap-3">
                   <Timer elapsedTime={state.elapsedTime} />
+                  <button
+                    onClick={toggleHighlights}
+                    title={highlightsEnabled ? t('game.highlightsOn') : t('game.highlightsOff')}
+                    aria-label={highlightsEnabled ? t('game.highlightsOn') : t('game.highlightsOff')}
+                    aria-pressed={highlightsEnabled}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
+                  >
+                    {highlightsEnabled ? '🔆' : '🔅'}
+                  </button>
                   <button
                     onClick={toggleSound}
                     title={soundEnabled ? t('game.soundOn') : t('game.soundOff')}

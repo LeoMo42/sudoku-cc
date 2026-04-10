@@ -18,6 +18,8 @@
     "hintsUsed": "{{used}}/{{max}}",
     "soundOn": "Sound on (click to mute)",
     "soundOff": "Sound off (click to enable)",
+    "highlightsOn": "Highlights on (click to disable)",
+    "highlightsOff": "Highlights off (click to enable)",
     "undo": "Undo",
     "redo": "Redo"
   },
