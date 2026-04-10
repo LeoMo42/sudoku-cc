@@ -84,8 +84,9 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     const highlightedCount = await page.locator('.cell-highlighted').count();
     expect(highlightedCount).toBeGreaterThan(0);
 
-    // Toggle highlights off via the button (aria-pressed flips)
-    const toggle = page.locator('button[aria-pressed]').first();
+    // Toggle highlights off via the button (data-testid is stable across
+    // future buttons that might also use aria-pressed).
+    const toggle = page.locator('[data-testid="toggle-highlights"]');
     await expect(toggle).toBeVisible();
     await toggle.click();
 

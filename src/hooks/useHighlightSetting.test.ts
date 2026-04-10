@@ -3,16 +3,14 @@ import { renderHook, act } from '@testing-library/react';
 import { useHighlightSetting } from './useHighlightSetting';
 
 describe('useHighlightSetting', () => {
-  const originalGetItem = Storage.prototype.getItem;
-  const originalSetItem = Storage.prototype.setItem;
-
   beforeEach(() => {
     localStorage.clear();
   });
 
+  // vi.spyOn lets vi.restoreAllMocks fully unwind any patched prototype
+  // method even if a previous test threw before its manual cleanup ran.
   afterEach(() => {
-    Storage.prototype.getItem = originalGetItem;
-    Storage.prototype.setItem = originalSetItem;
+    vi.restoreAllMocks();
   });
 
   it('defaults to enabled on first run', () => {
@@ -37,7 +35,7 @@ describe('useHighlightSetting', () => {
   });
 
   it('defaults to enabled when localStorage.getItem throws', () => {
-    Storage.prototype.getItem = vi.fn(() => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new DOMException('blocked');
     });
     const { result } = renderHook(() => useHighlightSetting());
@@ -45,7 +43,7 @@ describe('useHighlightSetting', () => {
   });
 
   it('does not throw when localStorage.setItem throws', () => {
-    Storage.prototype.setItem = vi.fn(() => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('quota exceeded');
     });
     const { result } = renderHook(() => useHighlightSetting());

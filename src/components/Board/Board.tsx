@@ -67,10 +67,11 @@ export function Board({
 }: BoardProps) {
   // Value of the currently selected cell (if any) — used to highlight all
   // cells that share this digit. Empty cells never produce matches.
+  // Use a single optional-chain read so we never hit a non-null assertion
+  // after a guard that admits undefined.
+  const selectedRaw = selectedCell ? board[selectedCell.row]?.[selectedCell.col] : undefined;
   const selectedValue =
-    selectedCell && board[selectedCell.row]?.[selectedCell.col] !== EMPTY_CELL
-      ? board[selectedCell.row]![selectedCell.col]
-      : null;
+    selectedRaw !== undefined && selectedRaw !== EMPTY_CELL ? selectedRaw : null;
   // Build lookup maps for Killer Sudoku cage borders and sums
   const cellToCageMap = new Map<string, KillerCage & { id: number }>();
   const cageTopLeftSet = new Set<string>();
@@ -128,16 +129,19 @@ export function Board({
                 (Math.floor(selectedCell.row / 3) === Math.floor(rowIndex / 3) &&
                   Math.floor(selectedCell.col / 3) === Math.floor(colIndex / 3)));
 
+            const isError = errors.has(`${rowIndex},${colIndex}`);
+
             // Highlight cells whose digit matches the selected cell's digit.
-            // Empty cells (value === EMPTY_CELL) never participate.
+            // Empty cells (value === EMPTY_CELL) and error cells never
+            // participate — error styling owns the visual slot.
             const isMatchingValue: boolean =
               highlightsEnabled &&
               selectedValue !== null &&
               !isSelected &&
+              !isError &&
               value !== EMPTY_CELL &&
               value === selectedValue;
 
-            const isError = errors.has(`${rowIndex},${colIndex}`);
             const cellNotes = notes.get(`${rowIndex},${colIndex}`);
 
             // Check if cell is on diagonal (for X-Sudoku)

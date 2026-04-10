@@ -326,6 +326,7 @@ export function GameContainer() {
                     title={highlightsEnabled ? t('game.highlightsOn') : t('game.highlightsOff')}
                     aria-label={highlightsEnabled ? t('game.highlightsOn') : t('game.highlightsOff')}
                     aria-pressed={highlightsEnabled}
+                    data-testid="toggle-highlights"
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
                   >
                     {highlightsEnabled ? '🔆' : '🔅'}
