@@ -31,12 +31,11 @@ describe('Board highlighting', () => {
       />
     );
 
-    // Same row peer (R1C2): should be highlighted (or matching, since both apply)
+    // Same row peer with a different digit (R1C2 = 2): plain peer highlight,
+    // never matching-value (digits differ).
     const r1c2 = screen.getByLabelText('R1C2: 2');
-    expect(
-      r1c2.className.includes('cell-highlighted') ||
-        r1c2.className.includes('cell-matching-value')
-    ).toBe(true);
+    expect(r1c2.className).toContain('cell-highlighted');
+    expect(r1c2.className).not.toContain('cell-matching-value');
 
     // Same column peer (R2C1, value 0): plain peer highlight
     const r2c1 = screen.getByLabelText('R2C1');
@@ -46,6 +45,31 @@ describe('Board highlighting', () => {
     const r5c5 = screen.getByLabelText('R5C5');
     expect(r5c5.className).not.toContain('cell-highlighted');
     expect(r5c5.className).not.toContain('cell-matching-value');
+  });
+
+  it('matching-value wins over plain peer-highlight on cells that are both', () => {
+    // Selecting R1C5 (value 5) makes R1C1..R1C9 all peers; R1C5 itself is
+    // selected; the box around R1C5 (rows 0..2, cols 3..5) intersects with
+    // any other 5 in that box. We use R4C4 (value 5) which sits in a
+    // different row/col/box than R1C5 — so it's a pure matching-value cell.
+    // R1C2 is a pure peer (different digit), and we already test that above.
+    // Here we craft a cell that is BOTH a peer AND a match: put a 5 in R1C9
+    // — same row as selection AND same value.
+    const board = makeBoard();
+    board[0]![8] = 5; // make R1C9 = 5 (peer + match)
+    render(
+      <Board
+        board={board}
+        initialBoard={board}
+        selectedCell={{ row: 0, col: 4 }}
+        {...noopProps}
+      />
+    );
+
+    const r1c9 = screen.getByLabelText('R1C9: 5');
+    // The Cell.tsx else-if order documents that matching-value wins.
+    expect(r1c9.className).toContain('cell-matching-value');
+    expect(r1c9.className).not.toContain('cell-highlighted');
   });
 
   it('applies cell-matching-value to cells sharing the selected digit', () => {
@@ -111,6 +135,24 @@ describe('Board highlighting', () => {
     // Selected cell still gets the selected ring
     const r1c5 = screen.getByLabelText('R1C5: 5');
     expect(r1c5.className).toContain('cell-selected');
+  });
+
+  it('does not apply matching-value highlight to cells flagged as errors', () => {
+    const board = makeBoard();
+    render(
+      <Board
+        board={board}
+        initialBoard={board}
+        selectedCell={{ row: 0, col: 4 }} // value 5
+        {...noopProps}
+        errors={new Set(['3,3'])} // mark R4C4 (value 5) as an error (0-indexed key)
+      />
+    );
+
+    const r4c4 = screen.getByLabelText('R4C4: 5');
+    // Error styling must take priority over the matching-value background.
+    expect(r4c4.className).toContain('cell-error');
+    expect(r4c4.className).not.toContain('cell-matching-value');
   });
 
   it('applies no highlights when no cell is selected', () => {

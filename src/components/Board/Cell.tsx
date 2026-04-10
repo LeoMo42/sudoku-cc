@@ -21,7 +21,7 @@ interface CellProps {
   isInitial: boolean;
   isSelected: boolean | null | undefined;
   isHighlighted: boolean | null | undefined;
-  isMatchingValue: boolean | null | undefined;
+  isMatchingValue?: boolean;
   isError: boolean;
   isOnDiagonal: boolean;
   isInWindow: boolean;
@@ -54,7 +54,7 @@ export const Cell = memo(function Cell({
   isInitial,
   isSelected,
   isHighlighted,
-  isMatchingValue,
+  isMatchingValue = false,
   isError,
   isOnDiagonal,
   isInWindow,

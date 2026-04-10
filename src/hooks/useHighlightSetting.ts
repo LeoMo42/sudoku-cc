@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const HIGHLIGHT_ENABLED_KEY = 'sudoku-highlights-enabled';
 
@@ -21,7 +21,14 @@ export function useHighlightSetting(): UseHighlightSettingReturn {
     }
   });
 
+  // Skip the initial-mount write so we don't churn localStorage on every
+  // cold start with a value that already matches what we just read.
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     try {
       localStorage.setItem(HIGHLIGHT_ENABLED_KEY, String(highlightsEnabled));
     } catch { /* private browsing or quota exceeded */ }

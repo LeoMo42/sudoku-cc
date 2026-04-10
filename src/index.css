@@ -63,6 +63,15 @@
     @apply bg-purple-100;
   }
 
+  /* Variant + matching-value compounds: variant cell classes are declared
+     after .cell-matching-value below in source order, so without these
+     compound rules their bg-* would silently override the matching-value
+     background (the inset ring would still draw). Each variant keeps its
+     own hue but darkens to convey the matching-value state. */
+  .cell-diagonal.cell-matching-value {
+    @apply bg-purple-300;
+  }
+
   .cell-window {
     @apply bg-green-100;
   }
@@ -75,6 +84,10 @@
     @apply bg-green-100;
   }
 
+  .cell-window.cell-matching-value {
+    @apply bg-green-300;
+  }
+
   .cell-knight-target {
     @apply bg-amber-100;
   }
@@ -83,12 +96,20 @@
     @apply bg-amber-200;
   }
 
+  .cell-knight-target.cell-matching-value {
+    @apply bg-amber-300;
+  }
+
   .cell-king-diagonal {
     @apply bg-teal-100;
   }
 
   .cell-king-diagonal.cell-initial {
     @apply bg-teal-200;
+  }
+
+  .cell-king-diagonal.cell-matching-value {
+    @apply bg-teal-300;
   }
 }
 

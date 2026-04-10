@@ -130,7 +130,7 @@ export function Board({
 
             // Highlight cells whose digit matches the selected cell's digit.
             // Empty cells (value === EMPTY_CELL) never participate.
-            const isMatchingValue =
+            const isMatchingValue: boolean =
               highlightsEnabled &&
               selectedValue !== null &&
               !isSelected &&
