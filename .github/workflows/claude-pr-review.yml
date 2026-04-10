@@ -52,9 +52,14 @@ jobs:
           3. **MANDATORY FINAL STEP** — Post your review with
              `gh pr comment ${{ github.event.pull_request.number }} --body "..."`.
              You MUST post exactly one comment before ending your turn, no exceptions.
+             The body MUST start with `**🤖 Claude Review**` on its own line, followed
+             by a blank line, then the sections below. This tag distinguishes you from
+             the parallel Codex review on the same PR.
              If you have nothing to flag after the analysis above, post this exact body:
 
              ```
+             **🤖 Claude Review**
+
              **Summary** — <one sentence on what the PR does>
 
              No Critical, Important, or Suggestions to flag. Diff looks clean.

@@ -1,0 +1,169 @@
+name: Codex PR Review
+
+on:
+  pull_request:
+    branches: [dev]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  codex-review:
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login == 'LeoMo42'
+    runs-on: ubuntu-latest
+    name: Codex Code Review
+
+    steps:
+      - name: Checkout PR merge ref
+        uses: actions/checkout@v5
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 0
+
+      - name: Capture PR diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr.diff
+          gh pr view ${{ github.event.pull_request.number }} --comments \
+            > /tmp/pr.comments || true
+          echo "Diff bytes: $(wc -c < /tmp/pr.diff)"
+
+      - name: Build Codex prompt
+        run: |
+          cat > /tmp/codex-prompt.md <<'PROMPT_EOF'
+          You are reviewing a PR for Sudoku Sensei, a React 19 + TypeScript + Vite
+          sudoku app with 13 variant types (Classic, Diagonal, Killer, Thermo,
+          Sandwich, Kropki, etc.).
+
+          Stack: React 19, TypeScript (strict), Vite 7, Tailwind CSS 3.4, Vitest,
+          Playwright, i18next (ru/en).
+
+          You are running in **parallel with a Claude reviewer** on the same PR.
+          Both of you produce independent reviews. Do your own thinking — do not
+          try to defer to or echo the other reviewer.
+
+          ## Inputs
+
+          - The PR diff is in `/tmp/pr.diff`. Read it.
+          - Prior PR comments are in `/tmp/pr.comments`. Read them.
+          - The full repo is checked out at the working directory. You may
+            `Read` / `grep` files **touched by the diff** to verify a finding,
+            but stay within the diff scope. Do not audit unchanged code.
+
+          ## Your Task
+
+          Produce a code review of the diff. Then write the **entire review**
+          to `/tmp/codex-review.md` — that file is what gets posted to the PR.
+          Do not run any `gh` commands; the workflow handles posting.
+
+          Do not re-raise issues that prior comments already raised, fixed, or
+          that the author explicitly defended. Do not relitigate accepted
+          approaches.
+
+          ## What to look for (in order of priority)
+
+          - **Game logic correctness**: Sudoku constraints, puzzle uniqueness,
+            variant rules (diagonal, anti-knight, sandwich, etc.), undo/redo
+            consistency.
+          - **Real bugs**: crashes, data loss, broken localStorage, race
+            conditions, wrong state transitions, accessibility regressions
+            that break a screen reader.
+          - **Type safety holes** that admit runtime errors (not stylistic widening).
+          - **Performance regressions** with a concrete reproduction (81 cells
+            re-render is the bar — speculative "this might be slow" doesn't count).
+
+          ## Falsifiability rule (REQUIRED for Critical / Important)
+
+          Every Critical or Important issue MUST include either:
+          - A concrete input or user action that triggers the bug, OR
+          - A failing test you can describe in one sentence.
+
+          If you cannot produce one, the issue is NOT Critical or Important.
+          Demote it to Suggestions or omit it entirely. "This could theoretically
+          fail if X" without a path to X is not a real issue.
+
+          ## Do NOT flag (skip-list)
+
+          - Defensive guards that duplicate an upstream check — defense-in-depth
+            is fine.
+          - Redundant `title` + `aria-label` on the same element — both are valid.
+          - Type widening with no runtime impact (e.g. `boolean | null` vs
+            `boolean`) unless it actually causes a bug.
+          - Test structure / refactoring preferences (helper extraction, naming,
+            what to assert in which `it` block) when the existing tests pass and
+            cover the behavior.
+          - Code outside the diff. If a file is unchanged, do not review it.
+          - Naming, comment wording, JSDoc presence, file organization preferences.
+          - Vague "consider X" suggestions with no concrete bug behind them.
+          - Style nits already enforced by ESLint / Prettier / Tailwind.
+
+          ## Output format (exact)
+
+          The file `/tmp/codex-review.md` MUST start with this header on its
+          own line, followed by a blank line:
+
+          ```
+          **🤖 Codex Review**
+          ```
+
+          Then the sections:
+
+          - **Summary** — 1–2 sentences on what the PR does.
+          - **Strengths** — 1–3 bullets, only if genuinely notable. Skip if routine.
+          - **Critical** — must fix before merge. Each entry needs the
+            falsifiability evidence above. Most PRs have ZERO. Empty section
+            is normal and good.
+          - **Important** — should fix. Each entry needs the falsifiability
+            evidence above. A great review has **0–2** Important issues, not 5.
+            If your draft has more than 3, cut the weakest ones. Padding hurts
+            signal.
+          - **Suggestions** — optional polish. Cap at 3. These are takes, not asks.
+          - **Testing** — 1–3 things a reviewer should manually verify.
+
+          If after honest analysis you have nothing to flag, write exactly:
+
+          ```
+          **🤖 Codex Review**
+
+          **Summary** — <one sentence on what the PR does>
+
+          No Critical, Important, or Suggestions to flag. Diff looks clean.
+
+          **Testing** — <1–2 things to manually verify>
+          ```
+
+          ## Style
+
+          - Specific: cite `file.tsx:123` line numbers.
+          - Explain WHY (the user-visible or runtime impact), not just WHAT.
+          - Terse. No preamble, no fluff, no restating the diff.
+          - It is correct and good to post a short review. Length is not signal.
+
+          A run that exits without writing `/tmp/codex-review.md` is a failed review.
+          PROMPT_EOF
+          echo "Prompt bytes: $(wc -c < /tmp/codex-prompt.md)"
+
+      - name: Run Codex Review
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: /tmp/codex-prompt.md
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+
+      - name: Post Codex review comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -s /tmp/codex-review.md ]; then
+            echo "::error::Codex did not write /tmp/codex-review.md"
+            exit 1
+          fi
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body-file /tmp/codex-review.md
