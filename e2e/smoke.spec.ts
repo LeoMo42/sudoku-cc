@@ -69,22 +69,34 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     // Wait for puzzle to render
     await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
 
-    // Find any filled cell (initial cells expose their value via aria-label "RxCy: N")
+    // Find a filled cell whose digit appears at least twice among the
+    // givens. We need duplicates so that clicking it produces at least one
+    // OTHER matching cell — picking the first filled cell would flake on
+    // puzzles where its digit happens to be a single given.
     const filledLabel = await page.evaluate(() => {
       const cells = document.querySelectorAll('[data-testid="cell"]');
+      const counts = new Map<string, string[]>();
       for (const cell of cells) {
         const label = cell.getAttribute('aria-label') || '';
-        if (/^R\dC\d: \d$/.test(label)) return label;
+        const m = /^R\dC\d: (\d)$/.exec(label);
+        if (m) {
+          const d = m[1]!;
+          if (!counts.has(d)) counts.set(d, []);
+          counts.get(d)!.push(label);
+        }
+      }
+      for (const labels of counts.values()) {
+        if (labels.length >= 2) return labels[0];
       }
       return null;
     });
     expect(filledLabel).not.toBeNull();
-    const digit = filledLabel!.slice(-1);
 
     await page.locator(`[aria-label="${filledLabel}"]`).click();
 
     // At least one OTHER cell with the same digit should now have
     // cell-matching-value applied (the selected cell itself does not).
+    // Guaranteed because we picked a digit with ≥2 givens above.
     const matchingCount = await page.locator('.cell-matching-value').count();
     expect(matchingCount).toBeGreaterThan(0);
 
@@ -106,20 +118,14 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     await page.reload();
     await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
 
-    // Re-select a cell with the same digit and confirm highlights stay off
-    const sameDigitCell = await page.evaluate((d) => {
-      const cells = document.querySelectorAll('[data-testid="cell"]');
-      for (const cell of cells) {
-        const label = cell.getAttribute('aria-label') || '';
-        if (label.endsWith(`: ${d}`)) return label;
-      }
-      return null;
-    }, digit);
-    if (sameDigitCell) {
-      await page.locator(`[aria-label="${sameDigitCell}"]`).click();
-      await expect(page.locator('.cell-matching-value')).toHaveCount(0);
-      await expect(page.locator('.cell-highlighted')).toHaveCount(0);
-    }
+    // After reload, click any initial cell — with highlights disabled,
+    // no cell should carry either highlight class regardless of which
+    // cell we click. Hunting for the same digit would silently skip the
+    // assertion if no match exists; clicking any initial cell makes the
+    // persistence check unconditional.
+    await page.locator('.cell-initial').first().click();
+    await expect(page.locator('.cell-matching-value')).toHaveCount(0);
+    await expect(page.locator('.cell-highlighted')).toHaveCount(0);
 
     // afterEach clears localStorage so we don't need to manually re-enable
     // the toggle here.
