@@ -5,6 +5,14 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     await page.goto('/');
   });
 
+  // Clear any test-set localStorage so a failed test cannot leak state
+  // (e.g. a disabled highlights toggle) into the next test in the run.
+  test.afterEach(async ({ page }) => {
+    try {
+      await page.evaluate(() => localStorage.clear());
+    } catch { /* page may already be closed */ }
+  });
+
   test('app loads and renders 81 cells', async ({ page }) => {
     const cells = page.locator('[data-testid="cell"]');
     await expect(cells).toHaveCount(81);
@@ -55,6 +63,72 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     // Click outside to close
     await page.mouse.click(10, 10);
     await expect(listbox).not.toBeVisible();
+  });
+
+  test('selecting a filled cell highlights matching digits, toggle persists', async ({ page }) => {
+    // Wait for puzzle to render
+    await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
+
+    // Find a filled cell whose digit appears at least twice among the
+    // givens. We need duplicates so that clicking it produces at least one
+    // OTHER matching cell — picking the first filled cell would flake on
+    // puzzles where its digit happens to be a single given.
+    const filledLabel = await page.evaluate(() => {
+      const cells = document.querySelectorAll('[data-testid="cell"]');
+      const counts = new Map<string, string[]>();
+      for (const cell of cells) {
+        const label = cell.getAttribute('aria-label') || '';
+        const m = /^R\dC\d: (\d)$/.exec(label);
+        if (m) {
+          const d = m[1]!;
+          if (!counts.has(d)) counts.set(d, []);
+          counts.get(d)!.push(label);
+        }
+      }
+      for (const labels of counts.values()) {
+        if (labels.length >= 2) return labels[0];
+      }
+      return null;
+    });
+    expect(filledLabel).not.toBeNull();
+
+    await page.locator(`[aria-label="${filledLabel}"]`).click();
+
+    // At least one OTHER cell with the same digit should now have
+    // cell-matching-value applied (the selected cell itself does not).
+    // Guaranteed because we picked a digit with ≥2 givens above.
+    const matchingCount = await page.locator('.cell-matching-value').count();
+    expect(matchingCount).toBeGreaterThan(0);
+
+    // Sanity check: peer cells in the same row/col/box also light up
+    const highlightedCount = await page.locator('.cell-highlighted').count();
+    expect(highlightedCount).toBeGreaterThan(0);
+
+    // Toggle highlights off via the button (data-testid is stable across
+    // future buttons that might also use aria-pressed).
+    const toggle = page.locator('[data-testid="toggle-highlights"]');
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+
+    // After toggling off, no cell should carry either highlight class
+    await expect(page.locator('.cell-matching-value')).toHaveCount(0);
+    await expect(page.locator('.cell-highlighted')).toHaveCount(0);
+
+    // Reload — the disabled state must persist via localStorage
+    await page.reload();
+    await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
+
+    // After reload, click any initial cell — with highlights disabled,
+    // no cell should carry either highlight class regardless of which
+    // cell we click. Hunting for the same digit would silently skip the
+    // assertion if no match exists; clicking any initial cell makes the
+    // persistence check unconditional.
+    await page.locator('.cell-initial').first().click();
+    await expect(page.locator('.cell-matching-value')).toHaveCount(0);
+    await expect(page.locator('.cell-highlighted')).toHaveCount(0);
+
+    // afterEach clears localStorage so we don't need to manually re-enable
+    // the toggle here.
   });
 
   test('new game button generates a fresh puzzle', async ({ page }) => {

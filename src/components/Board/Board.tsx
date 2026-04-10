@@ -43,6 +43,7 @@ interface BoardProps {
   thermos?: Thermo[] | null;
   sandwichClues?: SandwichClues | null;
   hintHighlights?: Map<string, HighlightRole> | null;
+  highlightsEnabled?: boolean;
   onCellClick: (row: number, col: number) => void;
 }
 
@@ -61,8 +62,16 @@ export function Board({
   thermos = null,
   sandwichClues = null,
   hintHighlights = null,
+  highlightsEnabled = true,
   onCellClick,
 }: BoardProps) {
+  // Value of the currently selected cell (if any) — used to highlight all
+  // cells that share this digit. Empty cells never produce matches.
+  // Use a single optional-chain read so we never hit a non-null assertion
+  // after a guard that admits undefined.
+  const selectedRaw = selectedCell ? board[selectedCell.row]?.[selectedCell.col] : undefined;
+  const selectedValue =
+    selectedRaw !== undefined && selectedRaw !== EMPTY_CELL ? selectedRaw : null;
   // Build lookup maps for Killer Sudoku cage borders and sums
   const cellToCageMap = new Map<string, KillerCage & { id: number }>();
   const cageTopLeftSet = new Set<string>();
@@ -110,16 +119,34 @@ export function Board({
               selectedCell.row === rowIndex &&
               selectedCell.col === colIndex;
 
-            // Highlight cells in same row, column, or 3x3 box as selected cell
-            const isHighlighted =
+            const isError = errors.has(`${rowIndex},${colIndex}`);
+
+            // Highlight cells whose digit matches the selected cell's digit.
+            // Empty cells (value === EMPTY_CELL) and error cells never
+            // participate — error styling owns the visual slot.
+            const isMatchingValue: boolean =
+              highlightsEnabled &&
+              selectedValue !== null &&
+              !isSelected &&
+              !isError &&
+              value !== EMPTY_CELL &&
+              value === selectedValue;
+
+            // Highlight cells in the same row, column, or 3x3 box as the
+            // selected cell. Mutually exclusive with isMatchingValue: a peer
+            // that also shares the digit is the more informative state, so
+            // we collapse the flag here rather than relying on Cell's
+            // else-if ordering.
+            const isPeer =
+              highlightsEnabled &&
               selectedCell &&
               !isSelected &&
               (selectedCell.row === rowIndex ||
                 selectedCell.col === colIndex ||
                 (Math.floor(selectedCell.row / 3) === Math.floor(rowIndex / 3) &&
                   Math.floor(selectedCell.col / 3) === Math.floor(colIndex / 3)));
+            const isHighlighted = isPeer && !isMatchingValue;
 
-            const isError = errors.has(`${rowIndex},${colIndex}`);
             const cellNotes = notes.get(`${rowIndex},${colIndex}`);
 
             // Check if cell is on diagonal (for X-Sudoku)
@@ -190,6 +217,7 @@ export function Board({
                 isInitial={isInitial}
                 isSelected={isSelected}
                 isHighlighted={isHighlighted}
+                isMatchingValue={isMatchingValue}
                 isError={isError}
                 isOnDiagonal={isOnDiagonal}
                 isInWindow={isInWindow}

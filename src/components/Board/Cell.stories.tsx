@@ -81,6 +81,37 @@ export const Highlighted = {
   },
 };
 
+export const MatchingValue = {
+  args: {
+    value: 5,
+    row: 0,
+    col: 0,
+    isInitial: false,
+    isSelected: false,
+    // isHighlighted is intentionally false: the matching-value branch
+    // sits above the highlighted branch in Cell's else-if chain, so
+    // setting both would let one silently mask the other in this story.
+    isHighlighted: false,
+    isMatchingValue: true,
+    isError: false,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const MatchingValueInitial = {
+  args: {
+    value: 5,
+    row: 0,
+    col: 0,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isMatchingValue: true,
+    isError: false,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
 export const Error = {
   args: {
     value: 5,
