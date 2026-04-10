@@ -38,7 +38,7 @@ export function GameOverModal({ open, limit, onNewGame }: GameOverModalProps) {
         <p className="text-sm text-gray-700 leading-relaxed">
           {t('game.gameOverMessage', { limit })}
         </p>
-        <Button onClick={onNewGame} variant="primary">
+        <Button onClick={onNewGame} variant="primary" autoFocus>
           {t('game.gameOverNewGame')}
         </Button>
       </div>
