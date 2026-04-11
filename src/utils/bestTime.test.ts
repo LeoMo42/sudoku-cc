@@ -51,11 +51,11 @@ describe('bestTime', () => {
     expect(getBestTime('EASY')).toBeNull();
   });
 
-  it('updateBestTime returns true and does not throw when setItem throws', () => {
+  it('updateBestTime returns false and does not throw when setItem throws', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('quota exceeded');
     });
     expect(() => updateBestTime('EASY', 100)).not.toThrow();
-    expect(updateBestTime('EASY', 100)).toBe(true);
+    expect(updateBestTime('EASY', 100)).toBe(false);
   });
 });

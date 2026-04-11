@@ -34,6 +34,9 @@ export function updateBestTime(difficulty: DifficultyLevel, elapsedSeconds: numb
   if (typeof current === 'number' && current <= elapsedSeconds) return false;
   try {
     localStorage.setItem(BEST_TIMES_KEY, JSON.stringify({ ...times, [difficulty]: elapsedSeconds }));
-  } catch { /* private browsing or quota */ }
-  return true;
+    return true;
+  } catch {
+    // Private browsing or quota: can't record the new best, so don't claim it.
+    return false;
+  }
 }
