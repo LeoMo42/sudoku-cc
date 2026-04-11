@@ -4,6 +4,7 @@ import { useGameState } from '../../hooks/useGameState';
 import { useTimer } from '../../hooks/useTimer';
 import { useSound } from '../../hooks/useSound';
 import { useHighlightSetting } from '../../hooks/useHighlightSetting';
+import { useMistakeLimit } from '../../hooks/useMistakeLimit';
 import { Board } from '../Board/Board';
 import { Timer } from '../Controls/Timer';
 import { NumberPad } from '../Controls/NumberPad';
@@ -11,6 +12,7 @@ import { DifficultySelector } from '../Controls/DifficultySelector';
 import { SudokuTypeSelector } from '../Controls/SudokuTypeSelector';
 import { GameControls } from '../Controls/GameControls';
 import { HintModal } from '../Controls/HintModal';
+import { GameOverModal } from '../Controls/GameOverModal';
 import { LanguageSwitcher } from '../UI/LanguageSwitcher';
 import { OddEvenLegend } from '../UI/OddEvenLegend';
 import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constants';
@@ -24,6 +26,13 @@ export function GameContainer() {
   const { state, actions } = useGameState();
   const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
   const { highlightsEnabled, toggleHighlights } = useHighlightSetting();
+  const { mistakeLimitEnabled, toggleMistakeLimit } = useMistakeLimit();
+
+  // Resolved limit passed to the reducer on every placement. null when
+  // the preference is off, so the reducer will not transition to LOST.
+  const currentMistakeLimit = mistakeLimitEnabled
+    ? DIFFICULTY_LEVELS[state.difficulty].mistakeLimit
+    : null;
 
   // Timer hook
   useTimer(state.gameStatus, actions.updateTime);
@@ -101,14 +110,14 @@ export function GameContainer() {
         } else {
           const isInitialCell = state.initialBoard[row][col] !== EMPTY_CELL;
           if (!isInitialCell) pendingDigitSoundRef.current = true;
-          actions.setCellValue(row, col, num as 1|2|3|4|5|6|7|8|9);
+          actions.setCellValue(row, col, num as 1|2|3|4|5|6|7|8|9, currentMistakeLimit);
         }
       }
 
       // Backspace or Delete to clear cell
       if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
         e.preventDefault();
-        actions.setCellValue(row, col, EMPTY_CELL);
+        actions.setCellValue(row, col, EMPTY_CELL, currentMistakeLimit);
       }
 
       // Arrow keys for navigation
@@ -144,7 +153,7 @@ export function GameContainer() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.selectedCell, state.gameStatus, state.notesMode, state.initialBoard, actions]);
+  }, [state.selectedCell, state.gameStatus, state.notesMode, state.initialBoard, actions, currentMistakeLimit]);
 
   const handleCellClick = useCallback(
     (row: number, col: number) => {
@@ -165,19 +174,19 @@ export function GameContainer() {
         } else {
           const isInitialCell = state.initialBoard[row][col] !== EMPTY_CELL;
           if (!isInitialCell) pendingDigitSoundRef.current = true;
-          actions.setCellValue(row, col, num as 1|2|3|4|5|6|7|8|9);
+          actions.setCellValue(row, col, num as 1|2|3|4|5|6|7|8|9, currentMistakeLimit);
         }
       }
     },
-    [state.selectedCell, state.gameStatus, state.notesMode, state.initialBoard, actions]
+    [state.selectedCell, state.gameStatus, state.notesMode, state.initialBoard, actions, currentMistakeLimit]
   );
 
   const handleClear = useCallback(() => {
     if (state.selectedCell && state.gameStatus === GAME_STATUS.PLAYING) {
       const { row, col } = state.selectedCell;
-      actions.setCellValue(row, col, EMPTY_CELL);
+      actions.setCellValue(row, col, EMPTY_CELL, currentMistakeLimit);
     }
-  }, [state.selectedCell, state.gameStatus, actions]);
+  }, [state.selectedCell, state.gameStatus, actions, currentMistakeLimit]);
 
   const handleNewGame = useCallback(() => {
     actions.newGame(state.difficulty, state.sudokuType);
@@ -342,6 +351,41 @@ export function GameContainer() {
                 </div>
               </div>
 
+              {/* Mistake counter row: shows X N (or X N/M when limit on),
+                  with a toggle for the limit setting on the right. */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-600">{t('game.mistakes')}</span>
+                <div className="flex items-center gap-3">
+                  <span
+                    className="text-base font-semibold tabular-nums text-gray-800"
+                    data-testid="mistake-counter"
+                    aria-live="polite"
+                    aria-label={
+                      mistakeLimitEnabled
+                        ? t('game.mistakesCounterLimited', {
+                            count: state.mistakeCount,
+                            limit: DIFFICULTY_LEVELS[state.difficulty].mistakeLimit,
+                          })
+                        : t('game.mistakesCounter', { count: state.mistakeCount })
+                    }
+                  >
+                    {mistakeLimitEnabled
+                      ? `${state.mistakeCount} / ${DIFFICULTY_LEVELS[state.difficulty].mistakeLimit}`
+                      : state.mistakeCount}
+                  </span>
+                  <button
+                    onClick={toggleMistakeLimit}
+                    title={mistakeLimitEnabled ? t('game.mistakeLimitOn') : t('game.mistakeLimitOff')}
+                    aria-label={mistakeLimitEnabled ? t('game.mistakeLimitOn') : t('game.mistakeLimitOff')}
+                    aria-pressed={mistakeLimitEnabled}
+                    data-testid="toggle-mistake-limit"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
+                  >
+                    <span aria-hidden="true">{mistakeLimitEnabled ? '⚠️' : '♾️'}</span>
+                  </button>
+                </div>
+              </div>
+
               {state.gameStatus === GAME_STATUS.PAUSED && (
                 <div className="bg-yellow-100 border-2 border-yellow-600 rounded-lg p-3 text-center">
                   <p className="text-sm font-medium text-yellow-800">
@@ -376,6 +420,15 @@ export function GameContainer() {
               activeHint={state.activeHint}
               onApply={actions.applyHint}
               onDismiss={actions.dismissHint}
+            />
+
+            {/* Game Over modal: appears when mistake limit is reached.
+                Limit shown is the one that was active when the loss
+                triggered, which is the current difficulty's value. */}
+            <GameOverModal
+              open={state.gameStatus === GAME_STATUS.LOST}
+              limit={DIFFICULTY_LEVELS[state.difficulty].mistakeLimit}
+              onNewGame={handleNewGame}
             />
 
             {/* Number Pad */}

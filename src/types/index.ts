@@ -24,6 +24,10 @@ export interface DifficultyConfig {
   name: string;
   filledCells: [number, number];
   maxHints: number;
+  // Default mistake limit when "limit mistakes" setting is enabled.
+  // Hardcoded per difficulty for now; a future settings modal can let
+  // the user override these per-difficulty.
+  mistakeLimit: number;
 }
 
 export interface SudokuTypeConfig {
@@ -43,7 +47,7 @@ export interface GridOffset {
 }
 
 // Game status
-export type GameStatus = 'idle' | 'playing' | 'paused' | 'completed';
+export type GameStatus = 'idle' | 'playing' | 'paused' | 'completed' | 'lost';
 
 // Variant constraint types
 export type Parity = 'odd' | 'even';
@@ -164,6 +168,10 @@ export interface GameState {
   elapsedTime: number;
   hintsUsed: number;
   errors: Set<string>;
+  // Monotonic counter of wrong-vs-solution placements for the current
+  // game. Resets to 0 on NEW_GAME. Not affected by undo/redo so the stat
+  // remains honest for the future stats dashboard.
+  mistakeCount: number;
   notesMode: boolean;
   notes: Map<string, Set<number>>;
   activeHint: HintStep | null;
@@ -181,7 +189,10 @@ export interface GameState {
 // Game actions
 export interface GameActions {
   newGame: (difficulty?: DifficultyLevel, sudokuType?: SudokuTypeId) => void;
-  setCellValue: (row: number, col: number, value: CellValue) => void;
+  // mistakeLimit: pass null when the "limit mistakes" preference is off,
+  // otherwise the per-difficulty limit. The reducer treats null as
+  // "track mistakes but never trigger lost state".
+  setCellValue: (row: number, col: number, value: CellValue, mistakeLimit?: number | null) => void;
   selectCell: (row: number, col: number) => void;
   checkSolution: () => void;
   getHint: () => void;
