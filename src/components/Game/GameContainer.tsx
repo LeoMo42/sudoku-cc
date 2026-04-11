@@ -5,6 +5,9 @@ import { useTimer } from '../../hooks/useTimer';
 import { useSound } from '../../hooks/useSound';
 import { useHighlightSetting } from '../../hooks/useHighlightSetting';
 import { useMistakeLimit } from '../../hooks/useMistakeLimit';
+import { useCelebrationSetting } from '../../hooks/useCelebrationSetting';
+import { useConfetti } from '../../hooks/useConfetti';
+import { updateBestTime } from '../../utils/bestTime';
 import { Board } from '../Board/Board';
 import { Timer } from '../Controls/Timer';
 import { NumberPad } from '../Controls/NumberPad';
@@ -27,12 +30,19 @@ export function GameContainer() {
   const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
   const { highlightsEnabled, toggleHighlights } = useHighlightSetting();
   const { mistakeLimitEnabled, toggleMistakeLimit } = useMistakeLimit();
+  const { celebrationEnabled, toggleCelebration } = useCelebrationSetting();
 
   // Resolved limit passed to the reducer on every placement. null when
   // the preference is off, so the reducer will not transition to LOST.
   const currentMistakeLimit = mistakeLimitEnabled
     ? DIFFICULTY_LEVELS[state.difficulty].mistakeLimit
     : null;
+
+  // Tracks whether the current completion is a new personal best.
+  // Written by the sound effect (declared below), read by useConfetti.
+  // React runs effects in declaration order, so useConfetti's effect sees
+  // the updated value.
+  const isNewBestTimeRef = useRef(false);
 
   // Timer hook
   useTimer(state.gameStatus, actions.updateTime);
@@ -48,6 +58,7 @@ export function GameContainer() {
     const prevErrorsSize = prevErrorsSizeRef.current;
 
     if (state.gameStatus === GAME_STATUS.COMPLETED && prevStatus !== GAME_STATUS.COMPLETED) {
+      isNewBestTimeRef.current = updateBestTime(state.difficulty, state.elapsedTime);
       playVictorySound();
     } else if (pendingDigitSoundRef.current) {
       // Play either error OR digit sound, not both
@@ -61,7 +72,15 @@ export function GameContainer() {
 
     prevGameStatusRef.current = state.gameStatus;
     prevErrorsSizeRef.current = state.errors.size;
-  }, [state.errors, state.gameStatus, playVictorySound, playErrorSound, playDigitSound]);
+  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, playVictorySound, playErrorSound, playDigitSound]);
+
+  // Confetti on completion — declared AFTER the sound effect so React runs it
+  // second, giving the sound effect a chance to update isNewBestTimeRef first.
+  useConfetti(
+    state.gameStatus === GAME_STATUS.COMPLETED,
+    celebrationEnabled,
+    isNewBestTimeRef,
+  );
 
   // Auto-start game if status is IDLE
   useEffect(() => {
@@ -347,6 +366,16 @@ export function GameContainer() {
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
                   >
                     <span aria-hidden="true">{soundEnabled ? '🔊' : '🔇'}</span>
+                  </button>
+                  <button
+                    onClick={toggleCelebration}
+                    title={celebrationEnabled ? t('game.celebrationOn') : t('game.celebrationOff')}
+                    aria-label={celebrationEnabled ? t('game.celebrationOn') : t('game.celebrationOff')}
+                    aria-pressed={celebrationEnabled}
+                    data-testid="toggle-celebration"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
+                  >
+                    <span aria-hidden="true">{celebrationEnabled ? '🎉' : '🚫'}</span>
                   </button>
                 </div>
               </div>
