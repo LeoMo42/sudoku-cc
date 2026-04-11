@@ -48,7 +48,7 @@ export async function shareOrCopy(text: string, url: string): Promise<ShareOutco
   }
   if (typeof navigator !== 'undefined' && navigator.clipboard) {
     try {
-      await navigator.clipboard.writeText(`${text} ${url}`);
+      await navigator.clipboard.writeText(`${text.trim()} ${url}`);
       return 'copied';
     } catch { /* fall through */ }
   }
