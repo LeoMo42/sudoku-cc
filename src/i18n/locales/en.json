@@ -35,7 +35,9 @@
     "share": "Share 🔗",
     "copiedToClipboard": "Link copied to clipboard!",
     "undo": "Undo",
-    "redo": "Redo"
+    "redo": "Redo",
+    "darkModeOn": "Dark mode on (click to disable)",
+    "darkModeOff": "Dark mode off (click to enable)"
   },
   "difficulty": {
     "EASY": "Easy",

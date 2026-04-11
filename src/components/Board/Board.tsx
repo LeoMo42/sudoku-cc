@@ -244,9 +244,9 @@ export function Board({
   );
 
   const innerBoard = (
-    <div className="inline-block bg-gray-800 p-2 rounded-lg shadow-2xl">
+    <div className="inline-block bg-gray-800 dark:bg-gray-500 p-2 rounded-lg shadow-2xl">
       <div
-        className="grid grid-cols-9 grid-rows-9 gap-0 bg-white relative"
+        className="grid grid-cols-9 grid-rows-9 gap-0 bg-white dark:bg-gray-800 relative"
         style={{ width: '450px', height: '450px' }}
         role="grid"
         aria-label="Sudoku board"
@@ -280,8 +280,8 @@ export function Board({
               className="absolute flex flex-col items-center justify-center pointer-events-none"
               style={{ left: `${left}px`, top: `${top}px`, transform: 'translate(-50%, -50%)', width: '30px' }}
             >
-              <span className="text-[11px] font-bold text-indigo-700 leading-[1.1]">{arrow}</span>
-              <span className="text-[10px] font-bold text-gray-800 leading-[1.1]">{clue.sum}</span>
+              <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 leading-[1.1]">{arrow}</span>
+              <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200 leading-[1.1]">{clue.sum}</span>
             </div>
           );
         })}
@@ -310,7 +310,7 @@ export function Board({
             className="absolute flex items-center justify-center pointer-events-none"
             style={{ left: `${OFFSET + c * CELL_PX}px`, top: '20px', transform: 'translate(-50%, -50%)' }}
           >
-            <span className="text-xs font-bold text-blue-800">{sum}</span>
+            <span className="text-xs font-bold text-blue-800 dark:text-blue-300">{sum}</span>
           </div>
         ))}
         {/* Row clues (left of grid) */}
@@ -320,7 +320,7 @@ export function Board({
             className="absolute flex items-center justify-center pointer-events-none"
             style={{ top: `${OFFSET + r * CELL_PX}px`, left: '20px', transform: 'translate(-50%, -50%)' }}
           >
-            <span className="text-xs font-bold text-blue-800">{sum}</span>
+            <span className="text-xs font-bold text-blue-800 dark:text-blue-300">{sum}</span>
           </div>
         ))}
       </div>

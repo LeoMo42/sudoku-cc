@@ -25,7 +25,7 @@ export function Button({
 
   const variants: Record<ButtonVariant, string> = {
     primary: 'bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500',
-    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus-visible:ring-gray-500',
+    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus-visible:ring-gray-500 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600',
     success: 'bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-500',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500',
   };
