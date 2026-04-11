@@ -12,6 +12,7 @@ interface GameControlsProps {
   onPause: () => void;
   onResume: () => void;
   onToggleNotes: () => void;
+  onShare: () => void;
   hintsUsed: number;
   maxHints: number;
   gameStatus: GameStatus;
@@ -32,6 +33,7 @@ export function GameControls({
   onPause,
   onResume,
   onToggleNotes,
+  onShare,
   hintsUsed,
   maxHints,
   gameStatus,
@@ -96,10 +98,13 @@ export function GameControls({
       </div>
 
       {isCompleted && (
-        <div className="bg-green-100 border-2 border-green-600 rounded-lg p-4 text-center">
+        <div className="bg-green-100 border-2 border-green-600 rounded-lg p-4 text-center flex flex-col items-center gap-3">
           <p className="text-xl font-bold text-green-800">
             {t('game.completed')}
           </p>
+          <Button onClick={onShare} variant="primary" data-testid="share-button">
+            {t('game.share')}
+          </Button>
         </div>
       )}
     </div>
