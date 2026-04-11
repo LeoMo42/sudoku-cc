@@ -1,1 +1,0 @@
-/Users/lm/work/own/sudoku-cc/.claude/skills/gstack/design-consultation/SKILL.md

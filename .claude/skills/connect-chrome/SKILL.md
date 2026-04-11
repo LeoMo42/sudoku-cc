@@ -1,1 +1,0 @@
-/Users/lm/work/own/sudoku-cc/.claude/skills/gstack/connect-chrome/SKILL.md
