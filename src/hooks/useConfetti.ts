@@ -31,10 +31,11 @@ export function useConfetti(
     if (isNewBestTimeRef.current) {
       // Two-wave celebration for a new personal best
       confetti({ particleCount: 120, spread: 100, origin: { y: 0.6 } });
-      setTimeout(() => {
+      const id = setTimeout(() => {
         confetti({ particleCount: 80, spread: 120, angle: 60, origin: { x: 0, y: 0.7 } });
         confetti({ particleCount: 80, spread: 120, angle: 120, origin: { x: 1, y: 0.7 } });
       }, 350);
+      return () => clearTimeout(id);
     } else {
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
     }
