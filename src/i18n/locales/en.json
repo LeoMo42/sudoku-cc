@@ -28,6 +28,8 @@
     "gameOver": "Game Over",
     "gameOverMessage": "You reached the mistake limit ({{limit}}). Better luck next time!",
     "gameOverNewGame": "New Game",
+    "celebrationOn": "Celebrations on (click to disable)",
+    "celebrationOff": "Celebrations off (click to enable)",
     "undo": "Undo",
     "redo": "Redo"
   },
