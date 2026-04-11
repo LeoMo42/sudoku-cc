@@ -8,6 +8,7 @@ import { useMistakeLimit } from '../../hooks/useMistakeLimit';
 import { useCelebrationSetting } from '../../hooks/useCelebrationSetting';
 import { useConfetti } from '../../hooks/useConfetti';
 import { useHaptic } from '../../hooks/useHaptic';
+import { useTheme } from '../../hooks/useTheme';
 import { updateBestTime } from '../../utils/bestTime';
 import { shareOrCopy, buildShareText, buildShareUrl } from '../../utils/share';
 import { ShareToast } from '../UI/ShareToast';
@@ -35,6 +36,7 @@ export function GameContainer() {
   const { mistakeLimitEnabled, toggleMistakeLimit } = useMistakeLimit();
   const { celebrationEnabled, toggleCelebration } = useCelebrationSetting();
   const { hapticEnabled, toggleHaptic, vibrateDigit, vibrateError, vibrateSelect, vibrateComplete } = useHaptic();
+  const { isDark, toggleTheme } = useTheme();
 
   const [shareToastVisible, setShareToastVisible] = useState(false);
 
@@ -320,11 +322,11 @@ export function GameContainer() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 py-4 px-2 sm:py-8 sm:px-4">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-4 px-2 sm:py-8 sm:px-4">
       <div className="max-w-6xl mx-auto">
         {/* Header with title and language switcher */}
         <div className="flex items-center justify-between mb-4 sm:mb-8">
-          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900">
+          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
             {t('game.title')}
           </h1>
           <LanguageSwitcher />
@@ -336,8 +338,8 @@ export function GameContainer() {
             {/* Type + Difficulty row */}
             <div className="flex flex-col sm:flex-row gap-3 lg:gap-4">
               {/* Sudoku Type Selector */}
-              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex-1">
-                <h2 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
+                <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 lg:mb-3">
                   {t('game.type')}
                 </h2>
                 <SudokuTypeSelector
@@ -348,8 +350,8 @@ export function GameContainer() {
               </div>
 
               {/* Difficulty Selector */}
-              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex-1">
-                <h2 className="text-sm font-medium text-gray-600 mb-2 lg:mb-3">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
+                <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 lg:mb-3">
                   {t('game.difficulty')}
                 </h2>
                 <DifficultySelector
@@ -380,9 +382,9 @@ export function GameContainer() {
           {/* Right side - Controls */}
           <div className="flex flex-col gap-4 lg:gap-6 w-full lg:w-auto">
             {/* Timer and Game Controls - combined on mobile */}
-            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-medium text-gray-600">{t('game.time')}</span>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('game.time')}</span>
                 <div className="flex items-center gap-3">
                   <Timer elapsedTime={state.elapsedTime} />
                   <button
@@ -391,7 +393,7 @@ export function GameContainer() {
                     aria-label={highlightsEnabled ? t('game.highlightsOn') : t('game.highlightsOff')}
                     aria-pressed={highlightsEnabled}
                     data-testid="toggle-highlights"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
                   >
                     <span aria-hidden="true">{highlightsEnabled ? '🔆' : '🔅'}</span>
                   </button>
@@ -399,7 +401,7 @@ export function GameContainer() {
                     onClick={toggleSound}
                     title={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
                     aria-label={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
                   >
                     <span aria-hidden="true">{soundEnabled ? '🔊' : '🔇'}</span>
                   </button>
@@ -409,7 +411,7 @@ export function GameContainer() {
                     aria-label={celebrationEnabled ? t('game.celebrationOn') : t('game.celebrationOff')}
                     aria-pressed={celebrationEnabled}
                     data-testid="toggle-celebration"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
                   >
                     <span aria-hidden="true">{celebrationEnabled ? '🎉' : '🚫'}</span>
                   </button>
@@ -419,9 +421,19 @@ export function GameContainer() {
                     aria-label={hapticEnabled ? t('game.hapticOn') : t('game.hapticOff')}
                     aria-pressed={hapticEnabled}
                     data-testid="toggle-haptic"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
                   >
                     <span aria-hidden="true">{hapticEnabled ? '📳' : '📴'}</span>
+                  </button>
+                  <button
+                    onClick={toggleTheme}
+                    title={isDark ? t('game.darkModeOn') : t('game.darkModeOff')}
+                    aria-label={isDark ? t('game.darkModeOn') : t('game.darkModeOff')}
+                    aria-pressed={isDark}
+                    data-testid="toggle-theme"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
+                  >
+                    <span aria-hidden="true">{isDark ? '🌙' : '☀️'}</span>
                   </button>
                 </div>
               </div>
@@ -429,10 +441,10 @@ export function GameContainer() {
               {/* Mistake counter row: shows X N (or X N/M when limit on),
                   with a toggle for the limit setting on the right. */}
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600">{t('game.mistakes')}</span>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('game.mistakes')}</span>
                 <div className="flex items-center gap-3">
                   <span
-                    className="text-base font-semibold tabular-nums text-gray-800"
+                    className="text-base font-semibold tabular-nums text-gray-800 dark:text-gray-200"
                     data-testid="mistake-counter"
                     aria-live="polite"
                     aria-label={
@@ -454,7 +466,7 @@ export function GameContainer() {
                     aria-label={mistakeLimitEnabled ? t('game.mistakeLimitOn') : t('game.mistakeLimitOff')}
                     aria-pressed={mistakeLimitEnabled}
                     data-testid="toggle-mistake-limit"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
                   >
                     <span aria-hidden="true">{mistakeLimitEnabled ? '⚠️' : '♾️'}</span>
                   </button>
@@ -462,8 +474,8 @@ export function GameContainer() {
               </div>
 
               {state.gameStatus === GAME_STATUS.PAUSED && (
-                <div className="bg-yellow-100 border-2 border-yellow-600 rounded-lg p-3 text-center">
-                  <p className="text-sm font-medium text-yellow-800">
+                <div className="bg-yellow-100 dark:bg-yellow-900/40 border-2 border-yellow-600 dark:border-yellow-500 rounded-lg p-3 text-center">
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
                     {t('game.paused')}
                   </p>
                 </div>
@@ -471,7 +483,7 @@ export function GameContainer() {
             </div>
 
             {/* Game Controls */}
-            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
               <GameControls
                 onNewGame={handleNewGame}
                 onCheck={actions.checkSolution}
@@ -512,13 +524,13 @@ export function GameContainer() {
             <ShareToast visible={shareToastVisible} />
 
             {/* Number Pad */}
-            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
-              <h2 className="text-sm font-medium text-gray-600 mb-3 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+              <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 text-center">
                 {t('game.numberInput')}
               </h2>
               <div className="min-h-[1.25rem] mb-2" aria-live="polite">
                 {!state.selectedCell && state.gameStatus === GAME_STATUS.PLAYING && (
-                  <p className="text-xs text-blue-500 text-center">
+                  <p className="text-xs text-blue-500 dark:text-blue-400 text-center">
                     {t('game.selectCellHint')}
                   </p>
                 )}
@@ -532,7 +544,7 @@ export function GameContainer() {
                   }
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-3 text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
                 {t('controls.keyboard')}
               </p>
             </div>

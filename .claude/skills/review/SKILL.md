@@ -1,0 +1,1 @@
+/Users/lm/work/own/sudoku-cc/.claude/skills/gstack/review/SKILL.md

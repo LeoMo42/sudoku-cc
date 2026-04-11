@@ -123,18 +123,18 @@ export const Cell = memo(function Cell({
 
   // Border styles for 3x3 boxes
   const borderStyles: string[] = [];
-  if (row % 3 === 0 && row !== 0) borderStyles.push('border-t-2 border-t-gray-800');
-  if (col % 3 === 0 && col !== 0) borderStyles.push('border-l-2 border-l-gray-800');
-  if (row === 0) borderStyles.push('border-t-2 border-t-gray-800');
-  if (col === 0) borderStyles.push('border-l-2 border-l-gray-800');
-  if (row === 8) borderStyles.push('border-b-2 border-b-gray-800');
-  if (col === 8) borderStyles.push('border-r-2 border-r-gray-800');
+  if (row % 3 === 0 && row !== 0) borderStyles.push('border-t-2 border-t-gray-800 dark:border-t-gray-400');
+  if (col % 3 === 0 && col !== 0) borderStyles.push('border-l-2 border-l-gray-800 dark:border-l-gray-400');
+  if (row === 0) borderStyles.push('border-t-2 border-t-gray-800 dark:border-t-gray-400');
+  if (col === 0) borderStyles.push('border-l-2 border-l-gray-800 dark:border-l-gray-400');
+  if (row === 8) borderStyles.push('border-b-2 border-b-gray-800 dark:border-b-gray-400');
+  if (col === 8) borderStyles.push('border-r-2 border-r-gray-800 dark:border-r-gray-400');
 
   // Light borders between cells
-  if (!borderStyles.some(s => s.includes('border-t'))) borderStyles.push('border-t border-gray-400');
-  if (!borderStyles.some(s => s.includes('border-l'))) borderStyles.push('border-l border-gray-400');
-  if (!borderStyles.some(s => s.includes('border-b'))) borderStyles.push('border-b border-gray-400');
-  if (!borderStyles.some(s => s.includes('border-r'))) borderStyles.push('border-r border-gray-400');
+  if (!borderStyles.some(s => s.includes('border-t'))) borderStyles.push('border-t border-gray-400 dark:border-gray-600');
+  if (!borderStyles.some(s => s.includes('border-l'))) borderStyles.push('border-l border-gray-400 dark:border-gray-600');
+  if (!borderStyles.some(s => s.includes('border-b'))) borderStyles.push('border-b border-gray-400 dark:border-gray-600');
+  if (!borderStyles.some(s => s.includes('border-r'))) borderStyles.push('border-r border-gray-400 dark:border-gray-600');
 
   return (
     <div
@@ -155,23 +155,23 @@ export const Cell = memo(function Cell({
       {thermoCell && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
           {thermoCell.dirs.includes('top') && (
-            <div className="absolute bg-gray-300"
+            <div className="absolute bg-gray-300 dark:bg-gray-500"
                  style={{ left: '50%', transform: 'translateX(-50%)', top: 0, height: '50%', width: '14px' }} />
           )}
           {thermoCell.dirs.includes('bottom') && (
-            <div className="absolute bg-gray-300"
+            <div className="absolute bg-gray-300 dark:bg-gray-500"
                  style={{ left: '50%', transform: 'translateX(-50%)', top: '50%', height: '50%', width: '14px' }} />
           )}
           {thermoCell.dirs.includes('left') && (
-            <div className="absolute bg-gray-300"
+            <div className="absolute bg-gray-300 dark:bg-gray-500"
                  style={{ top: '50%', transform: 'translateY(-50%)', left: 0, width: '50%', height: '14px' }} />
           )}
           {thermoCell.dirs.includes('right') && (
-            <div className="absolute bg-gray-300"
+            <div className="absolute bg-gray-300 dark:bg-gray-500"
                  style={{ top: '50%', transform: 'translateY(-50%)', left: '50%', width: '50%', height: '14px' }} />
           )}
           {/* Bulb (large circle) or junction smoother (tube-width circle) */}
-          <div className="absolute bg-gray-300 rounded-full"
+          <div className="absolute bg-gray-300 dark:bg-gray-500 rounded-full"
                style={{
                  width: thermoCell.isBulb ? '32px' : '14px',
                  height: thermoCell.isBulb ? '32px' : '14px',
@@ -188,7 +188,7 @@ export const Cell = memo(function Cell({
       {cageLeft   && <div className="absolute top-0 left-0 bottom-0 w-0 pointer-events-none z-20 border-l-2 border-dashed border-violet-600" />}
       {/* Killer Sudoku: cage sum in top-left corner */}
       {cageSum !== null && (
-        <span className="absolute top-0.5 left-0.5 z-20 pointer-events-none text-violet-700 font-bold leading-none select-none text-[9px]">
+        <span className="absolute top-0.5 left-0.5 z-20 pointer-events-none text-violet-700 dark:text-violet-400 font-bold leading-none select-none text-[9px]">
           {cageSum}
         </span>
       )}
@@ -205,20 +205,20 @@ export const Cell = memo(function Cell({
       {/* Kropki: dot on right border */}
       {rightDot && col < 8 && (
         <div className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full z-10 pointer-events-none border-2 ${
-          rightDot === 'white' ? 'bg-white border-gray-800' : 'bg-gray-900 border-gray-900'
+          rightDot === 'white' ? 'bg-white border-gray-800 dark:bg-gray-200 dark:border-gray-500' : 'bg-gray-900 border-gray-900 dark:bg-white dark:border-white'
         }`} />
       )}
       {/* Kropki: dot on bottom border */}
       {bottomDot && row < 8 && (
         <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-2.5 h-2.5 rounded-full z-10 pointer-events-none border-2 ${
-          bottomDot === 'white' ? 'bg-white border-gray-800' : 'bg-gray-900 border-gray-900'
+          bottomDot === 'white' ? 'bg-white border-gray-800 dark:bg-gray-200 dark:border-gray-500' : 'bg-gray-900 border-gray-900 dark:bg-white dark:border-white'
         }`} />
       )}
 
       {/* Greater Than: inequality sign on right border */}
       {rightSign && col < 8 && (
         <div
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 pointer-events-none flex items-center justify-center bg-white rounded-sm w-3.5 h-3.5 text-[9px] font-bold text-indigo-700"
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 pointer-events-none flex items-center justify-center bg-white dark:bg-gray-700 rounded-sm w-3.5 h-3.5 text-[9px] font-bold text-indigo-700 dark:text-indigo-300"
         >
           {rightSign === '>' ? '>' : '<'}
         </div>
@@ -226,7 +226,7 @@ export const Cell = memo(function Cell({
       {/* Greater Than: inequality sign on bottom border */}
       {bottomSign && row < 8 && (
         <div
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-10 pointer-events-none flex items-center justify-center bg-white rounded-sm w-3.5 h-3.5 text-[9px] font-bold text-indigo-700"
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-10 pointer-events-none flex items-center justify-center bg-white dark:bg-gray-700 rounded-sm w-3.5 h-3.5 text-[9px] font-bold text-indigo-700 dark:text-indigo-300"
         >
           {bottomSign === '>' ? '∨' : '∧'}
         </div>
@@ -246,7 +246,7 @@ export const Cell = memo(function Cell({
       {value !== EMPTY_CELL ? (
         value
       ) : notes && notes.size > 0 ? (
-        <div className="grid grid-cols-3 gap-0 w-full h-full p-1 text-xs text-gray-500">
+        <div className="grid grid-cols-3 gap-0 w-full h-full p-1 text-xs text-gray-500 dark:text-gray-400">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
             <div
               key={num}

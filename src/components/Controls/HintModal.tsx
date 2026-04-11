@@ -3,10 +3,10 @@ import { Button } from '../UI/Button';
 import type { HintStep, DifficultyLevel } from '../../types/index';
 
 const DIFFICULTY_COLORS: Record<DifficultyLevel, string> = {
-  EASY:   'bg-green-100 text-green-800 border-green-300',
-  MEDIUM: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  HARD:   'bg-orange-100 text-orange-800 border-orange-300',
-  EXPERT: 'bg-red-100 text-red-800 border-red-300',
+  EASY:   'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700',
+  MEDIUM: 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-700',
+  HARD:   'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700',
+  EXPERT: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700',
 };
 
 interface HintModalProps {
@@ -45,15 +45,15 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
     >
       {/* Modal card */}
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-bold text-gray-900">{t('hint.title')}</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('hint.title')}</h2>
             <div className="flex items-center gap-2">
-              <span className="text-base font-semibold text-gray-800">{techniqueName}</span>
+              <span className="text-base font-semibold text-gray-800 dark:text-gray-200">{techniqueName}</span>
               <span className={`text-xs font-medium px-2 py-0.5 rounded border ${difficultyColor}`}>
                 {difficultyLabel}
               </span>
@@ -61,7 +61,7 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
           </div>
           <button
             onClick={onDismiss}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-xl leading-none mt-0.5"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors text-xl leading-none mt-0.5"
             aria-label={t('hint.dismiss')}
           >
             ×
@@ -69,16 +69,16 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
         </div>
 
         {/* Step type badge */}
-        <div className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+        <div className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">
           {isPlacement ? t('hint.stepType.placement') : t('hint.stepType.elimination')}
         </div>
 
         {/* Explanation */}
-        <p className="text-sm text-gray-700 leading-relaxed">{explanation}</p>
+        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{explanation}</p>
 
         {/* Elimination list */}
         {!isPlacement && eliminations.length > 0 && (
-          <div className="text-xs text-gray-600 bg-orange-50 border border-orange-200 rounded-lg p-3">
+          <div className="text-xs text-gray-600 dark:text-gray-300 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
             <span className="font-semibold">
               {eliminations.length === 1
                 ? `R${eliminations[0]!.row + 1}C${eliminations[0]!.col + 1}: −${eliminations[0]!.digit}`

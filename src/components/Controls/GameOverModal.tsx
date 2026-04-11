@@ -30,12 +30,12 @@ export function GameOverModal({ open, limit, onNewGame }: GameOverModalProps) {
       aria-labelledby="game-over-title"
       data-testid="game-over-modal"
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 flex flex-col gap-4 items-center text-center">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6 flex flex-col gap-4 items-center text-center">
         <div className="text-5xl" aria-hidden="true">💥</div>
-        <h2 id="game-over-title" className="text-xl font-bold text-gray-900">
+        <h2 id="game-over-title" className="text-xl font-bold text-gray-900 dark:text-gray-100">
           {t('game.gameOver')}
         </h2>
-        <p className="text-sm text-gray-700 leading-relaxed">
+        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
           {t('game.gameOverMessage', { limit })}
         </p>
         <Button onClick={onNewGame} variant="primary" autoFocus>
