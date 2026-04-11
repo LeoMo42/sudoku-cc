@@ -30,6 +30,8 @@
     "gameOverNewGame": "New Game",
     "celebrationOn": "Celebrations on (click to disable)",
     "celebrationOff": "Celebrations off (click to enable)",
+    "hapticOn": "Haptic feedback on (click to disable)",
+    "hapticOff": "Haptic feedback off (click to enable)",
     "undo": "Undo",
     "redo": "Redo"
   },
