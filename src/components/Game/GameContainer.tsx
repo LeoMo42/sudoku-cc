@@ -9,6 +9,8 @@ import { useCelebrationSetting } from '../../hooks/useCelebrationSetting';
 import { useConfetti } from '../../hooks/useConfetti';
 import { useHaptic } from '../../hooks/useHaptic';
 import { updateBestTime } from '../../utils/bestTime';
+import { shareOrCopy, buildShareText, buildShareUrl } from '../../utils/share';
+import { ShareToast } from '../UI/ShareToast';
 import { Board } from '../Board/Board';
 import { Timer } from '../Controls/Timer';
 import { NumberPad } from '../Controls/NumberPad';
@@ -19,8 +21,8 @@ import { HintModal } from '../Controls/HintModal';
 import { GameOverModal } from '../Controls/GameOverModal';
 import { LanguageSwitcher } from '../UI/LanguageSwitcher';
 import { OddEvenLegend } from '../UI/OddEvenLegend';
-import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constants';
-import type { HighlightRole } from '../../types/index';
+import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL, SUDOKU_TYPES } from '../../utils/constants';
+import type { HighlightRole, DifficultyLevel, SudokuTypeId } from '../../types/index';
 
 /**
  * Main game container component
@@ -33,6 +35,8 @@ export function GameContainer() {
   const { mistakeLimitEnabled, toggleMistakeLimit } = useMistakeLimit();
   const { celebrationEnabled, toggleCelebration } = useCelebrationSetting();
   const { hapticEnabled, toggleHaptic, vibrateDigit, vibrateError, vibrateSelect, vibrateComplete } = useHaptic();
+
+  const [shareToastVisible, setShareToastVisible] = useState(false);
 
   // Resolved limit passed to the reducer on every placement. null when
   // the preference is off, so the reducer will not transition to LOST.
@@ -89,10 +93,15 @@ export function GameContainer() {
     isNewBestTimeRef,
   );
 
-  // Auto-start game if status is IDLE
+  // Auto-start game if status is IDLE, honouring ?type=&difficulty= deep-link params.
   useEffect(() => {
     if (state.gameStatus === GAME_STATUS.IDLE) {
-      actions.newGame(state.difficulty, state.sudokuType);
+      const params = new URLSearchParams(window.location.search);
+      const typeParam = params.get('type') as SudokuTypeId | null;
+      const diffParam = params.get('difficulty') as DifficultyLevel | null;
+      const validType = typeParam && typeParam in SUDOKU_TYPES ? typeParam : state.sudokuType;
+      const validDiff = diffParam && diffParam in DIFFICULTY_LEVELS ? diffParam : state.difficulty;
+      actions.newGame(validDiff, validType);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
@@ -224,6 +233,19 @@ export function GameContainer() {
   const handleNewGame = useCallback(() => {
     actions.newGame(state.difficulty, state.sudokuType);
   }, [state.difficulty, state.sudokuType, actions]);
+
+  const handleShare = useCallback(async () => {
+    const typeName = t(`sudokuTypes.${state.sudokuType}.name`);
+    const diffName = t(`difficulty.${state.difficulty}`);
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const url = buildShareUrl(state.sudokuType, state.difficulty, baseUrl);
+    const text = buildShareText(typeName, diffName, state.elapsedTime, '');
+    const outcome = await shareOrCopy(text, url);
+    if (outcome === 'copied') {
+      setShareToastVisible(true);
+      setTimeout(() => setShareToastVisible(false), 2500);
+    }
+  }, [t, state.sudokuType, state.difficulty, state.elapsedTime]);
 
   const handleDifficultyChange = useCallback(
     (difficulty: Parameters<typeof actions.newGame>[0]) => {
@@ -459,6 +481,7 @@ export function GameContainer() {
                 onPause={actions.pauseGame}
                 onResume={actions.resumeGame}
                 onToggleNotes={actions.toggleNotesMode}
+                onShare={handleShare}
                 hintsUsed={state.hintsUsed}
                 maxHints={maxHints}
                 gameStatus={state.gameStatus}
@@ -483,6 +506,10 @@ export function GameContainer() {
               limit={DIFFICULTY_LEVELS[state.difficulty].mistakeLimit}
               onNewGame={handleNewGame}
             />
+
+            {/* Copy-to-clipboard confirmation — only shown when Web Share API
+                is unavailable and the fallback clipboard write succeeds. */}
+            <ShareToast visible={shareToastVisible} />
 
             {/* Number Pad */}
             <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">

@@ -32,6 +32,8 @@
     "celebrationOff": "Celebrations off (click to enable)",
     "hapticOn": "Haptic feedback on (click to disable)",
     "hapticOff": "Haptic feedback off (click to enable)",
+    "share": "Share 🔗",
+    "copiedToClipboard": "Link copied to clipboard!",
     "undo": "Undo",
     "redo": "Redo"
   },
