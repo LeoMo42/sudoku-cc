@@ -9,6 +9,8 @@ import { useCelebrationSetting } from '../../hooks/useCelebrationSetting';
 import { useConfetti } from '../../hooks/useConfetti';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useTheme } from '../../hooks/useTheme';
+import { useHowToPlay } from '../../hooks/useHowToPlay';
+import { HowToPlayModal } from '../Controls/HowToPlayModal';
 import { updateBestTime } from '../../utils/bestTime';
 import { shareOrCopy, buildShareText, buildShareUrl } from '../../utils/share';
 import { ShareToast } from '../UI/ShareToast';
@@ -37,6 +39,7 @@ export function GameContainer() {
   const { celebrationEnabled, toggleCelebration } = useCelebrationSetting();
   const { hapticEnabled, toggleHaptic, vibrateDigit, vibrateError, vibrateSelect, vibrateComplete } = useHaptic();
   const { isDark, toggleTheme } = useTheme();
+  const { open: howToPlayOpen, openModal: openHowToPlay, closeModal: closeHowToPlay, triggerAutoShow, dontShowAgain, toggleDontShowAgain } = useHowToPlay(state.sudokuType);
 
   const [shareToastVisible, setShareToastVisible] = useState(false);
 
@@ -259,8 +262,9 @@ export function GameContainer() {
   const handleTypeChange = useCallback(
     (sudokuType: Parameters<typeof actions.newGame>[1]) => {
       actions.newGame(state.difficulty, sudokuType);
+      if (sudokuType) triggerAutoShow(sudokuType);
     },
-    [state.difficulty, actions]
+    [state.difficulty, actions, triggerAutoShow]
   );
 
   const maxHints = DIFFICULTY_LEVELS[state.difficulty].maxHints;
@@ -339,9 +343,20 @@ export function GameContainer() {
             <div className="flex flex-col sm:flex-row gap-3 lg:gap-4">
               {/* Sudoku Type Selector */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
-                <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 lg:mb-3">
-                  {t('game.type')}
-                </h2>
+                <div className="flex items-center justify-between mb-2 lg:mb-3">
+                  <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    {t('game.type')}
+                  </h2>
+                  <button
+                    onClick={openHowToPlay}
+                    title={t('howToPlay.title')}
+                    aria-label={t('howToPlay.title')}
+                    data-testid="how-to-play-button"
+                    className="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    ?
+                  </button>
+                </div>
                 <SudokuTypeSelector
                   currentType={state.sudokuType}
                   onTypeChange={handleTypeChange}
@@ -502,6 +517,15 @@ export function GameContainer() {
                 canRedo={state.historyIndex < state.history.length - 1}
               />
             </div>
+
+            {/* How to Play modal */}
+            <HowToPlayModal
+              open={howToPlayOpen}
+              sudokuType={state.sudokuType}
+              dontShowAgain={dontShowAgain}
+              onToggleDontShowAgain={toggleDontShowAgain}
+              onClose={closeHowToPlay}
+            />
 
             {/* Hint Modal (rendered as overlay) */}
             <HintModal
