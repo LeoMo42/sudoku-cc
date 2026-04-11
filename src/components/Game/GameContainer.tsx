@@ -7,6 +7,7 @@ import { useHighlightSetting } from '../../hooks/useHighlightSetting';
 import { useMistakeLimit } from '../../hooks/useMistakeLimit';
 import { useCelebrationSetting } from '../../hooks/useCelebrationSetting';
 import { useConfetti } from '../../hooks/useConfetti';
+import { useHaptic } from '../../hooks/useHaptic';
 import { updateBestTime } from '../../utils/bestTime';
 import { Board } from '../Board/Board';
 import { Timer } from '../Controls/Timer';
@@ -31,6 +32,7 @@ export function GameContainer() {
   const { highlightsEnabled, toggleHighlights } = useHighlightSetting();
   const { mistakeLimitEnabled, toggleMistakeLimit } = useMistakeLimit();
   const { celebrationEnabled, toggleCelebration } = useCelebrationSetting();
+  const { hapticEnabled, toggleHaptic, vibrateDigit, vibrateError, vibrateSelect, vibrateComplete } = useHaptic();
 
   // Resolved limit passed to the reducer on every placement. null when
   // the preference is off, so the reducer will not transition to LOST.
@@ -52,6 +54,7 @@ export function GameContainer() {
   const prevGameStatusRef = useRef(state.gameStatus);
   // Set to true in input handlers so the effect knows a digit was just entered
   const pendingDigitSoundRef = useRef<boolean>(false);
+  const pendingHapticRef = useRef<boolean>(false);
 
   useEffect(() => {
     const prevStatus = prevGameStatusRef.current;
@@ -60,19 +63,23 @@ export function GameContainer() {
     if (state.gameStatus === GAME_STATUS.COMPLETED && prevStatus !== GAME_STATUS.COMPLETED) {
       isNewBestTimeRef.current = updateBestTime(state.difficulty, state.elapsedTime);
       playVictorySound();
-    } else if (pendingDigitSoundRef.current) {
+      vibrateComplete();
+    } else if (pendingDigitSoundRef.current || pendingHapticRef.current) {
+      const isError = state.errors.size > prevErrorsSize;
       // Play either error OR digit sound, not both
-      if (state.errors.size > prevErrorsSize) {
-        playErrorSound();
-      } else {
-        playDigitSound();
+      if (pendingDigitSoundRef.current) {
+        if (isError) { playErrorSound(); } else { playDigitSound(); }
+        pendingDigitSoundRef.current = false;
       }
-      pendingDigitSoundRef.current = false;
+      if (pendingHapticRef.current) {
+        if (isError) { vibrateError(); } else { vibrateDigit(); }
+        pendingHapticRef.current = false;
+      }
     }
 
     prevGameStatusRef.current = state.gameStatus;
     prevErrorsSizeRef.current = state.errors.size;
-  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, playVictorySound, playErrorSound, playDigitSound]);
+  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
 
   // Confetti on completion — declared AFTER the sound effect so React runs it
   // second, giving the sound effect a chance to update isNewBestTimeRef first.
@@ -128,7 +135,10 @@ export function GameContainer() {
           actions.setNote(row, col, num);
         } else {
           const isInitialCell = state.initialBoard[row][col] !== EMPTY_CELL;
-          if (!isInitialCell) pendingDigitSoundRef.current = true;
+          if (!isInitialCell) {
+            pendingDigitSoundRef.current = true;
+            pendingHapticRef.current = true;
+          }
           actions.setCellValue(row, col, num as 1|2|3|4|5|6|7|8|9, currentMistakeLimit);
         }
       }
@@ -177,10 +187,11 @@ export function GameContainer() {
   const handleCellClick = useCallback(
     (row: number, col: number) => {
       if (state.gameStatus === GAME_STATUS.PLAYING) {
+        vibrateSelect();
         actions.selectCell(row, col);
       }
     },
-    [state.gameStatus, actions]
+    [state.gameStatus, actions, vibrateSelect]
   );
 
   const handleNumberClick = useCallback(
@@ -192,7 +203,10 @@ export function GameContainer() {
           actions.setNote(row, col, num);
         } else {
           const isInitialCell = state.initialBoard[row][col] !== EMPTY_CELL;
-          if (!isInitialCell) pendingDigitSoundRef.current = true;
+          if (!isInitialCell) {
+            pendingDigitSoundRef.current = true;
+            pendingHapticRef.current = true;
+          }
           actions.setCellValue(row, col, num as 1|2|3|4|5|6|7|8|9, currentMistakeLimit);
         }
       }
@@ -376,6 +390,16 @@ export function GameContainer() {
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
                   >
                     <span aria-hidden="true">{celebrationEnabled ? '🎉' : '🚫'}</span>
+                  </button>
+                  <button
+                    onClick={toggleHaptic}
+                    title={hapticEnabled ? t('game.hapticOn') : t('game.hapticOff')}
+                    aria-label={hapticEnabled ? t('game.hapticOn') : t('game.hapticOff')}
+                    aria-pressed={hapticEnabled}
+                    data-testid="toggle-haptic"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 transition-colors rounded-lg"
+                  >
+                    <span aria-hidden="true">{hapticEnabled ? '📳' : '📴'}</span>
                   </button>
                 </div>
               </div>
