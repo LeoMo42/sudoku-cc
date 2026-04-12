@@ -39,7 +39,7 @@ import type { HighlightRole, DifficultyLevel, SudokuTypeId } from '../../types/i
  * Main game container component
  */
 export function GameContainer() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { state, actions } = useGameState();
   const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
   const { highlightsEnabled, toggleHighlights } = useHighlightSetting();
@@ -377,7 +377,7 @@ export function GameContainer() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-4 px-2 sm:py-8 sm:px-4">
       <div className="max-w-6xl mx-auto">
         {/* Header with title and language switcher */}
-        <div className="flex items-center justify-between mb-4 sm:mb-8">
+        <div className="flex items-center justify-between mb-4 sm:mb-8 print:hidden">
           <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
             {t('game.title')}
           </h1>
@@ -399,7 +399,7 @@ export function GameContainer() {
           {/* Left side - Board with Type and Difficulty */}
           <div className="flex flex-col gap-3 lg:gap-4 w-full lg:w-auto">
             {/* Type + Difficulty row */}
-            <div className="flex flex-col sm:flex-row gap-3 lg:gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 lg:gap-4 print:hidden">
               {/* Sudoku Type Selector */}
               <div data-tour="type-selector" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
                 <div className="flex items-center justify-between mb-2 lg:mb-3">
@@ -436,9 +436,18 @@ export function GameContainer() {
               </div>
             </div>
 
+            {/* Print-only header: variant, difficulty, date */}
+            <div className="hidden print:block mb-4">
+              <h1 className="text-xl font-bold text-black">
+                {t('game.title')} — {t(`sudokuTypes.${state.sudokuType}.name`)}, {t(`difficulty.${state.difficulty}`)}
+              </h1>
+              <p className="text-sm text-gray-600">{new Date().toLocaleDateString(i18n.language)}</p>
+            </div>
+
             {/* Board - responsive scaling */}
             <div ref={boardContainerRef} data-tour="board" className="flex flex-col items-center w-full">
               <div
+                data-print-board
                 style={{
                   transform: `scale(${boardScale})`,
                   transformOrigin: 'top center',
@@ -454,7 +463,7 @@ export function GameContainer() {
           </div>
 
           {/* Right side - Controls */}
-          <div className="flex flex-col gap-4 lg:gap-6 w-full lg:w-auto">
+          <div className="flex flex-col gap-4 lg:gap-6 w-full lg:w-auto print:hidden">
             {/* Timer and Game Controls - combined on mobile */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
@@ -527,6 +536,15 @@ export function GameContainer() {
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
                   >
                     <span aria-hidden="true">🧭</span>
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    title={t('game.print')}
+                    aria-label={t('game.print')}
+                    data-testid="print-button"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
+                  >
+                    <span aria-hidden="true">🖨️</span>
                   </button>
                 </div>
               </div>
