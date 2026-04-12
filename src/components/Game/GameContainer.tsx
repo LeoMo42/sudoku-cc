@@ -109,7 +109,7 @@ export function GameContainer() {
 
     prevGameStatusRef.current = state.gameStatus;
     prevErrorsSizeRef.current = state.errors.size;
-  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, state.sudokuType, state.mistakeCount, markDailyCompleted, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
+  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, state.sudokuType, state.mistakeCount, dailyInfo.date, markDailyCompleted, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
 
   // Confetti on completion — declared AFTER the sound effect so React runs it
   // second, giving the sound effect a chance to update isNewBestTimeRef first.
