@@ -128,3 +128,22 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Print layout ──────────────────────────────────────────────────────── */
+@media print {
+  body {
+    background: white !important;
+    /* Preserve constraint colors (cages, thermos, dots) in print */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Reset JS-applied board scale so the grid fills the page width */
+  [data-print-board] {
+    transform: none !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+}

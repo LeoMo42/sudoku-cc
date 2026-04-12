@@ -41,7 +41,8 @@
     "shareText": "I solved {{type}} ({{difficulty}}) in {{time}}!",
     "colorBlindOn": "Color-blind mode on (click to disable)",
     "colorBlindOff": "Color-blind mode off (click to enable)",
-    "startTour": "Replay tour"
+    "startTour": "Replay tour",
+    "print": "Print puzzle"
   },
   "tour": {
     "skip": "Skip tour",
