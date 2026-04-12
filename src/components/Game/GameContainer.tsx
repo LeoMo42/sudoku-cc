@@ -39,7 +39,7 @@ import type { HighlightRole, DifficultyLevel, SudokuTypeId } from '../../types/i
  * Main game container component
  */
 export function GameContainer() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { state, actions } = useGameState();
   const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
   const { highlightsEnabled, toggleHighlights } = useHighlightSetting();
@@ -441,7 +441,7 @@ export function GameContainer() {
               <h1 className="text-xl font-bold text-black">
                 {t('game.title')} — {t(`sudokuTypes.${state.sudokuType}.name`)}, {t(`difficulty.${state.difficulty}`)}
               </h1>
-              <p className="text-sm text-gray-600">{new Date().toLocaleDateString()}</p>
+              <p className="text-sm text-gray-600">{new Date().toLocaleDateString(i18n.language)}</p>
             </div>
 
             {/* Board - responsive scaling */}
