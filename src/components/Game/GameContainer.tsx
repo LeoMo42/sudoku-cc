@@ -114,9 +114,10 @@ export function GameContainer() {
       const validDiff = diffParam && diffParam in DIFFICULTY_LEVELS ? diffParam : state.difficulty;
       actions.newGame(validDiff, validType);
       recordGameStart(validType, validDiff);
-    } else {
-      // Returning user: game state restored from localStorage — count as a started game
-      // so that a completion on this session is visible in stats immediately.
+    } else if (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) {
+      // Returning user mid-game: count as a started game so a completion this
+      // session is visible in stats immediately. Skip COMPLETED/LOST to avoid
+      // inflating gamesStarted on every reload of a finished game.
       recordGameStart(state.sudokuType, state.difficulty);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
