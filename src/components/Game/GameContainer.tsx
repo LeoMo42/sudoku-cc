@@ -114,6 +114,10 @@ export function GameContainer() {
       const validDiff = diffParam && diffParam in DIFFICULTY_LEVELS ? diffParam : state.difficulty;
       actions.newGame(validDiff, validType);
       recordGameStart(validType, validDiff);
+    } else {
+      // Returning user: game state restored from localStorage — count as a started game
+      // so that a completion on this session is visible in stats immediately.
+      recordGameStart(state.sudokuType, state.difficulty);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
