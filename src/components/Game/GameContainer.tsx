@@ -466,9 +466,9 @@ export function GameContainer() {
           <div className="flex flex-col gap-4 lg:gap-6 w-full lg:w-auto print:hidden">
             {/* Timer and Game Controls - combined on mobile */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('game.time')}</span>
-                <div className="flex items-center gap-3">
+              <div className="flex items-start justify-between mb-4">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400 pt-3">{t('game.time')}</span>
+                <div className="flex items-center flex-wrap gap-2 sm:gap-3 justify-end">
                   <Timer elapsedTime={state.elapsedTime} />
                   <button
                     onClick={toggleHighlights}
