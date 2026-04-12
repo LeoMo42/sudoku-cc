@@ -42,7 +42,8 @@
     "colorBlindOn": "Color-blind mode on (click to disable)",
     "colorBlindOff": "Color-blind mode off (click to enable)",
     "startTour": "Replay tour",
-    "print": "Print puzzle"
+    "print": "Print puzzle",
+    "notesModeActive": "✏️ Notes mode"
   },
   "tour": {
     "skip": "Skip tour",
