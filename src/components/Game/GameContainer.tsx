@@ -4,6 +4,7 @@ import { useGameState } from '../../hooks/useGameState';
 import { useTimer } from '../../hooks/useTimer';
 import { useSound } from '../../hooks/useSound';
 import { useHighlightSetting } from '../../hooks/useHighlightSetting';
+import { useColorBlindMode } from '../../hooks/useColorBlindMode';
 import { useMistakeLimit } from '../../hooks/useMistakeLimit';
 import { useCelebrationSetting } from '../../hooks/useCelebrationSetting';
 import { useConfetti } from '../../hooks/useConfetti';
@@ -40,6 +41,7 @@ export function GameContainer() {
   const { state, actions } = useGameState();
   const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
   const { highlightsEnabled, toggleHighlights } = useHighlightSetting();
+  const { colorBlindMode, toggleColorBlindMode } = useColorBlindMode();
   const { mistakeLimitEnabled, toggleMistakeLimit } = useMistakeLimit();
   const { celebrationEnabled, toggleCelebration } = useCelebrationSetting();
   const { hapticEnabled, toggleHaptic, vibrateDigit, vibrateError, vibrateSelect, vibrateComplete } = useHaptic();
@@ -361,6 +363,7 @@ export function GameContainer() {
       sandwichClues={state.sandwichClues}
       hintHighlights={hintHighlights}
       highlightsEnabled={highlightsEnabled}
+      colorBlindMode={colorBlindMode}
       onCellClick={handleCellClick}
     />
   );
@@ -500,6 +503,16 @@ export function GameContainer() {
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
                   >
                     <span aria-hidden="true">{isDark ? '🌙' : '☀️'}</span>
+                  </button>
+                  <button
+                    onClick={toggleColorBlindMode}
+                    title={colorBlindMode ? t('game.colorBlindOn') : t('game.colorBlindOff')}
+                    aria-label={colorBlindMode ? t('game.colorBlindOn') : t('game.colorBlindOff')}
+                    aria-pressed={colorBlindMode}
+                    data-testid="toggle-colorblind"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
+                  >
+                    <span aria-hidden="true">{colorBlindMode ? '👁' : '🎨'}</span>
                   </button>
                 </div>
               </div>

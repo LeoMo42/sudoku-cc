@@ -37,7 +37,9 @@
     "undo": "Undo",
     "redo": "Redo",
     "darkModeOn": "Dark mode on (click to disable)",
-    "darkModeOff": "Dark mode off (click to enable)"
+    "darkModeOff": "Dark mode off (click to enable)",
+    "colorBlindOn": "Color-blind mode on (click to disable)",
+    "colorBlindOff": "Color-blind mode off (click to enable)"
   },
   "difficulty": {
     "EASY": "Easy",

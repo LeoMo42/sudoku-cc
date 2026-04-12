@@ -41,6 +41,7 @@ interface CellProps {
   cageLeft?: boolean;
   notes: Set<number> | undefined;
   hintRole?: HighlightRole | null;
+  colorBlindMode?: boolean;
   onClick: (row: number, col: number) => void;
 }
 
@@ -74,6 +75,7 @@ export const Cell = memo(function Cell({
   cageLeft = false,
   notes,
   hintRole = null,
+  colorBlindMode = false,
   onClick,
 }: CellProps) {
   const baseStyles = 'w-full h-full flex items-center justify-center text-xl font-medium cursor-pointer select-none transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset';
@@ -151,27 +153,28 @@ export const Cell = memo(function Cell({
       data-testid="cell"
       aria-label={`R${row + 1}C${col + 1}${value !== EMPTY_CELL ? `: ${value}` : ''}`}
     >
-      {/* Thermo: tube segments and bulb/center circle, rendered behind everything */}
+      {/* Thermo: tube segments and bulb/center circle, rendered behind everything.
+          Color-blind mode: blue instead of gray for better contrast. */}
       {thermoCell && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
           {thermoCell.dirs.includes('top') && (
-            <div className="absolute bg-gray-300 dark:bg-gray-500"
+            <div className={`absolute ${colorBlindMode ? 'bg-blue-400 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-500'}`}
                  style={{ left: '50%', transform: 'translateX(-50%)', top: 0, height: '50%', width: '14px' }} />
           )}
           {thermoCell.dirs.includes('bottom') && (
-            <div className="absolute bg-gray-300 dark:bg-gray-500"
+            <div className={`absolute ${colorBlindMode ? 'bg-blue-400 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-500'}`}
                  style={{ left: '50%', transform: 'translateX(-50%)', top: '50%', height: '50%', width: '14px' }} />
           )}
           {thermoCell.dirs.includes('left') && (
-            <div className="absolute bg-gray-300 dark:bg-gray-500"
+            <div className={`absolute ${colorBlindMode ? 'bg-blue-400 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-500'}`}
                  style={{ top: '50%', transform: 'translateY(-50%)', left: 0, width: '50%', height: '14px' }} />
           )}
           {thermoCell.dirs.includes('right') && (
-            <div className="absolute bg-gray-300 dark:bg-gray-500"
+            <div className={`absolute ${colorBlindMode ? 'bg-blue-400 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-500'}`}
                  style={{ top: '50%', transform: 'translateY(-50%)', left: '50%', width: '50%', height: '14px' }} />
           )}
           {/* Bulb (large circle) or junction smoother (tube-width circle) */}
-          <div className="absolute bg-gray-300 dark:bg-gray-500 rounded-full"
+          <div className={`absolute ${colorBlindMode ? 'bg-blue-400 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-500'} rounded-full`}
                style={{
                  width: thermoCell.isBulb ? '32px' : '14px',
                  height: thermoCell.isBulb ? '32px' : '14px',
@@ -181,16 +184,42 @@ export const Cell = memo(function Cell({
         </div>
       )}
 
-      {/* Killer Sudoku: dashed cage borders */}
-      {cageTop    && <div className="absolute top-0 left-0 right-0 h-0 pointer-events-none z-20 border-t-2 border-dashed border-violet-600" />}
-      {cageRight  && <div className="absolute top-0 right-0 bottom-0 w-0 pointer-events-none z-20 border-r-2 border-dashed border-violet-600" />}
-      {cageBottom && <div className="absolute left-0 right-0 bottom-0 h-0 pointer-events-none z-20 border-b-2 border-dashed border-violet-600" />}
-      {cageLeft   && <div className="absolute top-0 left-0 bottom-0 w-0 pointer-events-none z-20 border-l-2 border-dashed border-violet-600" />}
+      {/* Killer Sudoku: cage borders. Color-blind mode: orange dotted (vs violet dashed)
+          so cages are distinguishable by both color and pattern. */}
+      {cageTop    && <div className={`absolute top-0 left-0 right-0 h-0 pointer-events-none z-20 border-t-2 ${colorBlindMode ? 'border-dotted border-orange-500' : 'border-dashed border-violet-600'}`} />}
+      {cageRight  && <div className={`absolute top-0 right-0 bottom-0 w-0 pointer-events-none z-20 border-r-2 ${colorBlindMode ? 'border-dotted border-orange-500' : 'border-dashed border-violet-600'}`} />}
+      {cageBottom && <div className={`absolute left-0 right-0 bottom-0 h-0 pointer-events-none z-20 border-b-2 ${colorBlindMode ? 'border-dotted border-orange-500' : 'border-dashed border-violet-600'}`} />}
+      {cageLeft   && <div className={`absolute top-0 left-0 bottom-0 w-0 pointer-events-none z-20 border-l-2 ${colorBlindMode ? 'border-dotted border-orange-500' : 'border-dashed border-violet-600'}`} />}
       {/* Killer Sudoku: cage sum in top-left corner */}
       {cageSum !== null && (
-        <span className="absolute top-0.5 left-0.5 z-20 pointer-events-none text-violet-700 dark:text-violet-400 font-bold leading-none select-none text-[9px]">
+        <span className={`absolute top-0.5 left-0.5 z-20 pointer-events-none font-bold leading-none select-none text-[9px] ${colorBlindMode ? 'text-orange-600 dark:text-orange-400' : 'text-violet-700 dark:text-violet-400'}`}>
           {cageSum}
         </span>
+      )}
+
+      {/* Color-blind mode: stripe pattern overlays for variant backgrounds.
+          Each variant gets a unique stripe direction so they're distinguishable
+          without relying on hue alone. */}
+      {colorBlindMode && isOnDiagonal && !isError && (
+        <div className="absolute inset-0 pointer-events-none z-0" aria-hidden="true"
+          style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(147,51,234,0.2) 4px, rgba(147,51,234,0.2) 5px)' }} />
+      )}
+      {colorBlindMode && isInWindow && !isError && (
+        <div className="absolute inset-0 pointer-events-none z-0" aria-hidden="true"
+          style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(34,197,94,0.25) 4px, rgba(34,197,94,0.25) 5px)' }} />
+      )}
+      {colorBlindMode && isKnightTarget && !isError && (
+        <div className="absolute inset-0 pointer-events-none z-0" aria-hidden="true"
+          style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(245,158,11,0.25) 4px, rgba(245,158,11,0.25) 5px)' }} />
+      )}
+      {colorBlindMode && isKingDiagonal && !isError && (
+        <div className="absolute inset-0 pointer-events-none z-0" aria-hidden="true"
+          style={{ backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(20,184,166,0.25) 4px, rgba(20,184,166,0.25) 5px)' }} />
+      )}
+
+      {/* Color-blind mode: error badge (! icon) so errors are marked by shape + color */}
+      {colorBlindMode && isError && (
+        <span className="absolute top-0.5 right-0.5 z-30 pointer-events-none text-red-700 dark:text-red-300 font-black leading-none select-none text-[10px]" aria-hidden="true">!</span>
       )}
 
       {/* Non-Consecutive: dot on right border (except outer edge) */}
@@ -285,6 +314,7 @@ export const Cell = memo(function Cell({
     prevProps.cageBottom === nextProps.cageBottom &&
     prevProps.cageLeft === nextProps.cageLeft &&
     prevProps.hintRole === nextProps.hintRole &&
+    prevProps.colorBlindMode === nextProps.colorBlindMode &&
     setsEqual(prevProps.notes, nextProps.notes)
   );
 });
