@@ -39,7 +39,34 @@
     "darkModeOn": "Dark mode on (click to disable)",
     "darkModeOff": "Dark mode off (click to enable)",
     "colorBlindOn": "Color-blind mode on (click to disable)",
-    "colorBlindOff": "Color-blind mode off (click to enable)"
+    "colorBlindOff": "Color-blind mode off (click to enable)",
+    "startTour": "Replay tour"
+  },
+  "tour": {
+    "skip": "Skip tour",
+    "next": "Next →",
+    "done": "Let's play!",
+    "ariaLabel": "Getting started tour",
+    "step1": {
+      "title": "Select a cell",
+      "body": "Tap any empty cell on the board to select it. The row, column, and box will highlight to help you spot conflicts."
+    },
+    "step2": {
+      "title": "Enter numbers",
+      "body": "Tap the number pad or press 1–9 on your keyboard. Enable Notes mode to pencil in candidates instead of placing a digit."
+    },
+    "step3": {
+      "title": "Game tools",
+      "body": "Undo mistakes, get a Hint when stuck, check your solution, or pause the timer. Notes mode lets you pencil in candidates."
+    },
+    "step4": {
+      "title": "Puzzle type",
+      "body": "Choose from 13 Sudoku variants — Classic, Diagonal, Killer, Thermo, and more. Each adds unique rules on top of standard Sudoku."
+    },
+    "step5": {
+      "title": "Difficulty",
+      "body": "Pick Easy for a relaxed solve or Expert for a serious challenge. Difficulty controls how many clues are given."
+    }
   },
   "difficulty": {
     "EASY": "Easy",
