@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useColorBlindMode } from './useColorBlindMode';
 
@@ -8,6 +8,10 @@ describe('useColorBlindMode', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('defaults to false when no stored value', () => {
@@ -40,5 +44,13 @@ describe('useColorBlindMode', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('quota'); });
     const { result } = renderHook(() => useColorBlindMode());
     expect(result.current.colorBlindMode).toBe(false);
+  });
+
+  it('still updates state when localStorage.setItem throws during toggle', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+    const { result } = renderHook(() => useColorBlindMode());
+    act(() => result.current.toggleColorBlindMode());
+    // In-memory state should still reflect the toggle even if persistence failed.
+    expect(result.current.colorBlindMode).toBe(true);
   });
 });

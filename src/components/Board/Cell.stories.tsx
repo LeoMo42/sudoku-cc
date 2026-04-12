@@ -340,6 +340,71 @@ export const HintEliminate = {
   },
 };
 
+// ── Color-blind mode stories ──────────────────────────────────────────────────
+
+export const ColorBlindError = {
+  args: {
+    value: 5,
+    row: 0,
+    col: 0,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: true,
+    colorBlindMode: true,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const ColorBlindThermoBulb = {
+  args: {
+    value: 0,
+    row: 4,
+    col: 4,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    thermoCell: { isBulb: true, dirs: ['right'] },
+    colorBlindMode: true,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const ColorBlindKillerCage = {
+  args: {
+    value: 0,
+    row: 4,
+    col: 4,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    cageSum: 15,
+    cageTop: true,
+    cageRight: false,
+    cageBottom: false,
+    cageLeft: true,
+    colorBlindMode: true,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const ColorBlindDiagonal = {
+  args: {
+    value: 5,
+    row: 0,
+    col: 0,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    isOnDiagonal: true,
+    colorBlindMode: true,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
 export const AllStates = () => (
   <div className="grid grid-cols-4 gap-4">
     <div style={{ width: '50px', height: '50px' }}>

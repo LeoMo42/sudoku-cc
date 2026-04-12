@@ -151,7 +151,7 @@ export const Cell = memo(function Cell({
       role="button"
       tabIndex={0}
       data-testid="cell"
-      aria-label={`R${row + 1}C${col + 1}${value !== EMPTY_CELL ? `: ${value}` : ''}`}
+      aria-label={`R${row + 1}C${col + 1}${value !== EMPTY_CELL ? `: ${value}` : ''}${isError ? ' (error)' : ''}`}
     >
       {/* Thermo: tube segments and bulb/center circle, rendered behind everything.
           Color-blind mode: blue instead of gray for better contrast. */}
