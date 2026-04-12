@@ -10,7 +10,10 @@ import { useConfetti } from '../../hooks/useConfetti';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useTheme } from '../../hooks/useTheme';
 import { useHowToPlay } from '../../hooks/useHowToPlay';
+import { useStats } from '../../hooks/useStats';
 import { HowToPlayModal } from '../Controls/HowToPlayModal';
+import { StatsModal } from '../UI/StatsModal';
+import { recordGameStart, recordGameComplete } from '../../utils/stats';
 import { updateBestTime } from '../../utils/bestTime';
 import { shareOrCopy, buildShareText, buildShareUrl } from '../../utils/share';
 import { ShareToast } from '../UI/ShareToast';
@@ -40,6 +43,8 @@ export function GameContainer() {
   const { hapticEnabled, toggleHaptic, vibrateDigit, vibrateError, vibrateSelect, vibrateComplete } = useHaptic();
   const { isDark, toggleTheme } = useTheme();
   const { open: howToPlayOpen, openModal: openHowToPlay, closeModal: closeHowToPlay, triggerAutoShow, dontShowAgain, toggleDontShowAgain } = useHowToPlay(state.sudokuType);
+  const { store: statsStore, reload: reloadStats, reset: resetStats } = useStats();
+  const [statsOpen, setStatsOpen] = useState(false);
 
   const [shareToastVisible, setShareToastVisible] = useState(false);
 
@@ -71,6 +76,7 @@ export function GameContainer() {
 
     if (state.gameStatus === GAME_STATUS.COMPLETED && prevStatus !== GAME_STATUS.COMPLETED) {
       isNewBestTimeRef.current = updateBestTime(state.difficulty, state.elapsedTime);
+      recordGameComplete(state.sudokuType, state.difficulty, state.elapsedTime, state.mistakeCount);
       playVictorySound();
       vibrateComplete();
     } else if (pendingDigitSoundRef.current || pendingHapticRef.current) {
@@ -88,7 +94,7 @@ export function GameContainer() {
 
     prevGameStatusRef.current = state.gameStatus;
     prevErrorsSizeRef.current = state.errors.size;
-  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
+  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, state.sudokuType, state.mistakeCount, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
 
   // Confetti on completion — declared AFTER the sound effect so React runs it
   // second, giving the sound effect a chance to update isNewBestTimeRef first.
@@ -107,6 +113,12 @@ export function GameContainer() {
       const validType = typeParam && typeParam in SUDOKU_TYPES ? typeParam : state.sudokuType;
       const validDiff = diffParam && diffParam in DIFFICULTY_LEVELS ? diffParam : state.difficulty;
       actions.newGame(validDiff, validType);
+      recordGameStart(validType, validDiff);
+    } else if (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) {
+      // Returning user mid-game: count as a started game so a completion this
+      // session is visible in stats immediately. Skip COMPLETED/LOST to avoid
+      // inflating gamesStarted on every reload of a finished game.
+      recordGameStart(state.sudokuType, state.difficulty);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
@@ -237,6 +249,7 @@ export function GameContainer() {
 
   const handleNewGame = useCallback(() => {
     actions.newGame(state.difficulty, state.sudokuType);
+    recordGameStart(state.sudokuType, state.difficulty);
   }, [state.difficulty, state.sudokuType, actions]);
 
   const handleShare = useCallback(async () => {
@@ -255,6 +268,7 @@ export function GameContainer() {
   const handleDifficultyChange = useCallback(
     (difficulty: Parameters<typeof actions.newGame>[0]) => {
       actions.newGame(difficulty, state.sudokuType);
+      if (difficulty) recordGameStart(state.sudokuType, difficulty);
     },
     [state.sudokuType, actions]
   );
@@ -262,7 +276,10 @@ export function GameContainer() {
   const handleTypeChange = useCallback(
     (sudokuType: Parameters<typeof actions.newGame>[1]) => {
       actions.newGame(state.difficulty, sudokuType);
-      if (sudokuType) triggerAutoShow(sudokuType);
+      if (sudokuType) {
+        recordGameStart(sudokuType, state.difficulty);
+        triggerAutoShow(sudokuType);
+      }
     },
     [state.difficulty, actions, triggerAutoShow]
   );
@@ -333,7 +350,18 @@ export function GameContainer() {
           <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
             {t('game.title')}
           </h1>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { reloadStats(); setStatsOpen(true); }}
+              title={t('stats.title')}
+              aria-label={t('stats.title')}
+              data-testid="stats-button"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
+            >
+              <span aria-hidden="true">📊</span>
+            </button>
+            <LanguageSwitcher />
+          </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 items-start justify-center">
@@ -517,6 +545,14 @@ export function GameContainer() {
                 canRedo={state.historyIndex < state.history.length - 1}
               />
             </div>
+
+            {/* Stats modal */}
+            <StatsModal
+              open={statsOpen}
+              store={statsStore}
+              onClose={() => setStatsOpen(false)}
+              onReset={resetStats}
+            />
 
             {/* How to Play modal */}
             <HowToPlayModal
