@@ -26,9 +26,10 @@ export function DailyBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, on
   const [countdown, setCountdown] = useState(timeUntilMidnight);
 
   useEffect(() => {
+    if (!isCompleted) return;
     const id = setInterval(() => setCountdown(timeUntilMidnight()), 1_000);
     return () => clearInterval(id);
-  }, []);
+  }, [isCompleted]);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">

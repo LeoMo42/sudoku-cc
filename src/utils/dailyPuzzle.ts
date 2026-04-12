@@ -31,8 +31,8 @@ const DOW_DIFFICULTY: DifficultyLevel[] = [
   'EXPERT', // Sat
 ];
 
-// Epoch used for stable day-number calculation.
-const EPOCH = new Date(2000, 0, 1).getTime();
+// UTC epoch for stable day-number calculation regardless of local timezone.
+const EPOCH_UTC = Date.UTC(2000, 0, 1);
 
 export interface DailyInfo {
   date: string;       // YYYY-MM-DD
@@ -58,7 +58,8 @@ export function toDateString(date: Date): string {
 }
 
 function toDayNumber(date: Date): number {
-  return Math.floor((date.getTime() - EPOCH) / 86_400_000);
+  const utcMs = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.floor((utcMs - EPOCH_UTC) / 86_400_000);
 }
 
 export function getDailyInfo(date = new Date()): DailyInfo {
@@ -85,9 +86,27 @@ export function loadDailyStore(): DailyStore {
   try {
     const raw = localStorage.getItem(DAILY_STORAGE_KEY);
     if (!raw) return emptyStore();
-    const parsed = JSON.parse(raw) as DailyStore;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
     if (parsed.version !== DAILY_STORE_VERSION) return emptyStore();
-    return parsed;
+    // Validate required fields to guard against corrupt/partial data.
+    if (
+      typeof parsed.currentStreak !== 'number' ||
+      typeof parsed.bestStreak !== 'number' ||
+      !Array.isArray(parsed.completedDates)
+    ) {
+      return emptyStore();
+    }
+    return {
+      version: DAILY_STORE_VERSION,
+      currentStreak: parsed.currentStreak,
+      bestStreak: parsed.bestStreak,
+      lastCompletedDate: typeof parsed.lastCompletedDate === 'string'
+        ? parsed.lastCompletedDate
+        : null,
+      completedDates: (parsed.completedDates as unknown[]).filter(
+        (d): d is string => typeof d === 'string',
+      ),
+    };
   } catch {
     return emptyStore();
   }

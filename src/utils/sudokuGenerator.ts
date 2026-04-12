@@ -2,9 +2,6 @@ import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, DIFFICULTY_LEVELS } from './constants'
 import { isValidMove, copyBoard } from './sudokuValidator';
 import { hasUniqueSolution } from './sudokuSolver';
 import { createSeededRng } from './seededRandom';
-
-// Module-level RNG — overridden temporarily by createPuzzle when a seed is provided.
-let _rng: () => number = Math.random;
 import type {
   Board,
   CellValue,
@@ -22,6 +19,9 @@ import type {
   SandwichClues,
   Parity,
 } from '../types/index';
+
+// Module-level RNG — overridden temporarily by createPuzzle when a seed is provided.
+let _rng: () => number = Math.random;
 
 /**
  * Shuffle an array using Fisher-Yates algorithm
