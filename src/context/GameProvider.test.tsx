@@ -100,4 +100,45 @@ describe('GameProvider localStorage save/clear', () => {
     expect(saved.difficulty).toBe('EXPERT');
     expect(saved.sudokuType).toBe('DIAGONAL');
   });
+
+  function makeTerminalSeed(gameStatus: 'completed' | 'lost') {
+    const board = Array(9).fill(null).map(() => Array(9).fill(0));
+    return {
+      board,
+      initialBoard: board,
+      solution: board,
+      difficulty: 'EASY',
+      sudokuType: 'CLASSIC',
+      gameStatus,
+      elapsedTime: 10,
+      hintsUsed: 0,
+      errors: [],
+      mistakeCount: 0,
+      notesMode: false,
+      notes: [],
+      activeHint: null,
+      oddEvenMarkers: null,
+      kropkiDots: null,
+      killerCages: null,
+      littleKillerClues: null,
+      greaterThanSigns: null,
+      thermos: null,
+      sandwichClues: null,
+      version: 1,
+    };
+  }
+
+  it('clears localStorage when a COMPLETED state is loaded', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(makeTerminalSeed('completed')));
+    renderProvider();
+    await act(async () => {});
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('clears localStorage when a LOST state is loaded', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(makeTerminalSeed('lost')));
+    renderProvider();
+    await act(async () => {});
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
 });
