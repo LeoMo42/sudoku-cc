@@ -475,6 +475,32 @@ export function GameContainer() {
 
           {/* Right side - Controls */}
           <div className="flex flex-col gap-4 md:gap-6 w-full md:w-auto md:min-w-[280px] print:hidden">
+            {/* Number Pad — topmost so it's adjacent to the board */}
+            <div data-tour="numberpad" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+              <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 text-center">
+                {t('game.numberInput')}
+              </h2>
+              <div className="min-h-[1.25rem] mb-2" aria-live="polite">
+                {!state.selectedCell && state.gameStatus === GAME_STATUS.PLAYING && (
+                  <p className="text-xs text-blue-500 dark:text-blue-400 text-center">
+                    {t('game.selectCellHint')}
+                  </p>
+                )}
+              </div>
+              <div className="flex justify-center">
+                <NumberPad
+                  onNumberClick={handleNumberClick}
+                  onClear={handleClear}
+                  disabled={
+                    !state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING
+                  }
+                />
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
+                {t('controls.keyboard')}
+              </p>
+            </div>
+
             {/* Timer and Game Controls - combined on mobile */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
               <div className="flex items-start justify-between mb-4">
@@ -674,31 +700,6 @@ export function GameContainer() {
             {/* Onboarding tour */}
             {tourOpen && <OnboardingTour onClose={closeTour} />}
 
-            {/* Number Pad */}
-            <div data-tour="numberpad" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
-              <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 text-center">
-                {t('game.numberInput')}
-              </h2>
-              <div className="min-h-[1.25rem] mb-2" aria-live="polite">
-                {!state.selectedCell && state.gameStatus === GAME_STATUS.PLAYING && (
-                  <p className="text-xs text-blue-500 dark:text-blue-400 text-center">
-                    {t('game.selectCellHint')}
-                  </p>
-                )}
-              </div>
-              <div className="flex justify-center">
-                <NumberPad
-                  onNumberClick={handleNumberClick}
-                  onClear={handleClear}
-                  disabled={
-                    !state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING
-                  }
-                />
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-                {t('controls.keyboard')}
-              </p>
-            </div>
           </div>
         </div>
       </div>
