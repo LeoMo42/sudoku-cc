@@ -118,8 +118,8 @@ function pushHistory(state: GameState, newBoard: number[][], newNotes: Map<strin
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case Actions.NEW_GAME: {
-      const { difficulty, sudokuType } = action.payload as { difficulty: DifficultyLevel; sudokuType: SudokuTypeId };
-      const { puzzle, solution, oddEvenMarkers, kropkiDots, killerCages, littleKillerClues, greaterThanSigns, thermos, sandwichClues } = createPuzzle(difficulty, sudokuType);
+      const { difficulty, sudokuType, seed } = action.payload as { difficulty: DifficultyLevel; sudokuType: SudokuTypeId; seed?: number };
+      const { puzzle, solution, oddEvenMarkers, kropkiDots, killerCages, littleKillerClues, greaterThanSigns, thermos, sandwichClues } = createPuzzle(difficulty, sudokuType, seed);
 
       const startBoard = copyBoard(puzzle);
       return {
@@ -485,8 +485,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const newGame = useCallback((difficulty: DifficultyLevel = 'MEDIUM', sudokuType: SudokuTypeId = 'CLASSIC') => {
-    dispatch({ type: Actions.NEW_GAME, payload: { difficulty, sudokuType } });
+  const newGame = useCallback((difficulty: DifficultyLevel = 'MEDIUM', sudokuType: SudokuTypeId = 'CLASSIC', seed?: number) => {
+    dispatch({ type: Actions.NEW_GAME, payload: { difficulty, sudokuType, seed } });
   }, []);
 
   const setCellValue = useCallback((row: number, col: number, value: CellValue, mistakeLimit: number | null = null) => {
