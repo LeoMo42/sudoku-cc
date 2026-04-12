@@ -19,7 +19,7 @@ export function useOnboardingTour(): {
   const openTour = useCallback(() => {
     try {
       localStorage.removeItem(TOUR_KEY);
-    } catch {}
+    } catch { /* storage unavailable */ }
     setTourOpen(true);
   }, []);
 
@@ -27,7 +27,7 @@ export function useOnboardingTour(): {
     setTourOpen(false);
     try {
       localStorage.setItem(TOUR_KEY, 'true');
-    } catch {}
+    } catch { /* storage unavailable */ }
   }, []);
 
   return { tourOpen, openTour, closeTour };

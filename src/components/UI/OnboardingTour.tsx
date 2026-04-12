@@ -56,33 +56,33 @@ export function OnboardingTour({ onClose }: Props) {
     return () => window.removeEventListener('keydown', handler, true);
   }, [onClose]);
 
-  const measureTarget = useCallback((selector: string) => {
+  const getTargetRect = useCallback((selector: string): SpotlightRect | null => {
     const el = document.querySelector(selector);
-    if (!el) { setRect(null); return; }
+    if (!el) return null;
     const r = el.getBoundingClientRect();
-    setRect({
+    return {
       top: r.top - PADDING,
       left: r.left - PADDING,
       width: r.width + PADDING * 2,
       height: r.height + PADDING * 2,
-    });
+    };
   }, []);
 
-  // Scroll into view only when step changes; measure only on resize
+  // Scroll into view and measure only when step changes
   useEffect(() => {
     const el = document.querySelector(currentStep.targetSelector);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-    measureTarget(currentStep.targetSelector);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRect(getTargetRect(currentStep.targetSelector)); // DOM measurement — valid setState-in-effect use
     nextButtonRef.current?.focus();
-  }, [step, currentStep.targetSelector, measureTarget]);
+  }, [step, currentStep.targetSelector, getTargetRect]);
 
+  // Re-measure on resize (no scroll, just position update)
   useEffect(() => {
-    const handler = () => measureTarget(currentStep.targetSelector);
+    const handler = () => setRect(getTargetRect(currentStep.targetSelector)); // DOM measurement
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
-  }, [currentStep.targetSelector, measureTarget]);
+  }, [currentStep.targetSelector, getTargetRect]);
 
   const handleNext = () => {
     if (isLast) {
