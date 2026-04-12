@@ -196,5 +196,65 @@
       "name": "Sandwich",
       "description": "Classic rules + clues outside the grid show the sum of digits sandwiched between 1 and 9"
     }
+  },
+  "howToPlay": {
+    "title": "How to Play",
+    "close": "Got it!",
+    "tip": "Tip",
+    "dontShowAgain": "Don't show again for this variant",
+    "variants": {
+      "CLASSIC": {
+        "rules": "Fill the 9×9 grid so that every row, every column, and every 3×3 box contains the digits 1–9 exactly once.",
+        "tip": "Start with the row, column, or box that already has the most digits filled in — the fewer empty cells, the easier it is to find the missing digit."
+      },
+      "DIAGONAL": {
+        "rules": "Classic rules apply, plus both main diagonals (top-left → bottom-right and top-right → bottom-left) must each contain the digits 1–9 exactly once.\n\nThe two diagonals are highlighted in the grid.",
+        "tip": "Treat each diagonal as an extra \"house\". A digit already placed in a cell's row, column, box, or diagonal is eliminated from all other cells on that diagonal."
+      },
+      "WINDOKU": {
+        "rules": "Classic rules apply, plus four shaded 3×3 windows must each contain the digits 1–9 exactly once.\n\nThe windows are positioned at rows 2–4 / cols 2–4, rows 2–4 / cols 6–8, rows 6–8 / cols 2–4, and rows 6–8 / cols 6–8.",
+        "tip": "Each window overlaps with exactly four regular 3×3 boxes. If a digit is already placed in a box that a window shares cells with, that digit is also eliminated from those shared cells in the window."
+      },
+      "ANTI_KNIGHT": {
+        "rules": "Classic rules apply, plus no two cells that are a chess knight's move apart (two squares in one direction and one in the other) may contain the same digit.",
+        "tip": "Each cell has up to 8 knight-move neighbours. When you place a digit, mentally eliminate it from all those neighbours — this often triggers naked singles in dense regions."
+      },
+      "ODD_EVEN": {
+        "rules": "Classic rules apply, plus:\n• Cells marked with a circle must contain an odd digit (1, 3, 5, 7, or 9).\n• Cells marked with a square must contain an even digit (2, 4, 6, or 8).",
+        "tip": "Process all parity constraints first — they instantly halve the candidates in marked cells, making the rest of the puzzle much easier."
+      },
+      "ANTI_KING": {
+        "rules": "Classic rules apply, plus no two cells that are a chess king's move apart (orthogonally or diagonally adjacent) may contain the same digit.\n\nIn other words, every cell has up to 8 neighbours that cannot share its digit.",
+        "tip": "The king constraint is strongest in dense regions. Look for cells where many neighbours already contain the same digit — those cells are highly restricted."
+      },
+      "NON_CONSECUTIVE": {
+        "rules": "Classic rules apply, plus no two orthogonally adjacent cells (sharing an edge) may contain consecutive digits. For example, a 4 and a 5 cannot be next to each other.\n\nDot markers on shared borders indicate the constraint is active between those cells.",
+        "tip": "If a cell has value N, its four neighbours cannot be N−1 or N+1. Cells with value 1 or 9 are least restricted (only one forbidden neighbour value); cells with value 5 are most restricted."
+      },
+      "KROPKI": {
+        "rules": "Classic rules apply, plus dots appear between some adjacent cells:\n• White dot: the two digits differ by exactly 1 (e.g. 3 and 4).\n• Black dot: one digit is exactly double the other (e.g. 3 and 6).\n\nIf no dot appears between two adjacent cells, neither relationship applies.",
+        "tip": "Black dots near 1 must be {1, 2}. Black dots near 9 are impossible (18 > 9), so eliminate 9 from those cells. Start by resolving all dot pairs before placing any other digits."
+      },
+      "KILLER": {
+        "rules": "Classic rules apply, plus cells are grouped into cages (shown by dashed outlines). Each cage has a target sum shown in its top-left corner. The digits inside a cage must:\n• Sum to the target.\n• Not repeat within the cage.\n\nNote: the no-repeat rule applies within cages only, not across cages.",
+        "tip": "Add all cage totals for a complete row, column, or box (which must sum to 45). The difference tells you the sum of any cage cells that \"stick out\" of that unit — these are called outies and are often easy to pin down."
+      },
+      "LITTLE_KILLER": {
+        "rules": "Classic rules apply, plus numbers appear outside the grid along diagonal arrows. Each number is the sum of all digits along that diagonal direction.\n\nUnlike Killer cages, digits may repeat along a Little Killer diagonal.",
+        "tip": "A diagonal that covers only 1 or 2 cells is immediately solvable. For longer diagonals, compute the minimum possible sum (all 1s) and maximum (all 9s) to narrow down the digit range."
+      },
+      "GREATER_THAN": {
+        "rules": "Classic rules apply, plus inequality signs appear between some adjacent cells. The sign always points toward the smaller digit — the cell on the open side of the sign is larger.\n\nFor example, A > B means A is greater than B.",
+        "tip": "Follow chains of inequalities to find forced minimum or maximum values. A cell that is greater than three neighbours must be at least 4; a cell less than three neighbours can be at most 6."
+      },
+      "THERMO": {
+        "rules": "Classic rules apply, plus thermometer shapes appear on the grid. Digits along each thermometer must strictly increase from the round bulb end to the pointed tip.\n\nFor example, a 4-cell thermometer could contain 2, 5, 7, 9 (each cell larger than the previous).",
+        "tip": "The longer the thermometer, the tighter the constraints. A thermometer of length N means the bulb is ≥ 1 and the tip is ≤ (10 − N). Fill in the extreme ends first."
+      },
+      "SANDWICH": {
+        "rules": "Classic rules apply, plus numbers appear outside the grid next to each row and column. Each number is the sum of the digits sandwiched between the 1 and the 9 in that row or column.\n\nThe 1 and 9 themselves are not included in the sum; only the digits between them are.",
+        "tip": "A clue of 0 means 1 and 9 are adjacent. A clue of 35 means all other digits (2–8) are between them. The position of 1 and 9 is the key — once you know where they are, the sandwich digits follow."
+      }
+    }
   }
 }
