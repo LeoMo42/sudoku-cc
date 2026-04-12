@@ -39,12 +39,12 @@ export class ErrorBoundary extends Component<Props, State> {
       const t = lang === 'ru' ? messages.ru : messages.en;
 
       return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-md p-8 max-w-md text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 max-w-md text-center">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
               {t.title}
             </h1>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               {t.description}
             </p>
             <button

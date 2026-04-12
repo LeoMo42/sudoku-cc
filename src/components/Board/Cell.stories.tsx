@@ -81,6 +81,37 @@ export const Highlighted = {
   },
 };
 
+export const MatchingValue = {
+  args: {
+    value: 5,
+    row: 0,
+    col: 0,
+    isInitial: false,
+    isSelected: false,
+    // isHighlighted is intentionally false: the matching-value branch
+    // sits above the highlighted branch in Cell's else-if chain, so
+    // setting both would let one silently mask the other in this story.
+    isHighlighted: false,
+    isMatchingValue: true,
+    isError: false,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const MatchingValueInitial = {
+  args: {
+    value: 5,
+    row: 0,
+    col: 0,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isMatchingValue: true,
+    isError: false,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
 export const Error = {
   args: {
     value: 5,
@@ -305,6 +336,71 @@ export const HintEliminate = {
     isError: false,
     notes: new Set([1, 4]),
     hintRole: 'eliminate',
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+// ── Color-blind mode stories ──────────────────────────────────────────────────
+
+export const ColorBlindError = {
+  args: {
+    value: 5,
+    row: 0,
+    col: 0,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: true,
+    colorBlindMode: true,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const ColorBlindThermoBulb = {
+  args: {
+    value: 0,
+    row: 4,
+    col: 4,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    thermoCell: { isBulb: true, dirs: ['right'] },
+    colorBlindMode: true,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const ColorBlindKillerCage = {
+  args: {
+    value: 0,
+    row: 4,
+    col: 4,
+    isInitial: false,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    cageSum: 15,
+    cageTop: true,
+    cageRight: false,
+    cageBottom: false,
+    cageLeft: true,
+    colorBlindMode: true,
+    onClick: () => console.log('Cell clicked'),
+  },
+};
+
+export const ColorBlindDiagonal = {
+  args: {
+    value: 5,
+    row: 0,
+    col: 0,
+    isInitial: true,
+    isSelected: false,
+    isHighlighted: false,
+    isError: false,
+    isOnDiagonal: true,
+    colorBlindMode: true,
     onClick: () => console.log('Cell clicked'),
   },
 };

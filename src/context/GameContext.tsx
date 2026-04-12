@@ -6,6 +6,7 @@ import { findHintStep } from '../utils/hintEngine';
 import { GAME_STATUS, DIFFICULTY_LEVELS, STORAGE_KEY, SAVE_VERSION, EMPTY_CELL } from '../utils/constants';
 import type {
   GameState,
+  GameStatus,
   GameContextValue,
   DifficultyLevel,
   SudokuTypeId,
@@ -55,6 +56,7 @@ const initialState: GameState = {
   elapsedTime: 0,
   hintsUsed: 0,
   errors: new Set(),
+  mistakeCount: 0,
   notesMode: false,
   notes: new Map(),
   activeHint: null,
@@ -116,8 +118,8 @@ function pushHistory(state: GameState, newBoard: number[][], newNotes: Map<strin
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case Actions.NEW_GAME: {
-      const { difficulty, sudokuType } = action.payload as { difficulty: DifficultyLevel; sudokuType: SudokuTypeId };
-      const { puzzle, solution, oddEvenMarkers, kropkiDots, killerCages, littleKillerClues, greaterThanSigns, thermos, sandwichClues } = createPuzzle(difficulty, sudokuType);
+      const { difficulty, sudokuType, seed } = action.payload as { difficulty: DifficultyLevel; sudokuType: SudokuTypeId; seed?: number };
+      const { puzzle, solution, oddEvenMarkers, kropkiDots, killerCages, littleKillerClues, greaterThanSigns, thermos, sandwichClues } = createPuzzle(difficulty, sudokuType, seed);
 
       const startBoard = copyBoard(puzzle);
       return {
@@ -143,23 +145,53 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case Actions.SET_CELL_VALUE: {
-      const { row, col, value } = action.payload as { row: number; col: number; value: CellValue };
+      const { row, col, value, mistakeLimit } = action.payload as {
+        row: number;
+        col: number;
+        value: CellValue;
+        // null when the "limit mistakes" setting is off; otherwise the
+        // current per-difficulty limit. Reducer is told what the limit
+        // is rather than reading the preference itself, so it stays pure.
+        mistakeLimit?: number | null;
+      };
 
-      // Can't modify initial cells
+      // Can't modify initial cells, and once the game is lost or
+      // completed all writes are no-ops.
       if (state.initialBoard[row]![col] !== EMPTY_CELL) {
         return state;
       }
+      if (state.gameStatus === GAME_STATUS.LOST || state.gameStatus === GAME_STATUS.COMPLETED) {
+        return state;
+      }
 
+      const oldValue = state.board[row]![col];
       const newBoard = copyBoard(state.board);
       newBoard[row]![col] = value;
 
       // Check for errors
       const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
 
-      // Check if puzzle is solved
-      let gameStatus = state.gameStatus;
+      // Mistake counter: a placement is a mistake when it's a non-empty
+      // value that disagrees with the unique solution AND it's a *new*
+      // placement (not re-confirming the same wrong digit). Replacing a
+      // wrong digit with the correct one does NOT count, replacing wrong
+      // with another wrong DOES count, clearing never counts.
+      const solutionValue = state.solution[row]![col];
+      const isNewWrongPlacement =
+        value !== EMPTY_CELL &&
+        value !== solutionValue &&
+        value !== oldValue;
+      const mistakeCount = isNewWrongPlacement ? state.mistakeCount + 1 : state.mistakeCount;
+
+      // Check if puzzle is solved. Annotate the type explicitly so the
+      // narrowing from the early-return guard above (which excludes LOST
+      // and COMPLETED) doesn't prevent us from re-widening to those.
+      let gameStatus: GameStatus = state.gameStatus;
       if (isSolved(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues)) {
         gameStatus = GAME_STATUS.COMPLETED;
+      } else if (mistakeLimit != null && mistakeCount >= mistakeLimit) {
+        // Limit reached: terminal LOST state. Modal in UI handles restart.
+        gameStatus = GAME_STATUS.LOST;
       }
 
       // Clear notes for this cell when value is set
@@ -172,6 +204,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         board: newBoard,
         errors,
+        mistakeCount,
         gameStatus,
         notes: newNotes,
         ...pushHistory(state, newBoard, newNotes),
@@ -381,6 +414,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         ...payload,
+        // Old saves predate mistakeCount; default to 0 so a player loading
+        // an in-flight game from before the feature shipped just sees a
+        // fresh counter rather than NaN/undefined.
+        mistakeCount: typeof payload.mistakeCount === 'number' ? payload.mistakeCount : 0,
         errors: new Set(payload.errors || []),
         notes: loadedNotes,
         activeHint: null,
@@ -448,12 +485,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const newGame = useCallback((difficulty: DifficultyLevel = 'MEDIUM', sudokuType: SudokuTypeId = 'CLASSIC') => {
-    dispatch({ type: Actions.NEW_GAME, payload: { difficulty, sudokuType } });
+  const newGame = useCallback((difficulty: DifficultyLevel = 'MEDIUM', sudokuType: SudokuTypeId = 'CLASSIC', seed?: number) => {
+    dispatch({ type: Actions.NEW_GAME, payload: { difficulty, sudokuType, seed } });
   }, []);
 
-  const setCellValue = useCallback((row: number, col: number, value: CellValue) => {
-    dispatch({ type: Actions.SET_CELL_VALUE, payload: { row, col, value } });
+  const setCellValue = useCallback((row: number, col: number, value: CellValue, mistakeLimit: number | null = null) => {
+    dispatch({ type: Actions.SET_CELL_VALUE, payload: { row, col, value, mistakeLimit } });
   }, []);
 
   const selectCell = useCallback((row: number, col: number) => {

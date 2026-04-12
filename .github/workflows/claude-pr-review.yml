@@ -38,49 +38,87 @@ jobs:
 
           Stack: React 19, TypeScript (strict), Vite 7, Tailwind CSS 3.4, Vitest, Playwright, i18next (ru/en).
 
-          Please review this pull request focusing on:
+          ## Your Task
 
-          ## Code Quality
-          - React best practices (hooks, memo, useCallback)
-          - TypeScript type safety (no `any`, proper generics)
-          - State management (useReducer in GameContext)
-          - Performance (81 cells render on every move, memo matters)
+          1. Run `gh pr view ${{ github.event.pull_request.number }} --comments` FIRST.
+             Read every prior review comment. Do NOT re-raise issues that were already
+             raised, fixed, or explicitly accepted by the author. Do NOT relitigate
+             approaches the author already defended.
+          2. Run `gh pr diff ${{ github.event.pull_request.number }}` to see the changes.
+             Review ONLY what the diff shows. Do not audit unchanged code, do not crawl
+             the broader codebase looking for things to flag. You MAY use `Read` / `Grep`
+             / `Glob` on files touched by the diff to verify a finding before reporting it,
+             but stay within the diff scope.
+          3. **MANDATORY FINAL STEP** — Post your review with
+             `gh pr comment ${{ github.event.pull_request.number }} --body "..."`.
+             You MUST post exactly one comment before ending your turn, no exceptions.
+             If you have nothing to flag after the analysis above, post this exact body:
 
-          ## Game Logic
-          - Sudoku constraint validation correctness
-          - Puzzle generation (unique solutions, proper difficulty)
-          - Variant-specific rules (diagonal, anti-knight, sandwich, etc.)
-          - Undo/redo history consistency
+             ```
+             **Summary** — <one sentence on what the PR does>
 
-          ## Security & Browser Compatibility
-          - localStorage safety (try-catch for private browsing)
-          - Cross-browser issues (Safari/iOS, Firefox)
-          - No XSS in user-facing strings (i18n keys)
+             No Critical, Important, or Suggestions to flag. Diff looks clean.
 
-          ## Testing
-          - Unit tests present for new logic
-          - E2e tests if UI changes are significant
-          - Edge cases covered (empty board, full board, invalid input)
+             **Testing** — <1–2 things to manually verify>
+             ```
 
-          ## Your Task:
+             Do not end your turn without posting. A turn that ends with no `gh pr comment`
+             call is a failed review.
 
-          1. Use `gh pr diff ${{ github.event.pull_request.number }}` to see the changes
-          2. Review the code thoroughly
-          3. Structure your review with:
-             - Summary: Brief overview of changes
-             - Strengths: What was done well
-             - Critical Issues: Must fix before merge (bugs, data loss, breaking changes)
-             - Important Issues: Should be addressed (performance, best practices)
-             - Suggestions: Nice-to-have improvements
-             - Testing: What to test
-          4. Use `gh pr comment ${{ github.event.pull_request.number }} --body "your review"` to post your review
+          ## What to look for (in order of priority)
 
-          **Guidelines:**
-          - Be specific: reference files and line numbers
-          - Explain WHY something is an issue, not just WHAT
-          - Be constructive
-          - Keep it concise, no fluff
+          - **Game logic correctness**: Sudoku constraints, puzzle uniqueness, variant
+            rules (diagonal, anti-knight, sandwich, etc.), undo/redo consistency.
+          - **Real bugs**: crashes, data loss, broken localStorage, race conditions,
+            wrong state transitions, accessibility regressions that break a screen reader.
+          - **Type safety holes** that admit runtime errors (not stylistic widening).
+          - **Performance regressions** with a concrete reproduction (81 cells re-render
+            is the bar — speculative "this might be slow" doesn't count).
+
+          ## Falsifiability rule (REQUIRED for Critical / Important)
+
+          Every Critical or Important issue MUST include either:
+          - A concrete input or user action that triggers the bug, OR
+          - A failing test you can describe in one sentence.
+
+          If you cannot produce one, the issue is NOT Critical or Important.
+          Demote it to Suggestions or omit it entirely. "This could theoretically fail
+          if X" without a path to X is not a real issue.
+
+          ## Do NOT flag (skip-list)
+
+          - Defensive guards that duplicate an upstream check ("you check `!isError`
+            here but Board already excludes errors") — defense-in-depth is fine.
+          - Redundant `title` + `aria-label` on the same element — both are valid.
+          - Type widening with no runtime impact (e.g. `boolean | null` vs `boolean`)
+            unless it actually causes a bug.
+          - Test structure / refactoring preferences (helper extraction, naming, what
+            to assert in which `it` block) when the existing tests pass and cover the
+            behavior.
+          - Code outside the diff. If a file is unchanged, do not review it.
+          - Naming, comment wording, JSDoc presence, file organization preferences.
+          - Vague "consider X" suggestions with no concrete bug behind them.
+          - Style nits already enforced by ESLint / Prettier / Tailwind.
+
+          ## Output format
+
+          - **Summary** — 1–2 sentences on what the PR does.
+          - **Strengths** — 1–3 bullets, only if genuinely notable. Skip if routine.
+          - **Critical** — must fix before merge. Each entry needs the falsifiability
+            evidence above. Most PRs have ZERO. Empty section is normal and good.
+          - **Important** — should fix. Each entry needs the falsifiability evidence
+            above. A great review has **0–2** Important issues, not 5. If your draft
+            has more than 3, cut the weakest ones. Padding hurts signal.
+          - **Suggestions** — optional polish. Cap at 3. These are takes, not asks.
+          - **Testing** — 1–3 things a reviewer should manually verify.
+
+          ## Style
+
+          - Specific: cite `file.tsx:123` line numbers.
+          - Explain WHY (the user-visible or runtime impact), not just WHAT.
+          - Terse. No preamble, no fluff, no restating the diff.
+          - It is correct and good to post a short review. Length is not signal.
 
           See the CLAUDE.md file in the repository for project context.
 
-        claude_args: '--allowed-tools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh pr list:*)"'
+        claude_args: '--allowed-tools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh pr list:*),Read,Grep,Glob"'

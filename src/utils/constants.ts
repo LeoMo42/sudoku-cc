@@ -17,21 +17,25 @@ export const DIFFICULTY_LEVELS = {
     name: 'Легкий',
     filledCells: [40, 50] as [number, number],
     maxHints: 10,
+    mistakeLimit: 5,
   },
   MEDIUM: {
     name: 'Средний',
     filledCells: [30, 40] as [number, number],
     maxHints: 10,
+    mistakeLimit: 4,
   },
   HARD: {
     name: 'Сложный',
     filledCells: [25, 30] as [number, number],
     maxHints: 10,
+    mistakeLimit: 3,
   },
   EXPERT: {
     name: 'Эксперт',
     filledCells: [20, 25] as [number, number],
     maxHints: 10,
+    mistakeLimit: 3,
   },
 } satisfies Record<DifficultyLevel, DifficultyConfig>;
 
@@ -40,6 +44,7 @@ export const GAME_STATUS = {
   PLAYING: 'playing',
   PAUSED: 'paused',
   COMPLETED: 'completed',
+  LOST: 'lost',
 } as const satisfies Record<string, GameStatus>;
 
 export const SUDOKU_TYPES = {

@@ -43,6 +43,8 @@ interface BoardProps {
   thermos?: Thermo[] | null;
   sandwichClues?: SandwichClues | null;
   hintHighlights?: Map<string, HighlightRole> | null;
+  highlightsEnabled?: boolean;
+  colorBlindMode?: boolean;
   onCellClick: (row: number, col: number) => void;
 }
 
@@ -61,8 +63,17 @@ export function Board({
   thermos = null,
   sandwichClues = null,
   hintHighlights = null,
+  highlightsEnabled = true,
+  colorBlindMode = false,
   onCellClick,
 }: BoardProps) {
+  // Value of the currently selected cell (if any) — used to highlight all
+  // cells that share this digit. Empty cells never produce matches.
+  // Use a single optional-chain read so we never hit a non-null assertion
+  // after a guard that admits undefined.
+  const selectedRaw = selectedCell ? board[selectedCell.row]?.[selectedCell.col] : undefined;
+  const selectedValue =
+    selectedRaw !== undefined && selectedRaw !== EMPTY_CELL ? selectedRaw : null;
   // Build lookup maps for Killer Sudoku cage borders and sums
   const cellToCageMap = new Map<string, KillerCage & { id: number }>();
   const cageTopLeftSet = new Set<string>();
@@ -110,16 +121,34 @@ export function Board({
               selectedCell.row === rowIndex &&
               selectedCell.col === colIndex;
 
-            // Highlight cells in same row, column, or 3x3 box as selected cell
-            const isHighlighted =
+            const isError = errors.has(`${rowIndex},${colIndex}`);
+
+            // Highlight cells whose digit matches the selected cell's digit.
+            // Empty cells (value === EMPTY_CELL) and error cells never
+            // participate — error styling owns the visual slot.
+            const isMatchingValue: boolean =
+              highlightsEnabled &&
+              selectedValue !== null &&
+              !isSelected &&
+              !isError &&
+              value !== EMPTY_CELL &&
+              value === selectedValue;
+
+            // Highlight cells in the same row, column, or 3x3 box as the
+            // selected cell. Mutually exclusive with isMatchingValue: a peer
+            // that also shares the digit is the more informative state, so
+            // we collapse the flag here rather than relying on Cell's
+            // else-if ordering.
+            const isPeer =
+              highlightsEnabled &&
               selectedCell &&
               !isSelected &&
               (selectedCell.row === rowIndex ||
                 selectedCell.col === colIndex ||
                 (Math.floor(selectedCell.row / 3) === Math.floor(rowIndex / 3) &&
                   Math.floor(selectedCell.col / 3) === Math.floor(colIndex / 3)));
+            const isHighlighted = isPeer && !isMatchingValue;
 
-            const isError = errors.has(`${rowIndex},${colIndex}`);
             const cellNotes = notes.get(`${rowIndex},${colIndex}`);
 
             // Check if cell is on diagonal (for X-Sudoku)
@@ -190,6 +219,7 @@ export function Board({
                 isInitial={isInitial}
                 isSelected={isSelected}
                 isHighlighted={isHighlighted}
+                isMatchingValue={isMatchingValue}
                 isError={isError}
                 isOnDiagonal={isOnDiagonal}
                 isInWindow={isInWindow}
@@ -209,6 +239,7 @@ export function Board({
                 cageLeft={cageLeft}
                 notes={cellNotes}
                 hintRole={hintHighlights?.get(`${rowIndex},${colIndex}`) ?? null}
+                colorBlindMode={colorBlindMode}
                 onClick={onCellClick}
               />
             );
@@ -216,9 +247,9 @@ export function Board({
   );
 
   const innerBoard = (
-    <div className="inline-block bg-gray-800 p-2 rounded-lg shadow-2xl">
+    <div className="inline-block bg-gray-800 dark:bg-gray-500 p-2 rounded-lg shadow-2xl">
       <div
-        className="grid grid-cols-9 grid-rows-9 gap-0 bg-white relative"
+        className="grid grid-cols-9 grid-rows-9 gap-0 bg-white dark:bg-gray-800 relative"
         style={{ width: '450px', height: '450px' }}
         role="grid"
         aria-label="Sudoku board"
@@ -252,8 +283,8 @@ export function Board({
               className="absolute flex flex-col items-center justify-center pointer-events-none"
               style={{ left: `${left}px`, top: `${top}px`, transform: 'translate(-50%, -50%)', width: '30px' }}
             >
-              <span className="text-[11px] font-bold text-indigo-700 leading-[1.1]">{arrow}</span>
-              <span className="text-[10px] font-bold text-gray-800 leading-[1.1]">{clue.sum}</span>
+              <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 leading-[1.1]">{arrow}</span>
+              <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200 leading-[1.1]">{clue.sum}</span>
             </div>
           );
         })}
@@ -282,7 +313,7 @@ export function Board({
             className="absolute flex items-center justify-center pointer-events-none"
             style={{ left: `${OFFSET + c * CELL_PX}px`, top: '20px', transform: 'translate(-50%, -50%)' }}
           >
-            <span className="text-xs font-bold text-blue-800">{sum}</span>
+            <span className="text-xs font-bold text-blue-800 dark:text-blue-300">{sum}</span>
           </div>
         ))}
         {/* Row clues (left of grid) */}
@@ -292,7 +323,7 @@ export function Board({
             className="absolute flex items-center justify-center pointer-events-none"
             style={{ top: `${OFFSET + r * CELL_PX}px`, left: '20px', transform: 'translate(-50%, -50%)' }}
           >
-            <span className="text-xs font-bold text-blue-800">{sum}</span>
+            <span className="text-xs font-bold text-blue-800 dark:text-blue-300">{sum}</span>
           </div>
         ))}
       </div>
