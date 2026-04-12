@@ -395,14 +395,14 @@ export function GameContainer() {
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 items-start justify-center">
+        <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start justify-center">
           {/* Left side - Board with Type and Difficulty */}
-          <div className="flex flex-col gap-3 lg:gap-4 w-full lg:w-auto">
+          <div className="flex flex-col gap-3 md:gap-4 w-full md:w-auto">
             {/* Type + Difficulty row */}
-            <div className="flex flex-col sm:flex-row gap-3 lg:gap-4 print:hidden">
+            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 print:hidden">
               {/* Sudoku Type Selector */}
               <div data-tour="type-selector" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
-                <div className="flex items-center justify-between mb-2 lg:mb-3">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
                   <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400">
                     {t('game.type')}
                   </h2>
@@ -425,7 +425,7 @@ export function GameContainer() {
 
               {/* Difficulty Selector */}
               <div data-tour="difficulty-selector" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
-                <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 lg:mb-3">
+                <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 md:mb-3">
                   {t('game.difficulty')}
                 </h2>
                 <DifficultySelector
@@ -463,7 +463,7 @@ export function GameContainer() {
           </div>
 
           {/* Right side - Controls */}
-          <div className="flex flex-col gap-4 lg:gap-6 w-full lg:w-auto print:hidden">
+          <div className="flex flex-col gap-4 md:gap-6 w-full md:w-auto md:min-w-[280px] print:hidden">
             {/* Timer and Game Controls - combined on mobile */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
