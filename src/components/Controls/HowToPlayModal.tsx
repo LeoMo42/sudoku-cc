@@ -26,8 +26,11 @@ export function HowToPlayModal({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    if (open) closeButtonRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
     if (!open) return;
-    closeButtonRef.current?.focus();
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
