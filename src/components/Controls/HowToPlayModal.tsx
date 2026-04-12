@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../UI/Button';
 import type { SudokuTypeId } from '../../types/index';
@@ -23,9 +23,11 @@ export function HowToPlayModal({
   onClose,
 }: HowToPlayModalProps) {
   const { t } = useTranslation();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    closeButtonRef.current?.focus();
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -62,6 +64,7 @@ export function HowToPlayModal({
             </h2>
           </div>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors text-xl leading-none mt-0.5"
             aria-label={t('howToPlay.close')}
