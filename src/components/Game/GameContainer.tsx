@@ -396,9 +396,45 @@ export function GameContainer() {
         </div>
 
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start justify-center">
-          {/* Left side - Board with Type and Difficulty */}
+          {/* Left side - Board, then Type and Difficulty below */}
           <div className="flex flex-col gap-3 md:gap-4 w-full md:w-auto">
-            {/* Type + Difficulty row */}
+            {/* Print-only header: variant, difficulty, date */}
+            <div className="hidden print:block mb-4">
+              <h1 className="text-xl font-bold text-black">
+                {t('game.title')} — {t(`sudokuTypes.${state.sudokuType}.name`)}, {t(`difficulty.${state.difficulty}`)}
+              </h1>
+              <p className="text-sm text-gray-600">{new Date().toLocaleDateString(i18n.language)}</p>
+            </div>
+
+            {/* Board - responsive scaling */}
+            <div ref={boardContainerRef} data-tour="board" className="flex flex-col items-center w-full">
+              <div
+                data-print-board
+                className={state.notesMode ? 'rounded ring-2 ring-amber-400 dark:ring-amber-500' : undefined}
+                style={{
+                  transform: `scale(${boardScale})`,
+                  transformOrigin: 'top center',
+                  height: boardScale < 1 ? `${nativeBoardWidth * boardScale}px` : 'auto',
+                }}
+              >
+                {boardElement}
+              </div>
+
+              {/* Notes mode indicator badge */}
+              {state.notesMode && (
+                <div
+                  aria-live="polite"
+                  className="mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 print:hidden"
+                >
+                  {t('game.notesModeActive')}
+                </div>
+              )}
+
+              {/* Odd-Even Legend */}
+              {state.sudokuType === 'ODD_EVEN' && <OddEvenLegend />}
+            </div>
+
+            {/* Type + Difficulty row — below the board (pre-game settings) */}
             <div className="flex flex-col sm:flex-row gap-3 md:gap-4 print:hidden">
               {/* Sudoku Type Selector */}
               <div data-tour="type-selector" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
@@ -434,42 +470,6 @@ export function GameContainer() {
                   disabled={false}
                 />
               </div>
-            </div>
-
-            {/* Print-only header: variant, difficulty, date */}
-            <div className="hidden print:block mb-4">
-              <h1 className="text-xl font-bold text-black">
-                {t('game.title')} — {t(`sudokuTypes.${state.sudokuType}.name`)}, {t(`difficulty.${state.difficulty}`)}
-              </h1>
-              <p className="text-sm text-gray-600">{new Date().toLocaleDateString(i18n.language)}</p>
-            </div>
-
-            {/* Board - responsive scaling */}
-            <div ref={boardContainerRef} data-tour="board" className="flex flex-col items-center w-full">
-              <div
-                data-print-board
-                className={state.notesMode ? 'rounded ring-2 ring-amber-400 dark:ring-amber-500' : undefined}
-                style={{
-                  transform: `scale(${boardScale})`,
-                  transformOrigin: 'top center',
-                  height: boardScale < 1 ? `${nativeBoardWidth * boardScale}px` : 'auto',
-                }}
-              >
-                {boardElement}
-              </div>
-
-              {/* Notes mode indicator badge */}
-              {state.notesMode && (
-                <div
-                  aria-live="polite"
-                  className="mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 print:hidden"
-                >
-                  {t('game.notesModeActive')}
-                </div>
-              )}
-
-              {/* Odd-Even Legend */}
-              {state.sudokuType === 'ODD_EVEN' && <OddEvenLegend />}
             </div>
           </div>
 
