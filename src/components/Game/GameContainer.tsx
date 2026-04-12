@@ -448,7 +448,7 @@ export function GameContainer() {
             <div ref={boardContainerRef} data-tour="board" className="flex flex-col items-center w-full">
               <div
                 data-print-board
-                className={state.notesMode ? 'rounded ring-2 ring-amber-400 dark:ring-amber-500' : undefined}
+                className={state.notesMode ? 'rounded ring-2 ring-amber-400 dark:ring-amber-500 print:ring-0' : undefined}
                 style={{
                   transform: `scale(${boardScale})`,
                   transformOrigin: 'top center',
@@ -458,15 +458,20 @@ export function GameContainer() {
                 {boardElement}
               </div>
 
-              {/* Notes mode indicator badge */}
-              {state.notesMode && (
-                <div
-                  aria-live="polite"
-                  className="mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 print:hidden"
-                >
-                  {t('game.notesModeActive')}
-                </div>
-              )}
+              {/* Notes mode indicator badge — persistent live region so JAWS
+                  announces the mode change reliably (only mutations to a
+                  pre-existing region are guaranteed, not initial insertion). */}
+              <div
+                aria-live="polite"
+                aria-atomic="true"
+                className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold print:hidden transition-opacity ${
+                  state.notesMode
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 opacity-100'
+                    : 'opacity-0 pointer-events-none select-none'
+                }`}
+              >
+                {state.notesMode ? t('game.notesModeActive') : ''}
+              </div>
 
               {/* Odd-Even Legend */}
               {state.sudokuType === 'ODD_EVEN' && <OddEvenLegend />}
