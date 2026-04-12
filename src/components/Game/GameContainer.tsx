@@ -448,6 +448,7 @@ export function GameContainer() {
             <div ref={boardContainerRef} data-tour="board" className="flex flex-col items-center w-full">
               <div
                 data-print-board
+                className={state.notesMode ? 'rounded ring-2 ring-amber-400 dark:ring-amber-500' : undefined}
                 style={{
                   transform: `scale(${boardScale})`,
                   transformOrigin: 'top center',
@@ -456,6 +457,16 @@ export function GameContainer() {
               >
                 {boardElement}
               </div>
+
+              {/* Notes mode indicator badge */}
+              {state.notesMode && (
+                <div
+                  aria-live="polite"
+                  className="mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 print:hidden"
+                >
+                  {t('game.notesModeActive')}
+                </div>
+              )}
 
               {/* Odd-Even Legend */}
               {state.sudokuType === 'ODD_EVEN' && <OddEvenLegend />}
