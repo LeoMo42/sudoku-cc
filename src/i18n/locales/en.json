@@ -38,6 +38,7 @@
     "redo": "Redo",
     "darkModeOn": "Dark mode on (click to disable)",
     "darkModeOff": "Dark mode off (click to enable)",
+    "shareText": "I solved {{type}} ({{difficulty}}) in {{time}}!",
     "colorBlindOn": "Color-blind mode on (click to disable)",
     "colorBlindOff": "Color-blind mode off (click to enable)",
     "startTour": "Replay tour"

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { formatElapsed, buildShareText, buildShareUrl, shareOrCopy } from './share';
+import { formatElapsed, buildShareUrl, shareOrCopy } from './share';
 
 describe('formatElapsed', () => {
   it('formats seconds under a minute', () => {
@@ -13,16 +13,6 @@ describe('formatElapsed', () => {
   });
   it('formats exactly one hour', () => {
     expect(formatElapsed(3600)).toBe('60:00');
-  });
-});
-
-describe('buildShareText', () => {
-  it('includes type, difficulty, time, and url', () => {
-    const text = buildShareText('Classic', 'Hard', 443, 'https://example.com');
-    expect(text).toContain('Classic');
-    expect(text).toContain('Hard');
-    expect(text).toContain('7:23');
-    expect(text).toContain('https://example.com');
   });
 });
 

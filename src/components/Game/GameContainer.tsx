@@ -20,7 +20,7 @@ import { StatsModal } from '../UI/StatsModal';
 import { DailyBanner } from '../UI/DailyBanner';
 import { recordGameStart, recordGameComplete } from '../../utils/stats';
 import { updateBestTime } from '../../utils/bestTime';
-import { shareOrCopy, buildShareText, buildShareUrl } from '../../utils/share';
+import { shareOrCopy, buildShareUrl, formatElapsed } from '../../utils/share';
 import { ShareToast } from '../UI/ShareToast';
 import { Board } from '../Board/Board';
 import { Timer } from '../Controls/Timer';
@@ -283,7 +283,7 @@ export function GameContainer() {
     const diffName = t(`difficulty.${state.difficulty}`);
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
     const url = buildShareUrl(state.sudokuType, state.difficulty, baseUrl);
-    const text = buildShareText(typeName, diffName, state.elapsedTime, '');
+    const text = t('game.shareText', { type: typeName, difficulty: diffName, time: formatElapsed(state.elapsedTime) });
     const outcome = await shareOrCopy(text, url);
     if (outcome === 'copied') {
       setShareToastVisible(true);

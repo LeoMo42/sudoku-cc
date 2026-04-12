@@ -6,19 +6,6 @@ export function formatElapsed(seconds: number): string {
 }
 
 /**
- * Builds the share text shown in the native share sheet or copied to clipboard.
- * Receives already-translated strings so the function stays pure and testable.
- */
-export function buildShareText(
-  typeName: string,
-  difficultyName: string,
-  elapsedSeconds: number,
-  appUrl: string,
-): string {
-  return `I solved ${typeName} (${difficultyName}) in ${formatElapsed(elapsedSeconds)}! ${appUrl}`;
-}
-
-/**
  * Builds a deep-link URL that restores the same variant + difficulty.
  * Falls back to origin when window is unavailable (SSR / test).
  */
