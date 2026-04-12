@@ -257,6 +257,15 @@
       }
     }
   },
+  "daily": {
+    "title": "Daily Puzzle",
+    "day": "#{{number}}",
+    "play": "Play Today's Puzzle",
+    "playing": "Playing…",
+    "completed": "Completed ✓",
+    "streak": "{{count}} day streak",
+    "nextIn": "Next in {{time}}"
+  },
   "stats": {
     "title": "Statistics",
     "close": "Close",

@@ -1,6 +1,7 @@
 import { GRID_SIZE, BOX_SIZE, EMPTY_CELL, DIFFICULTY_LEVELS } from './constants';
 import { isValidMove, copyBoard } from './sudokuValidator';
 import { hasUniqueSolution } from './sudokuSolver';
+import { createSeededRng } from './seededRandom';
 import type {
   Board,
   CellValue,
@@ -19,6 +20,9 @@ import type {
   Parity,
 } from '../types/index';
 
+// Module-level RNG — overridden temporarily by createPuzzle when a seed is provided.
+let _rng: () => number = Math.random;
+
 /**
  * Shuffle an array using Fisher-Yates algorithm
  * @param array - Array to shuffle
@@ -27,7 +31,7 @@ import type {
 function shuffle<T>(array: T[]): T[] {
   const result = [...array];
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(_rng() * (i + 1));
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
@@ -337,7 +341,7 @@ function generateKillerCages(solution: Board): KillerCageInternal[] {
 
   for (const { r, c } of cells) {
     if (assigned[r][c]) continue;
-    const targetSize = 2 + Math.floor(Math.random() * 4); // 2-5
+    const targetSize = 2 + Math.floor(_rng() * 4); // 2-5
     const cageCells: CellPosition[] = [{ row: r, col: c }];
     assigned[r][c] = true;
 
@@ -351,7 +355,7 @@ function generateKillerCages(solution: Board): KillerCageInternal[] {
         }
       }
       if (!candidates.length) break;
-      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      const pick = candidates[Math.floor(_rng() * candidates.length)];
       cageCells.push(pick);
       assigned[pick.row][pick.col] = true;
     }
@@ -487,8 +491,8 @@ function generateThermos(solution: Board): Thermo[] {
   const targetCount = 6;
 
   for (let attempt = 0; attempt < maxAttempts && thermos.length < targetCount; attempt++) {
-    const startR = Math.floor(Math.random() * GRID_SIZE);
-    const startC = Math.floor(Math.random() * GRID_SIZE);
+    const startR = Math.floor(_rng() * GRID_SIZE);
+    const startC = Math.floor(_rng() * GRID_SIZE);
     if (usedCells.has(`${startR},${startC}`)) continue;
 
     const thermo: Thermo = [{ row: startR, col: startC }];
@@ -505,7 +509,7 @@ function generateThermos(solution: Board): Thermo[] {
         if (solution[nr][nc] > currentVal) candidates.push({ row: nr, col: nc });
       }
       if (!candidates.length) break;
-      thermo.push(candidates[Math.floor(Math.random() * candidates.length)]);
+      thermo.push(candidates[Math.floor(_rng() * candidates.length)]);
     }
 
     if (thermo.length >= 3) {
@@ -579,7 +583,19 @@ function generateOddEvenMarkers(solution: Board, markerPercentage: number = 0.35
  * @param sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @returns Puzzle and its solution
  */
-export function createPuzzle(difficulty: DifficultyLevel = 'MEDIUM', sudokuType: SudokuTypeId = 'CLASSIC'): PuzzleResult {
+export function createPuzzle(difficulty: DifficultyLevel = 'MEDIUM', sudokuType: SudokuTypeId = 'CLASSIC', seed?: number): PuzzleResult {
+  const prevRng = _rng;
+  if (seed !== undefined) {
+    _rng = createSeededRng(seed);
+  }
+  try {
+    return _createPuzzle(difficulty, sudokuType);
+  } finally {
+    _rng = prevRng;
+  }
+}
+
+function _createPuzzle(difficulty: DifficultyLevel, sudokuType: SudokuTypeId): PuzzleResult {
   const solution = generateFullBoard(sudokuType);
 
   // Killer Sudoku: empty board + cages, no cell removal needed
@@ -595,7 +611,7 @@ export function createPuzzle(difficulty: DifficultyLevel = 'MEDIUM', sudokuType:
 
   // Target number of filled cells (random within range)
   const targetFilled =
-    Math.floor(Math.random() * (maxFilled - minFilled + 1)) + minFilled;
+    Math.floor(_rng() * (maxFilled - minFilled + 1)) + minFilled;
   const cellsToRemove = GRID_SIZE * GRID_SIZE - targetFilled;
 
   // Create array of all cell positions
@@ -712,7 +728,7 @@ export function getHint(currentBoard: Board, solution: Board, initialBoard: Boar
   }
 
   // Return random empty cell with its solution value
-  const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+  const randomCell = emptyCells[Math.floor(_rng() * emptyCells.length)];
   return {
     row: randomCell.row,
     col: randomCell.col,

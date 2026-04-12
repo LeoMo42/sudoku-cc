@@ -11,8 +11,10 @@ import { useHaptic } from '../../hooks/useHaptic';
 import { useTheme } from '../../hooks/useTheme';
 import { useHowToPlay } from '../../hooks/useHowToPlay';
 import { useStats } from '../../hooks/useStats';
+import { useDaily } from '../../hooks/useDaily';
 import { HowToPlayModal } from '../Controls/HowToPlayModal';
 import { StatsModal } from '../UI/StatsModal';
+import { DailyBanner } from '../UI/DailyBanner';
 import { recordGameStart, recordGameComplete } from '../../utils/stats';
 import { updateBestTime } from '../../utils/bestTime';
 import { shareOrCopy, buildShareText, buildShareUrl } from '../../utils/share';
@@ -44,7 +46,10 @@ export function GameContainer() {
   const { isDark, toggleTheme } = useTheme();
   const { open: howToPlayOpen, openModal: openHowToPlay, closeModal: closeHowToPlay, triggerAutoShow, dontShowAgain, toggleDontShowAgain } = useHowToPlay(state.sudokuType);
   const { store: statsStore, reload: reloadStats, reset: resetStats } = useStats();
+  const { dailyInfo, isCompleted: isDailyCompleted, streak: dailyStreak, markCompleted: markDailyCompleted } = useDaily();
   const [statsOpen, setStatsOpen] = useState(false);
+  const [isPlayingDaily, setIsPlayingDaily] = useState(false);
+  const isPlayingDailyRef = useRef(false);
 
   const [shareToastVisible, setShareToastVisible] = useState(false);
 
@@ -77,6 +82,11 @@ export function GameContainer() {
     if (state.gameStatus === GAME_STATUS.COMPLETED && prevStatus !== GAME_STATUS.COMPLETED) {
       isNewBestTimeRef.current = updateBestTime(state.difficulty, state.elapsedTime);
       recordGameComplete(state.sudokuType, state.difficulty, state.elapsedTime, state.mistakeCount);
+      if (isPlayingDailyRef.current) {
+        markDailyCompleted(dailyInfo.date);
+        isPlayingDailyRef.current = false;
+        setIsPlayingDaily(false);
+      }
       playVictorySound();
       vibrateComplete();
     } else if (pendingDigitSoundRef.current || pendingHapticRef.current) {
@@ -94,7 +104,7 @@ export function GameContainer() {
 
     prevGameStatusRef.current = state.gameStatus;
     prevErrorsSizeRef.current = state.errors.size;
-  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, state.sudokuType, state.mistakeCount, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
+  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, state.sudokuType, state.mistakeCount, markDailyCompleted, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
 
   // Confetti on completion — declared AFTER the sound effect so React runs it
   // second, giving the sound effect a chance to update isNewBestTimeRef first.
@@ -248,9 +258,18 @@ export function GameContainer() {
   }, [state.selectedCell, state.gameStatus, actions, currentMistakeLimit]);
 
   const handleNewGame = useCallback(() => {
+    isPlayingDailyRef.current = false;
+    setIsPlayingDaily(false);
     actions.newGame(state.difficulty, state.sudokuType);
     recordGameStart(state.sudokuType, state.difficulty);
   }, [state.difficulty, state.sudokuType, actions]);
+
+  const handleStartDaily = useCallback(() => {
+    isPlayingDailyRef.current = true;
+    setIsPlayingDaily(true);
+    actions.newGame(dailyInfo.difficulty, dailyInfo.type, dailyInfo.seed);
+    recordGameStart(dailyInfo.type, dailyInfo.difficulty);
+  }, [dailyInfo, actions]);
 
   const handleShare = useCallback(async () => {
     const typeName = t(`sudokuTypes.${state.sudokuType}.name`);
@@ -267,6 +286,8 @@ export function GameContainer() {
 
   const handleDifficultyChange = useCallback(
     (difficulty: Parameters<typeof actions.newGame>[0]) => {
+      isPlayingDailyRef.current = false;
+      setIsPlayingDaily(false);
       actions.newGame(difficulty, state.sudokuType);
       if (difficulty) recordGameStart(state.sudokuType, difficulty);
     },
@@ -275,6 +296,8 @@ export function GameContainer() {
 
   const handleTypeChange = useCallback(
     (sudokuType: Parameters<typeof actions.newGame>[1]) => {
+      isPlayingDailyRef.current = false;
+      setIsPlayingDaily(false);
       actions.newGame(state.difficulty, sudokuType);
       if (sudokuType) {
         recordGameStart(sudokuType, state.difficulty);
@@ -524,6 +547,15 @@ export function GameContainer() {
                 </div>
               )}
             </div>
+
+            {/* Daily Puzzle */}
+            <DailyBanner
+              dailyInfo={dailyInfo}
+              isCompleted={isDailyCompleted}
+              isPlayingDaily={isPlayingDaily}
+              streak={dailyStreak}
+              onPlay={handleStartDaily}
+            />
 
             {/* Game Controls */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">

@@ -188,7 +188,7 @@ export interface GameState {
 
 // Game actions
 export interface GameActions {
-  newGame: (difficulty?: DifficultyLevel, sudokuType?: SudokuTypeId) => void;
+  newGame: (difficulty?: DifficultyLevel, sudokuType?: SudokuTypeId, seed?: number) => void;
   // mistakeLimit: pass null when the "limit mistakes" preference is off,
   // otherwise the per-difficulty limit. The reducer treats null as
   // "track mistakes but never trigger lost state".
