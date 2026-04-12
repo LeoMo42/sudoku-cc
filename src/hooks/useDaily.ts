@@ -11,7 +11,7 @@ export interface UseDailyReturn {
   dailyInfo: DailyInfo;
   isCompleted: boolean;
   streak: { current: number; best: number };
-  markCompleted: () => void;
+  markCompleted: (date: string) => void;
 }
 
 export function useDaily(): UseDailyReturn {
@@ -19,8 +19,10 @@ export function useDaily(): UseDailyReturn {
   const [isCompleted, setIsCompleted] = useState<boolean>(() => isDailyCompleted());
   const [streak, setStreak] = useState<{ current: number; best: number }>(() => getDailyStreak());
 
-  const markCompleted = useCallback(() => {
-    recordDailyCompletion();
+  // Accept the puzzle's date string so completion is recorded against the day
+  // the puzzle was started, not the wall-clock time at solve (midnight-spanning fix).
+  const markCompleted = useCallback((date: string) => {
+    recordDailyCompletion(new Date(date));
     setIsCompleted(true);
     setStreak(getDailyStreak());
   }, []);

@@ -83,7 +83,7 @@ export function GameContainer() {
       isNewBestTimeRef.current = updateBestTime(state.difficulty, state.elapsedTime);
       recordGameComplete(state.sudokuType, state.difficulty, state.elapsedTime, state.mistakeCount);
       if (isPlayingDailyRef.current) {
-        markDailyCompleted();
+        markDailyCompleted(dailyInfo.date);
         isPlayingDailyRef.current = false;
         setIsPlayingDaily(false);
       }
