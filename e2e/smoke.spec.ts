@@ -50,8 +50,8 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     // Click the number
     await numBtn.click();
 
-    // After placing 5, aria-label changes to include the value
-    const filledCell = page.locator(`[aria-label="${emptyLabel}: 5"]`);
+    // After placing 5, aria-label starts with "RxCy: 5" (may have " (error)" suffix)
+    const filledCell = page.locator(`[aria-label^="${emptyLabel}: 5"]`);
     await expect(filledCell).toHaveText('5', { timeout: 3000 });
   });
 
