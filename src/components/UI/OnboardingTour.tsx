@@ -7,6 +7,7 @@ interface TourStep {
   bodyKey: string;
 }
 
+// extend here for variant-specific tours (e.g. move inside component and derive from context)
 const STEPS: TourStep[] = [
   { targetSelector: '[data-tour="board"]',               titleKey: 'tour.step1.title', bodyKey: 'tour.step1.body' },
   { targetSelector: '[data-tour="numberpad"]',           titleKey: 'tour.step2.title', bodyKey: 'tour.step2.body' },
@@ -71,7 +72,7 @@ export function OnboardingTour({ onClose }: Props) {
   // Scroll into view and measure only when step changes
   useEffect(() => {
     const el = document.querySelector(currentStep.targetSelector);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (el) el.scrollIntoView({ behavior: 'instant', block: 'nearest' });
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRect(getTargetRect(currentStep.targetSelector)); // DOM measurement — valid setState-in-effect use
     nextButtonRef.current?.focus();
@@ -139,6 +140,7 @@ export function OnboardingTour({ onClose }: Props) {
           ))}
         </div>
 
+        <span className="sr-only">{t('tour.stepOf', { current: step + 1, total: STEPS.length })}</span>
         <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">
           {t(currentStep.titleKey)}
         </h3>

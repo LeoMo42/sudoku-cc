@@ -47,6 +47,7 @@
     "next": "Next →",
     "done": "Let's play!",
     "ariaLabel": "Getting started tour",
+    "stepOf": "Step {{current}} of {{total}}",
     "step1": {
       "title": "Select a cell",
       "body": "Tap any empty cell on the board to select it. The row, column, and box will highlight to help you spot conflicts."
