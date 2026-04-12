@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Sudoku Sensei – smoke tests', () => {
   test.beforeEach(async ({ page }) => {
+    // Skip the onboarding tour so it doesn't block pointer events during tests
+    await page.addInitScript(() => {
+      localStorage.setItem('sudoku-onboarding-done', 'true');
+    });
     await page.goto('/');
   });
 
