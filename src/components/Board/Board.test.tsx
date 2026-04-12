@@ -149,7 +149,8 @@ describe('Board highlighting', () => {
       />
     );
 
-    const r4c4 = screen.getByLabelText('R4C4: 5');
+    // aria-label now includes "(error)" suffix — reflects the error state.
+    const r4c4 = screen.getByLabelText('R4C4: 5 (error)');
     // Error styling must take priority over the matching-value background.
     expect(r4c4.className).toContain('cell-error');
     expect(r4c4.className).not.toContain('cell-matching-value');
@@ -169,5 +170,22 @@ describe('Board highlighting', () => {
     const r4c4 = screen.getByLabelText('R4C4: 5');
     expect(r4c4.className).not.toContain('cell-matching-value');
     expect(r4c4.className).not.toContain('cell-highlighted');
+  });
+
+  it('threads colorBlindMode=true into cells so error cells include (error) in aria-label', () => {
+    const board = makeBoard();
+    render(
+      <Board
+        board={board}
+        initialBoard={board}
+        selectedCell={null}
+        colorBlindMode={true}
+        {...noopProps}
+        errors={new Set(['3,3'])} // R4C4 (value 5)
+      />
+    );
+    // aria-label includes (error) annotation — proves colorBlindMode is passed to Cell
+    const r4c4 = screen.getByLabelText('R4C4: 5 (error)');
+    expect(r4c4).toBeTruthy();
   });
 });

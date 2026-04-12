@@ -44,6 +44,7 @@ interface BoardProps {
   sandwichClues?: SandwichClues | null;
   hintHighlights?: Map<string, HighlightRole> | null;
   highlightsEnabled?: boolean;
+  colorBlindMode?: boolean;
   onCellClick: (row: number, col: number) => void;
 }
 
@@ -63,6 +64,7 @@ export function Board({
   sandwichClues = null,
   hintHighlights = null,
   highlightsEnabled = true,
+  colorBlindMode = false,
   onCellClick,
 }: BoardProps) {
   // Value of the currently selected cell (if any) — used to highlight all
@@ -237,6 +239,7 @@ export function Board({
                 cageLeft={cageLeft}
                 notes={cellNotes}
                 hintRole={hintHighlights?.get(`${rowIndex},${colIndex}`) ?? null}
+                colorBlindMode={colorBlindMode}
                 onClick={onCellClick}
               />
             );
