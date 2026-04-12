@@ -256,5 +256,21 @@
         "tip": "A clue of 0 means 1 and 9 are adjacent. A clue of 35 means all other digits (2–8) are between them. The position of 1 and 9 is the key — once you know where they are, the sandwich digits follow."
       }
     }
+  },
+  "stats": {
+    "title": "Statistics",
+    "close": "Close",
+    "noData": "Solve a puzzle to see your statistics here.",
+    "variant": "Variant",
+    "difficulty": "Difficulty",
+    "games": "W/P",
+    "winRate": "Win %",
+    "bestTime": "Best",
+    "avgTime": "Avg",
+    "mistakes": "Mistakes",
+    "reset": "Reset Stats",
+    "resetConfirm": "Reset all statistics? This cannot be undone.",
+    "resetConfirmYes": "Yes, reset",
+    "resetCancel": "Cancel"
   }
 }
