@@ -444,7 +444,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Save state to localStorage
   useEffect(() => {
-    if (state.gameStatus !== GAME_STATUS.IDLE) {
+    if (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) {
       const stateToSave = {
         ...state,
         version: SAVE_VERSION,
@@ -462,6 +462,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         historyIndex: undefined,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    } else if (state.gameStatus === GAME_STATUS.COMPLETED || state.gameStatus === GAME_STATUS.LOST) {
+      localStorage.removeItem(STORAGE_KEY);
     }
   }, [state]);
 
