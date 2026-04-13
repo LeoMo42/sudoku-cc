@@ -22,6 +22,7 @@ import { recordGameStart, recordGameComplete } from '../../utils/stats';
 import { updateBestTime } from '../../utils/bestTime';
 import { shareOrCopy, buildShareUrl, formatElapsed } from '../../utils/share';
 import { ShareToast } from '../UI/ShareToast';
+import { SettingsDrawer } from '../UI/SettingsDrawer';
 import { Board } from '../Board/Board';
 import { Timer } from '../Controls/Timer';
 import { NumberPad } from '../Controls/NumberPad';
@@ -513,86 +514,26 @@ export function GameContainer() {
 
             {/* Timer and Game Controls - combined on mobile */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
-              <div className="flex items-start justify-between mb-4">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400 pt-3">{t('game.time')}</span>
-                <div className="flex items-center flex-wrap gap-2 sm:gap-3 justify-end">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('game.time')}</span>
+                <div className="flex items-center gap-2">
                   <Timer elapsedTime={state.elapsedTime} />
-                  <button
-                    onClick={toggleHighlights}
-                    title={highlightsEnabled ? t('game.highlightsOn') : t('game.highlightsOff')}
-                    aria-label={highlightsEnabled ? t('game.highlightsOn') : t('game.highlightsOff')}
-                    aria-pressed={highlightsEnabled}
-                    data-testid="toggle-highlights"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{highlightsEnabled ? '🔆' : '🔅'}</span>
-                  </button>
-                  <button
-                    onClick={toggleSound}
-                    title={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
-                    aria-label={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{soundEnabled ? '🔊' : '🔇'}</span>
-                  </button>
-                  <button
-                    onClick={toggleCelebration}
-                    title={celebrationEnabled ? t('game.celebrationOn') : t('game.celebrationOff')}
-                    aria-label={celebrationEnabled ? t('game.celebrationOn') : t('game.celebrationOff')}
-                    aria-pressed={celebrationEnabled}
-                    data-testid="toggle-celebration"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{celebrationEnabled ? '🎉' : '🚫'}</span>
-                  </button>
-                  <button
-                    onClick={toggleHaptic}
-                    title={hapticEnabled ? t('game.hapticOn') : t('game.hapticOff')}
-                    aria-label={hapticEnabled ? t('game.hapticOn') : t('game.hapticOff')}
-                    aria-pressed={hapticEnabled}
-                    data-testid="toggle-haptic"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{hapticEnabled ? '📳' : '📴'}</span>
-                  </button>
-                  <button
-                    onClick={toggleTheme}
-                    title={isDark ? t('game.darkModeOn') : t('game.darkModeOff')}
-                    aria-label={isDark ? t('game.darkModeOn') : t('game.darkModeOff')}
-                    aria-pressed={isDark}
-                    data-testid="toggle-theme"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{isDark ? '🌙' : '☀️'}</span>
-                  </button>
-                  <button
-                    onClick={toggleColorBlindMode}
-                    title={colorBlindMode ? t('game.colorBlindOn') : t('game.colorBlindOff')}
-                    aria-label={colorBlindMode ? t('game.colorBlindOn') : t('game.colorBlindOff')}
-                    aria-pressed={colorBlindMode}
-                    data-testid="toggle-colorblind"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{colorBlindMode ? '👁' : '🎨'}</span>
-                  </button>
-                  <button
-                    onClick={openTour}
-                    title={t('game.startTour')}
-                    aria-label={t('game.startTour')}
-                    data-testid="start-tour"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">🧭</span>
-                  </button>
-                  <button
-                    onClick={() => window.print()}
-                    title={t('game.print')}
-                    aria-label={t('game.print')}
-                    data-testid="print-button"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">🖨️</span>
-                  </button>
+                  <SettingsDrawer
+                    highlightsEnabled={highlightsEnabled}
+                    toggleHighlights={toggleHighlights}
+                    soundEnabled={soundEnabled}
+                    toggleSound={toggleSound}
+                    celebrationEnabled={celebrationEnabled}
+                    toggleCelebration={toggleCelebration}
+                    hapticEnabled={hapticEnabled}
+                    toggleHaptic={toggleHaptic}
+                    isDark={isDark}
+                    toggleTheme={toggleTheme}
+                    colorBlindMode={colorBlindMode}
+                    toggleColorBlindMode={toggleColorBlindMode}
+                    onTour={openTour}
+                    onPrint={() => window.print()}
+                  />
                 </div>
               </div>
 
