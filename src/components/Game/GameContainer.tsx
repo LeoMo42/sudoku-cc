@@ -17,7 +17,7 @@ import { useStats } from '../../hooks/useStats';
 import { useDaily } from '../../hooks/useDaily';
 import { HowToPlayModal } from '../Controls/HowToPlayModal';
 import { StatsModal } from '../UI/StatsModal';
-import { DailyBanner } from '../UI/DailyBanner';
+import { StreakBanner } from '../UI/StreakBanner';
 import { recordGameStart, recordGameComplete } from '../../utils/stats';
 import { updateBestTime } from '../../utils/bestTime';
 import { shareOrCopy, buildShareUrl, formatElapsed } from '../../utils/share';
@@ -406,6 +406,15 @@ export function GameContainer() {
           </div>
         </div>
 
+        {/* Daily streak — full-width hero above the board */}
+        <StreakBanner
+          dailyInfo={dailyInfo}
+          isCompleted={isDailyCompleted}
+          isPlayingDaily={isPlayingDaily}
+          streak={dailyStreak}
+          onPlay={handleStartDaily}
+        />
+
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start justify-center">
           {/* Left side - Board, then Type and Difficulty below */}
           <div className="flex flex-col gap-3 md:gap-4 w-full md:w-auto">
@@ -580,15 +589,6 @@ export function GameContainer() {
                 </div>
               )}
             </div>
-
-            {/* Daily Puzzle */}
-            <DailyBanner
-              dailyInfo={dailyInfo}
-              isCompleted={isDailyCompleted}
-              isPlayingDaily={isPlayingDaily}
-              streak={dailyStreak}
-              onPlay={handleStartDaily}
-            />
 
             {/* Game Controls */}
             <div data-tour="game-controls" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
