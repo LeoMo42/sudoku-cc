@@ -299,7 +299,9 @@
     "playing": "Playing…",
     "completed": "Completed ✓",
     "streak": "{{count}} day streak",
-    "nextIn": "Next in {{time}}"
+    "nextIn": "Next in {{time}}",
+    "startStreak": "Start your streak",
+    "playCta": "Play today →"
   },
   "stats": {
     "title": "Statistics",
