@@ -32,9 +32,9 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
   }, [isCompleted]);
 
   const dayLabel = t('daily.day', { number: dailyInfo.dayNumber });
-  const streakLabel = streak.current > 0
-    ? `🔥 ${t('daily.streak', { count: streak.current })}`
-    : t('daily.startStreak');
+  const streakNode = streak.current > 0
+    ? <><span aria-hidden="true">🔥</span>{' '}{t('daily.streak', { count: streak.current })}</>
+    : <>{t('daily.startStreak')}</>;
 
   return (
     <div className="mb-4 sm:mb-6 print:hidden">
@@ -46,7 +46,7 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
             </span>
             <span className="hidden sm:inline text-gray-300 dark:text-gray-600">·</span>
             <span className="hidden sm:inline text-sm font-medium text-orange-500 dark:text-orange-400 whitespace-nowrap">
-              {streakLabel}
+              {streakNode}
             </span>
             <span className="hidden sm:inline text-gray-300 dark:text-gray-600">·</span>
             <span className="text-sm font-medium text-green-600 dark:text-green-400 whitespace-nowrap">
@@ -70,7 +70,7 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
             </span>
             <span className="hidden sm:inline text-gray-300 dark:text-gray-600">·</span>
             <span className="hidden sm:inline text-sm font-medium text-orange-500 dark:text-orange-400 whitespace-nowrap">
-              {streakLabel}
+              {streakNode}
             </span>
           </div>
           <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex-shrink-0 group-hover:translate-x-0.5 transition-transform">
