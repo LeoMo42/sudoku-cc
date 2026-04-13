@@ -44,7 +44,8 @@
     "startTour": "Replay tour",
     "print": "Print puzzle",
     "notesModeActive": "✏️ Notes mode",
-    "confirmNewGame": "Start a new game? Your current progress will be lost."
+    "confirmNewGame": "Start a new game? Your current progress will be lost.",
+    "settings": "Settings"
   },
   "tour": {
     "skip": "Skip tour",

@@ -108,11 +108,14 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     const highlightedCount = await page.locator('.cell-highlighted').count();
     expect(highlightedCount).toBeGreaterThan(0);
 
-    // Toggle highlights off via the button (data-testid is stable across
-    // future buttons that might also use aria-pressed).
+    // Toggle highlights off — the button lives inside the settings drawer,
+    // so open it first via the gear icon.
+    await page.locator('[data-testid="settings-gear"]').click();
     const toggle = page.locator('[data-testid="toggle-highlights"]');
     await expect(toggle).toBeVisible();
     await toggle.click();
+    // Close the drawer so it doesn't obscure subsequent assertions
+    await page.keyboard.press('Escape');
 
     // After toggling off, no cell should carry either highlight class
     await expect(page.locator('.cell-matching-value')).toHaveCount(0);
