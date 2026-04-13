@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import type { SudokuTypeId, DifficultyLevel } from '../../types/index';
 import { StreakBanner } from './StreakBanner';
 
 vi.mock('react-i18next', () => ({
@@ -11,7 +12,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-const dailyInfo = { dayNumber: 42, date: '2026-04-13', seed: 12345 };
+const dailyInfo = { dayNumber: 42, date: '2026-04-13', seed: 12345, type: 'classic' as SudokuTypeId, difficulty: 'easy' as DifficultyLevel };
 const streak = { current: 3, best: 7 };
 const onPlay = vi.fn();
 
@@ -35,7 +36,7 @@ describe('StreakBanner — not completed', () => {
         onPlay={onPlay}
       />
     );
-    const btn = screen.getByTestId('streak-banner-play');
+    const btn = screen.getByTestId<HTMLButtonElement>('streak-banner-play');
     expect(btn).toBeTruthy();
     expect(btn.disabled).toBe(false);
     expect(screen.getByText('daily.playCta')).toBeTruthy();
@@ -51,7 +52,7 @@ describe('StreakBanner — not completed', () => {
         onPlay={onPlay}
       />
     );
-    const btn = screen.getByTestId('streak-banner-play');
+    const btn = screen.getByTestId<HTMLButtonElement>('streak-banner-play');
     expect(btn.disabled).toBe(true);
     expect(screen.getByText('daily.playing')).toBeTruthy();
   });

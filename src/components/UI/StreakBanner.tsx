@@ -73,7 +73,7 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
               {streakNode}
             </span>
           </div>
-          <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex-shrink-0 group-hover:translate-x-0.5 transition-transform">
+          <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex-shrink-0 group-hover:translate-x-0.5 group-disabled:translate-x-0 transition-transform">
             {isPlayingDaily ? t('daily.playing') : t('daily.playCta')}
           </span>
         </button>
