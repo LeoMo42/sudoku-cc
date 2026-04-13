@@ -293,16 +293,26 @@ export function GameContainer() {
 
   const handleDifficultyChange = useCallback(
     (difficulty: Parameters<typeof actions.newGame>[0]) => {
+      if (
+        state.gameStatus === GAME_STATUS.PLAYING &&
+        state.historyIndex > 0 &&
+        !window.confirm(t('game.confirmNewGame'))
+      ) return;
       isPlayingDailyRef.current = false;
       setIsPlayingDaily(false);
       actions.newGame(difficulty, state.sudokuType);
       if (difficulty) recordGameStart(state.sudokuType, difficulty);
     },
-    [state.sudokuType, actions]
+    [state.sudokuType, state.gameStatus, state.historyIndex, actions, t]
   );
 
   const handleTypeChange = useCallback(
     (sudokuType: Parameters<typeof actions.newGame>[1]) => {
+      if (
+        state.gameStatus === GAME_STATUS.PLAYING &&
+        state.historyIndex > 0 &&
+        !window.confirm(t('game.confirmNewGame'))
+      ) return;
       isPlayingDailyRef.current = false;
       setIsPlayingDaily(false);
       actions.newGame(state.difficulty, sudokuType);
@@ -311,7 +321,7 @@ export function GameContainer() {
         triggerAutoShow(sudokuType);
       }
     },
-    [state.difficulty, actions, triggerAutoShow]
+    [state.difficulty, state.gameStatus, state.historyIndex, actions, t, triggerAutoShow]
   );
 
   const maxHints = DIFFICULTY_LEVELS[state.difficulty].maxHints;

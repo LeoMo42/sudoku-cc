@@ -43,7 +43,8 @@
     "colorBlindOff": "Color-blind mode off (click to enable)",
     "startTour": "Replay tour",
     "print": "Print puzzle",
-    "notesModeActive": "✏️ Notes mode"
+    "notesModeActive": "✏️ Notes mode",
+    "confirmNewGame": "Start a new game? Your current progress will be lost."
   },
   "tour": {
     "skip": "Skip tour",
