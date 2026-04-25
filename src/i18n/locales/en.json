@@ -300,7 +300,7 @@
     "playing": "Playing…",
     "completed": "Completed ✓",
     "streak_one": "{{count}} day streak",
-    "streak_other": "{{count}} day streak",
+    "streak_other": "{{count}} days streak",
     "nextIn": "Next in {{time}}",
     "startStreak": "Start your streak",
     "playCta": "Play today →"
