@@ -283,7 +283,7 @@ export function GameContainer() {
 
   const handleStartDaily = useCallback(() => {
     if (
-      state.gameStatus === GAME_STATUS.PLAYING &&
+      (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
       state.historyIndex > 0 &&
       !window.confirm(t('game.confirmNewGame'))
     ) return;
@@ -312,7 +312,7 @@ export function GameContainer() {
   const handleDifficultyChange = useCallback(
     (difficulty: Parameters<typeof actions.newGame>[0]) => {
       if (
-        state.gameStatus === GAME_STATUS.PLAYING &&
+        (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
         state.historyIndex > 0 &&
         !window.confirm(t('game.confirmNewGame'))
       ) return;
@@ -328,7 +328,7 @@ export function GameContainer() {
   const handleTypeChange = useCallback(
     (sudokuType: Parameters<typeof actions.newGame>[1]) => {
       if (
-        state.gameStatus === GAME_STATUS.PLAYING &&
+        (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
         state.historyIndex > 0 &&
         !window.confirm(t('game.confirmNewGame'))
       ) return;
