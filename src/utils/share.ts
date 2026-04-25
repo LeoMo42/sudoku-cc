@@ -17,7 +17,7 @@ export function buildShareUrl(
   return `${baseUrl}?type=${encodeURIComponent(type)}&difficulty=${encodeURIComponent(difficulty)}`;
 }
 
-export type ShareOutcome = 'shared' | 'copied' | 'cancelled' | 'failed';
+type ShareOutcome = 'shared' | 'copied' | 'cancelled' | 'failed';
 
 /**
  * Tries navigator.share first; falls back to navigator.clipboard.writeText.

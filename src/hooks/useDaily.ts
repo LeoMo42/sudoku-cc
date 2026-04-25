@@ -7,7 +7,7 @@ import {
 } from '../utils/dailyPuzzle';
 import type { DailyInfo } from '../utils/dailyPuzzle';
 
-export interface UseDailyReturn {
+interface UseDailyReturn {
   dailyInfo: DailyInfo;
   isCompleted: boolean;
   streak: { current: number; best: number };

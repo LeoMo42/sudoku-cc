@@ -44,7 +44,7 @@ export interface DailyInfo {
   difficulty: DifficultyLevel;
 }
 
-export interface DailyStore {
+interface DailyStore {
   version: number;
   currentStreak: number;
   bestStreak: number;
