@@ -56,6 +56,10 @@ export function GameContainer() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [isPlayingDaily, setIsPlayingDaily] = useState(false);
   const isPlayingDailyRef = useRef(false);
+  // Captured at game start. Used at completion instead of dailyInfo.date so
+  // a midnight rollover mid-game records against the day the puzzle was
+  // started, not the day it was solved on.
+  const playingDailyDateRef = useRef<string | null>(null);
 
   const [shareToastVisible, setShareToastVisible] = useState(false);
 
@@ -88,9 +92,10 @@ export function GameContainer() {
     if (state.gameStatus === GAME_STATUS.COMPLETED && prevStatus !== GAME_STATUS.COMPLETED) {
       isNewBestTimeRef.current = updateBestTime(state.difficulty, state.elapsedTime);
       recordGameComplete(state.sudokuType, state.difficulty, state.elapsedTime, state.mistakeCount);
-      if (isPlayingDailyRef.current) {
-        markDailyCompleted(dailyInfo.date);
+      if (isPlayingDailyRef.current && playingDailyDateRef.current) {
+        markDailyCompleted(playingDailyDateRef.current);
         isPlayingDailyRef.current = false;
+        playingDailyDateRef.current = null;
         setIsPlayingDaily(false);
       }
       playVictorySound();
@@ -110,7 +115,10 @@ export function GameContainer() {
 
     prevGameStatusRef.current = state.gameStatus;
     prevErrorsSizeRef.current = state.errors.size;
-  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, state.sudokuType, state.mistakeCount, dailyInfo.date, markDailyCompleted, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
+    // dailyInfo.date intentionally NOT in deps — completion uses the captured
+    // playingDailyDateRef so midnight refresh of dailyInfo doesn't change which
+    // day gets credited.
+  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, state.sudokuType, state.mistakeCount, markDailyCompleted, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
 
   // Confetti on completion — declared AFTER the sound effect so React runs it
   // second, giving the sound effect a chance to update isNewBestTimeRef first.
@@ -267,6 +275,7 @@ export function GameContainer() {
 
   const handleNewGame = useCallback(() => {
     isPlayingDailyRef.current = false;
+    playingDailyDateRef.current = null;
     setIsPlayingDaily(false);
     actions.newGame(state.difficulty, state.sudokuType);
     recordGameStart(state.sudokuType, state.difficulty);
@@ -274,6 +283,9 @@ export function GameContainer() {
 
   const handleStartDaily = useCallback(() => {
     isPlayingDailyRef.current = true;
+    // Snapshot the puzzle's date NOW so a midnight rollover during play
+    // doesn't change which day completion credits.
+    playingDailyDateRef.current = dailyInfo.date;
     setIsPlayingDaily(true);
     actions.newGame(dailyInfo.difficulty, dailyInfo.type, dailyInfo.seed);
     recordGameStart(dailyInfo.type, dailyInfo.difficulty);
@@ -300,6 +312,7 @@ export function GameContainer() {
         !window.confirm(t('game.confirmNewGame'))
       ) return;
       isPlayingDailyRef.current = false;
+      playingDailyDateRef.current = null;
       setIsPlayingDaily(false);
       actions.newGame(difficulty, state.sudokuType);
       if (difficulty) recordGameStart(state.sudokuType, difficulty);
@@ -315,6 +328,7 @@ export function GameContainer() {
         !window.confirm(t('game.confirmNewGame'))
       ) return;
       isPlayingDailyRef.current = false;
+      playingDailyDateRef.current = null;
       setIsPlayingDaily(false);
       actions.newGame(state.difficulty, sudokuType);
       if (sudokuType) {
