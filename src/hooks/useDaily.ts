@@ -4,6 +4,7 @@ import {
   isDailyCompleted,
   recordDailyCompletion,
   getDailyStreak,
+  DAILY_STORAGE_KEY,
 } from '../utils/dailyPuzzle';
 import type { DailyInfo } from '../utils/dailyPuzzle';
 
@@ -70,9 +71,26 @@ export function useDaily(): UseDailyReturn {
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
+    // Cross-tab sync (#135): the `storage` event fires in OTHER tabs (not
+    // the writer) when localStorage changes. If another tab completed
+    // today's daily, this tab's in-memory `isCompleted` and `streak`
+    // would diverge from disk truth until reload — leading to stale
+    // banner state and the user re-clicking "Play today" on an
+    // already-done puzzle. Re-read both on every storage event for our
+    // key. We don't refresh dailyInfo from a storage event — dailyInfo
+    // is computed from `new Date()`, not localStorage, so it's already
+    // self-consistent across tabs.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== DAILY_STORAGE_KEY) return;
+      setIsCompleted(isDailyCompleted());
+      setStreak(getDailyStreak());
+    };
+    window.addEventListener('storage', onStorage);
+
     return () => {
       window.clearTimeout(timeoutId);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('storage', onStorage);
     };
   }, [refreshIfDayChanged]);
 

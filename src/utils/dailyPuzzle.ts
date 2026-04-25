@@ -1,6 +1,8 @@
 import type { SudokuTypeId, DifficultyLevel } from '../types/index';
 
-const DAILY_STORAGE_KEY = 'sudoku-daily';
+// Exported so consumers (useDaily) can listen for cross-tab `storage`
+// events and filter by this exact key — avoids drift if we ever rename.
+export const DAILY_STORAGE_KEY = 'sudoku-daily';
 const DAILY_STORE_VERSION = 2;
 
 // Ordered list of variant types used in daily rotation.
