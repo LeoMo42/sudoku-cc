@@ -45,6 +45,7 @@
     "print": "Print puzzle",
     "notesModeActive": "✏️ Notes mode",
     "confirmNewGame": "Start a new game? Your current progress will be lost.",
+    "confirmExitDaily": "Exit today's daily puzzle? Your progress will be lost and you'll lose your shot at today's streak credit.",
     "settings": "Settings"
   },
   "tour": {
