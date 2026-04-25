@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Env files — never track. .env.example IS allowed (template for new
+# developers / docs). Without these rules, the moment someone adds .env
+# with VITE_ANALYTICS_KEY / VITE_SENTRY_DSN / dev API tokens it leaks
+# to the public repo on the next `git add`.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
