@@ -118,13 +118,13 @@ export function SudokuTypeSelector({ currentType, onTypeChange, disabled }: Sudo
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-controls={listboxId}
-        className="w-full px-4 py-3 rounded-lg font-medium bg-purple-600 text-white text-left flex items-center justify-between disabled:opacity-50"
+        className="w-full px-4 py-3 rounded-lg font-medium bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left flex items-center justify-between hover:border-gray-400 dark:hover:border-gray-500 transition-colors disabled:opacity-50"
       >
         <div>
           <div className="font-bold text-sm">
             {t(`sudokuTypes.${currentType}.name`)}
           </div>
-          <div className="text-xs opacity-90 mt-0.5">
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             {t(`sudokuTypes.${currentType}.description`)}
           </div>
         </div>
