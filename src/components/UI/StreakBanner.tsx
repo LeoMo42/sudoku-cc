@@ -36,12 +36,34 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
 
   useEffect(() => {
     if (!isCompleted) return;
-    // Synchronous first tick so the initial paint after isCompleted flips
-    // true shows a real countdown, not the empty-string seed.
     const tick = () => setCountdown(timeUntilMidnight());
-    tick();
-    const id = setInterval(tick, 1_000);
-    return () => clearInterval(id);
+    let id: number | undefined;
+
+    // Visibility-gated interval (#139): pause the 1Hz tick when the
+    // tab is backgrounded. The countdown is decorative when nobody's
+    // watching — no point spending wakeups on it. Resume on focus
+    // with a synchronous tick so the visible value is fresh, not
+    // however-many-seconds-old.
+    const start = () => {
+      tick();
+      id = window.setInterval(tick, 1_000);
+    };
+    const stop = () => {
+      if (id !== undefined) {
+        window.clearInterval(id);
+        id = undefined;
+      }
+    };
+    const onVisibilityChange = () => {
+      document.visibilityState === 'visible' ? start() : stop();
+    };
+
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [isCompleted]);
 
   const dayLabel = t('daily.day', { number: dailyInfo.dayNumber });

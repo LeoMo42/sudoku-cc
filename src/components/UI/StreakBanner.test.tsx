@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import type { SudokuTypeId, DifficultyLevel } from '../../types/index';
 import { StreakBanner } from './StreakBanner';
 
@@ -139,5 +139,73 @@ describe('StreakBanner — completed', () => {
       />
     );
     expect(onPlay).not.toHaveBeenCalled();
+  });
+});
+
+describe('StreakBanner — countdown visibility gating (#139)', () => {
+  // Helper: set document.visibilityState and dispatch the visibilitychange
+  // event the way browsers do. configurable=true is REQUIRED so successive
+  // tests can re-define it.
+  const setVisibility = (state: 'visible' | 'hidden') => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => state,
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+
+  // Reset to visible after each test so other tests aren't poisoned.
+  afterEach(() => {
+    setVisibility('visible');
+  });
+
+  it('does not advance the countdown while the tab is hidden', () => {
+    vi.setSystemTime(new Date(2024, 5, 15, 23, 30, 0));
+    render(
+      <StreakBanner
+        dailyInfo={dailyInfo}
+        isCompleted={true}
+        isPlayingDaily={false}
+        streak={streak}
+        onPlay={onPlay}
+      />
+    );
+    const before = screen.getByText(/daily\.nextIn/).textContent;
+
+    act(() => {
+      setVisibility('hidden');
+      vi.advanceTimersByTime(5_000);
+    });
+
+    // Same text — interval was paused, no setCountdown was fired.
+    expect(screen.getByText(/daily\.nextIn/).textContent).toBe(before);
+  });
+
+  it('resumes the countdown when the tab becomes visible again', () => {
+    vi.setSystemTime(new Date(2024, 5, 15, 23, 30, 0));
+    render(
+      <StreakBanner
+        dailyInfo={dailyInfo}
+        isCompleted={true}
+        isPlayingDaily={false}
+        streak={streak}
+        onPlay={onPlay}
+      />
+    );
+    const initial = screen.getByText(/daily\.nextIn/).textContent;
+
+    // Hide → wait → show. The countdown should reflect elapsed time
+    // immediately on focus (synchronous tick in start()), without
+    // having ticked while hidden.
+    act(() => {
+      setVisibility('hidden');
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.getByText(/daily\.nextIn/).textContent).toBe(initial);
+
+    act(() => {
+      setVisibility('visible');
+    });
+    expect(screen.getByText(/daily\.nextIn/).textContent).not.toBe(initial);
   });
 });
