@@ -11,7 +11,6 @@ import type {
   DifficultyLevel,
   SudokuTypeId,
   CellValue,
-  BoardSnapshot,
   OddEvenMarkers,
   KropkiDots,
   GreaterThanSigns,
