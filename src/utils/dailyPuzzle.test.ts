@@ -179,11 +179,7 @@ describe('clock-back exploit guard (#142)', () => {
     const store = recordDailyCompletion(new Date(2024, 0, 15));
     expect(store.currentStreak).toBe(1); // not 2
     // The stored date is now today (post-rollback), not tomorrow.
-    expect(store.lastCompletedDayNumber).toBe(
-      Math.floor(
-        (Date.UTC(2024, 0, 15) - Date.UTC(2000, 0, 1)) / 86_400_000,
-      ),
-    );
+    expect(store.lastCompletedDayNumber).toBe(toDayNumber(new Date(2024, 0, 15)));
   });
 
   it('preserves bestStreak through a clock-back reset', () => {

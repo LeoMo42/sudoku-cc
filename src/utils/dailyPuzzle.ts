@@ -170,6 +170,10 @@ function saveDailyStore(store: DailyStore): void {
   }
 }
 
+// Only the most recent completion is stored (since v2 — see migrateFromV1).
+// This is NOT a full-history lookup. If you ever need "did the user ever
+// complete day N?", you'll need a different storage shape — don't reach
+// for lastCompletedDayNumber and silently get the wrong answer.
 export function isDailyCompleted(date = new Date()): boolean {
   const store = loadDailyStore();
   return store.lastCompletedDayNumber === toDayNumber(date);
