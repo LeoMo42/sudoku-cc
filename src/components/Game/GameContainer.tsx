@@ -440,6 +440,29 @@ export function GameContainer() {
               <span aria-hidden="true">📊</span>
             </button>
             <LanguageSwitcher />
+            {/*
+              Settings drawer moved here from the Time/Mistakes card (#128).
+              It used to sit inline next to the timer where it visually
+              implied "settings for the time"; in the header it joins the
+              other top-right utility buttons (stats, language) which is
+              the conventional location.
+            */}
+            <SettingsDrawer
+              highlightsEnabled={highlightsEnabled}
+              toggleHighlights={toggleHighlights}
+              soundEnabled={soundEnabled}
+              toggleSound={toggleSound}
+              celebrationEnabled={celebrationEnabled}
+              toggleCelebration={toggleCelebration}
+              hapticEnabled={hapticEnabled}
+              toggleHaptic={toggleHaptic}
+              isDark={isDark}
+              toggleTheme={toggleTheme}
+              colorBlindMode={colorBlindMode}
+              toggleColorBlindMode={toggleColorBlindMode}
+              onTour={openTour}
+              onPrint={() => window.print()}
+            />
           </div>
         </div>
 
@@ -555,29 +578,15 @@ export function GameContainer() {
               </div>
             </div>
 
-            {/* Timer and Game Controls - combined on mobile */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
+            {/* Timer + mistake counter card. Padding tightened (#128)
+                from p-4/sm:p-6 to p-3/sm:p-4 — the previous card was
+                ~50% empty space because the two slim rows of content
+                didn't justify the inset. SettingsDrawer was here too,
+                moved to the top header next to language/stats. */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('game.time')}</span>
-                <div className="flex items-center gap-2">
-                  <Timer elapsedTime={state.elapsedTime} />
-                  <SettingsDrawer
-                    highlightsEnabled={highlightsEnabled}
-                    toggleHighlights={toggleHighlights}
-                    soundEnabled={soundEnabled}
-                    toggleSound={toggleSound}
-                    celebrationEnabled={celebrationEnabled}
-                    toggleCelebration={toggleCelebration}
-                    hapticEnabled={hapticEnabled}
-                    toggleHaptic={toggleHaptic}
-                    isDark={isDark}
-                    toggleTheme={toggleTheme}
-                    colorBlindMode={colorBlindMode}
-                    toggleColorBlindMode={toggleColorBlindMode}
-                    onTour={openTour}
-                    onPrint={() => window.print()}
-                  />
-                </div>
+                <Timer elapsedTime={state.elapsedTime} />
               </div>
 
               {/* Mistake counter row: shows X N (or X N/M when limit on),
