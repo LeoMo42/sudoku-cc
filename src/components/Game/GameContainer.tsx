@@ -290,7 +290,7 @@ export function GameContainer() {
     if (
       (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
       state.historyIndex > 0 &&
-      !window.confirm(t('game.confirmNewGame'))
+      !window.confirm(t(isPlayingDailyRef.current ? 'game.confirmExitDaily' : 'game.confirmNewGame'))
     ) return;
     isPlayingDailyRef.current = false;
     playingDailyDateRef.current = null;
@@ -332,7 +332,7 @@ export function GameContainer() {
       if (
         (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
         state.historyIndex > 0 &&
-        !window.confirm(t('game.confirmNewGame'))
+        !window.confirm(t(isPlayingDailyRef.current ? 'game.confirmExitDaily' : 'game.confirmNewGame'))
       ) return;
       isPlayingDailyRef.current = false;
       playingDailyDateRef.current = null;
@@ -348,7 +348,7 @@ export function GameContainer() {
       if (
         (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
         state.historyIndex > 0 &&
-        !window.confirm(t('game.confirmNewGame'))
+        !window.confirm(t(isPlayingDailyRef.current ? 'game.confirmExitDaily' : 'game.confirmNewGame'))
       ) return;
       isPlayingDailyRef.current = false;
       playingDailyDateRef.current = null;
