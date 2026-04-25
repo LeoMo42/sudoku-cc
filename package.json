@@ -19,6 +19,8 @@
     "e2e:chromium": "playwright test --project=chromium"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/manrope": "^5.2.8",
     "canvas-confetti": "^1.9.4",
     "i18next": "^25.8.7",
     "react": "^19.2.0",

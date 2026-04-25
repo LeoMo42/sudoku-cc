@@ -595,7 +595,7 @@ export function GameContainer() {
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('game.mistakes')}</span>
                 <div className="flex items-center gap-3">
                   <span
-                    className="text-base font-semibold tabular-nums text-gray-800 dark:text-gray-200"
+                    className="text-base font-mono font-semibold tabular-nums text-gray-800 dark:text-gray-200"
                     data-testid="mistake-counter"
                     aria-live="polite"
                     aria-label={
