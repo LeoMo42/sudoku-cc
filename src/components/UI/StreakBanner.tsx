@@ -81,25 +81,34 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
           </span>
         </div>
       ) : (
-        <button
-          onClick={onPlay}
-          disabled={isPlayingDaily}
-          data-testid="streak-banner-play"
-          className="w-full flex items-center justify-between gap-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-3 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors disabled:cursor-default group"
-        >
+        // Decomposed (#132): the row is a plain div, only the CTA is a
+        // button. Previously the entire row was one <button>, which made
+        // its accessible name the concatenated "#N · streak text · Play
+        // today" — confusing for screen-reader users and ambiguous for
+        // keyboard users about what activation actually does. Now SR
+        // users hear the day/streak as plain text, then a separate
+        // "Play today" button.
+        <div className="flex items-center justify-between gap-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-3">
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 whitespace-nowrap">
               {dayLabel}
             </span>
-            <span className="hidden sm:inline text-gray-300 dark:text-gray-600">·</span>
+            <span aria-hidden="true" className="hidden sm:inline text-gray-300 dark:text-gray-600">·</span>
             <span className="hidden sm:inline text-sm font-medium text-orange-500 dark:text-orange-400 whitespace-nowrap">
               {streakNode}
             </span>
           </div>
-          <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex-shrink-0 group-hover:translate-x-0.5 group-disabled:translate-x-0 transition-transform">
-            {isPlayingDaily ? t('daily.playing') : t('daily.playCta')}
-          </span>
-        </button>
+          <button
+            onClick={onPlay}
+            disabled={isPlayingDaily}
+            data-testid="streak-banner-play"
+            className="group text-sm font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex-shrink-0 px-2 py-1 -mr-2 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/40 disabled:cursor-default disabled:hover:bg-transparent transition-colors"
+          >
+            <span className="inline-block group-hover:translate-x-0.5 group-disabled:translate-x-0 transition-transform">
+              {isPlayingDaily ? t('daily.playing') : t('daily.playCta')}
+            </span>
+          </button>
+        </div>
       )}
     </div>
   );
