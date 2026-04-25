@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, act } from '@testing-library/react';
 import React, { useContext } from 'react';
-import { GameProvider, GameContext, Actions } from './GameContext';
+import { GameProvider, GameContext } from './GameContext';
 import { STORAGE_KEY } from '../utils/constants';
 
 // Minimal wrapper to access GameContext inside tests — re-renders on every state change
