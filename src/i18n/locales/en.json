@@ -82,7 +82,14 @@
     "EXPERT": "Expert"
   },
   "controls": {
-    "keyboard": "Use keys 1-9, arrows for navigation, Backspace to clear, N for notes, Ctrl+Z/Ctrl+Y for undo/redo"
+    "keyboard": {
+      "title": "Keyboard shortcuts",
+      "enterDigit": "Enter digit in selected cell",
+      "move": "Move selection",
+      "clear": "Clear selected cell",
+      "notes": "Toggle notes mode",
+      "undoRedo": "Undo / Redo"
+    }
   },
   "hint": {
     "title": "Hint",
