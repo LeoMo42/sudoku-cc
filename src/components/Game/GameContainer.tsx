@@ -287,12 +287,17 @@ export function GameContainer() {
   }, [state.selectedCell, state.gameStatus, actions, currentMistakeLimit]);
 
   const handleNewGame = useCallback(() => {
+    if (
+      (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
+      state.historyIndex > 0 &&
+      !window.confirm(t('game.confirmNewGame'))
+    ) return;
     isPlayingDailyRef.current = false;
     playingDailyDateRef.current = null;
     setIsPlayingDaily(false);
     actions.newGame(state.difficulty, state.sudokuType);
     recordGameStart(state.sudokuType, state.difficulty);
-  }, [state.difficulty, state.sudokuType, actions]);
+  }, [state.difficulty, state.sudokuType, state.gameStatus, state.historyIndex, actions, t]);
 
   const handleStartDaily = useCallback(() => {
     if (
