@@ -190,6 +190,11 @@ describe('useDaily — markCompleted', () => {
     );
     expect(store.lastCompletedDayNumber).toBe(expectedDayNumber);
     expect(store.currentStreak).toBe(1);
+
+    // The crucial UX assertion: TODAY's daily (Jun 16) is NOT marked
+    // completed — the user can still start it. isCompleted is queried
+    // against the current dailyInfo, which has rolled over to Jun 16.
+    expect(result.current.isCompleted).toBe(false);
   });
 });
 

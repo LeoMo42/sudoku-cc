@@ -82,10 +82,14 @@ export function useDaily(): UseDailyReturn {
   // START so a midnight rollover mid-game doesn't credit the wrong day.
   const markCompleted = useCallback((date: string) => {
     recordDailyCompletion(new Date(date));
-    setIsCompleted(true);
+    // Re-query rather than setIsCompleted(true) blindly. If the day rolled
+    // over while the puzzle was being solved, the user just completed
+    // YESTERDAY's puzzle — today's still needs to be playable, so isCompleted
+    // for the current dailyInfo should remain false.
+    setIsCompleted(isDailyCompleted());
     setStreak(getDailyStreak());
-    // After completion, also refresh dailyInfo if the day rolled over
-    // during play — banner should reflect the new state correctly.
+    // Same-day rollover refresh: if dailyInfo is still on the old day, pick
+    // up the new one so the banner reflects today's state correctly.
     setDailyInfo(prev => {
       const fresh = getDailyInfo();
       return fresh.dayNumber === prev.dayNumber ? prev : fresh;
