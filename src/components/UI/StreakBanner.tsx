@@ -66,7 +66,17 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
               {t('daily.completed')}
             </span>
           </div>
-          <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums font-mono whitespace-nowrap flex-shrink-0">
+          {/*
+            aria-hidden so screen readers don't re-announce the countdown
+            on every 1Hz tick (#141). The countdown is decorative — the
+            surrounding "Completed ✓" text already conveys the load-bearing
+            information ("you're done for today, come back tomorrow"). SR
+            users don't need second-level precision on when to come back.
+          */}
+          <span
+            aria-hidden="true"
+            className="text-xs text-gray-500 dark:text-gray-400 tabular-nums font-mono whitespace-nowrap flex-shrink-0"
+          >
             {t('daily.nextIn', { time: countdown })}
           </span>
         </div>
