@@ -553,9 +553,6 @@ export function GameContainer() {
                   }
                 />
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-                {t('controls.keyboard')}
-              </p>
             </div>
 
             {/* Timer and Game Controls - combined on mobile */}
