@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDaily } from './useDaily';
-import { recordDailyCompletion } from '../utils/dailyPuzzle';
-
-const DAILY_STORAGE_KEY = 'sudoku-daily';
+import { recordDailyCompletion, DAILY_STORAGE_KEY } from '../utils/dailyPuzzle';
 
 beforeEach(() => {
   localStorage.clear();
@@ -194,6 +192,68 @@ describe('useDaily — markCompleted', () => {
     // The crucial UX assertion: TODAY's daily (Jun 16) is NOT marked
     // completed — the user can still start it. isCompleted is queried
     // against the current dailyInfo, which has rolled over to Jun 16.
+    expect(result.current.isCompleted).toBe(false);
+  });
+});
+
+describe('useDaily — cross-tab sync (#135)', () => {
+  // The `storage` event fires in OTHER tabs when localStorage changes.
+  // jsdom doesn't auto-fire it, so we dispatch StorageEvent manually to
+  // simulate what a real browser would emit cross-tab.
+
+  it('syncs isCompleted when another tab records today\'s completion', () => {
+    vi.setSystemTime(new Date(2024, 5, 15, 12, 0, 0));
+    const { result } = renderHook(() => useDaily());
+    expect(result.current.isCompleted).toBe(false);
+
+    act(() => {
+      // "Another tab" writes the completion to localStorage.
+      recordDailyCompletion(new Date(2024, 5, 15));
+      // Browsers emit `storage` on the OTHER tab; we simulate that here.
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: DAILY_STORAGE_KEY,
+        newValue: localStorage.getItem(DAILY_STORAGE_KEY),
+      }));
+    });
+
+    expect(result.current.isCompleted).toBe(true);
+  });
+
+  it('syncs streak count when another tab updates the store', () => {
+    vi.setSystemTime(new Date(2024, 5, 15, 12, 0, 0));
+    const { result } = renderHook(() => useDaily());
+    expect(result.current.streak.current).toBe(0);
+
+    act(() => {
+      recordDailyCompletion(new Date(2024, 5, 14));
+      recordDailyCompletion(new Date(2024, 5, 15));
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: DAILY_STORAGE_KEY,
+        newValue: localStorage.getItem(DAILY_STORAGE_KEY),
+      }));
+    });
+
+    expect(result.current.streak.current).toBe(2);
+  });
+
+  it('ignores storage events for unrelated keys', () => {
+    vi.setSystemTime(new Date(2024, 5, 15, 12, 0, 0));
+    const { result } = renderHook(() => useDaily());
+    expect(result.current.isCompleted).toBe(false);
+
+    act(() => {
+      // localStorage is updated…
+      recordDailyCompletion(new Date(2024, 5, 15));
+      // …but the storage event is for a DIFFERENT key (e.g. another
+      // unrelated app feature). Hook must not react.
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'sudoku-some-other-key',
+        newValue: 'whatever',
+      }));
+    });
+
+    // Hook state stays at its mount value — we filtered the event out
+    // and didn't recompute against the now-updated localStorage.
     expect(result.current.isCompleted).toBe(false);
   });
 });
