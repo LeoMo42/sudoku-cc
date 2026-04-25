@@ -48,6 +48,16 @@ export function GameControls({
 
   return (
     <div className="flex flex-col gap-3">
+      {/*
+        Two rows split by intent so the layout stays stable across
+        locales (#131). When everything was a single flex-wrap row,
+        Russian text widths pushed Undo to row 2 while English kept it
+        on row 1 — muscle memory broke whenever the user switched
+        language.
+
+        Row 1 — primary actions (start / inspect / mark)
+        Row 2 — transient controls (history + pause/resume timer)
+      */}
       <div className="flex gap-2 flex-wrap">
         <Button onClick={onNewGame} variant="primary" data-testid="new-game-button">
           {t('game.newGame')}
@@ -73,29 +83,35 @@ export function GameControls({
             >
               {notesMode ? '✓ ' : ''}{t('game.notes')}
             </Button>
-
-            <Button onClick={onUndo} variant="secondary" disabled={!canUndo}>
-              {t('game.undo')}
-            </Button>
-
-            <Button onClick={onRedo} variant="secondary" disabled={!canRedo}>
-              {t('game.redo')}
-            </Button>
           </>
         )}
-
-        {isPlaying && (
-          <Button onClick={onPause} variant="secondary">
-            {t('game.pause')}
-          </Button>
-        )}
-
-        {isPaused && (
-          <Button onClick={onResume} variant="success">
-            {t('game.resume')}
-          </Button>
-        )}
       </div>
+
+      {(isPlaying || isPaused) && (
+        <div className="flex gap-2 flex-wrap">
+          {isPlaying && (
+            <>
+              <Button onClick={onUndo} variant="secondary" disabled={!canUndo}>
+                {t('game.undo')}
+              </Button>
+
+              <Button onClick={onRedo} variant="secondary" disabled={!canRedo}>
+                {t('game.redo')}
+              </Button>
+
+              <Button onClick={onPause} variant="secondary">
+                {t('game.pause')}
+              </Button>
+            </>
+          )}
+
+          {isPaused && (
+            <Button onClick={onResume} variant="success">
+              {t('game.resume')}
+            </Button>
+          )}
+        </div>
+      )}
 
       {isCompleted && (
         <div className="bg-green-100 dark:bg-green-900/40 border-2 border-green-600 dark:border-green-500 rounded-lg p-4 text-center flex flex-col items-center gap-3">
