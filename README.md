@@ -119,6 +119,10 @@ npm run storybook
 **UI компоненты:**
 - Button - Кнопки с вариантами (primary, secondary, success, danger)
 - Modal - Модальные окна
+- StreakBanner - Баннер ежедневной серии (активное/завершённое состояние)
+- ErrorBoundary - Обработка ошибок
+- LanguageSwitcher - Переключатель языка
+- OddEvenLegend - Легенда чёт/нечет
 
 **Board компоненты:**
 - Cell - Отдельная ячейка судоку (с различными состояниями)
@@ -128,7 +132,10 @@ npm run storybook
 - Timer - Отображение времени
 - NumberPad - Панель ввода чисел
 - DifficultySelector - Выбор уровня сложности
+- SudokuTypeSelector - Выбор типа судоку
 - GameControls - Кнопки управления игрой
+- GameOverModal - Модалка завершения игры
+- HintModal - Модалка подсказок
 
 Каждая story включает:
 - Интерактивные контролы для изменения props

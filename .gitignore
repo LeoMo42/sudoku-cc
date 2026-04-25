@@ -36,3 +36,6 @@ __pycache__
 /playwright/.cache/
 .gstack/
 .claude/
+
+# Review/QA artifacts (gstack skills write screenshots here)
+screenshots/

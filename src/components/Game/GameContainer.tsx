@@ -282,6 +282,11 @@ export function GameContainer() {
   }, [state.difficulty, state.sudokuType, actions]);
 
   const handleStartDaily = useCallback(() => {
+    if (
+      (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
+      state.historyIndex > 0 &&
+      !window.confirm(t('game.confirmNewGame'))
+    ) return;
     isPlayingDailyRef.current = true;
     // Snapshot the puzzle's date NOW so a midnight rollover during play
     // doesn't change which day completion credits.
@@ -289,7 +294,7 @@ export function GameContainer() {
     setIsPlayingDaily(true);
     actions.newGame(dailyInfo.difficulty, dailyInfo.type, dailyInfo.seed);
     recordGameStart(dailyInfo.type, dailyInfo.difficulty);
-  }, [dailyInfo, actions]);
+  }, [dailyInfo, actions, state.gameStatus, state.historyIndex, t]);
 
   const handleShare = useCallback(async () => {
     const typeName = t(`sudokuTypes.${state.sudokuType}.name`);
@@ -307,7 +312,7 @@ export function GameContainer() {
   const handleDifficultyChange = useCallback(
     (difficulty: Parameters<typeof actions.newGame>[0]) => {
       if (
-        state.gameStatus === GAME_STATUS.PLAYING &&
+        (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
         state.historyIndex > 0 &&
         !window.confirm(t('game.confirmNewGame'))
       ) return;
@@ -323,7 +328,7 @@ export function GameContainer() {
   const handleTypeChange = useCallback(
     (sudokuType: Parameters<typeof actions.newGame>[1]) => {
       if (
-        state.gameStatus === GAME_STATUS.PLAYING &&
+        (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
         state.historyIndex > 0 &&
         !window.confirm(t('game.confirmNewGame'))
       ) return;
