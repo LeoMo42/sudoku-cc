@@ -75,6 +75,15 @@ export function GameContainer() {
   // the updated value.
   const isNewBestTimeRef = useRef(false);
 
+  // Live mirror of state.elapsedTime so the completion effect can read the
+  // current value WITHOUT depending on state.elapsedTime — which would
+  // otherwise re-run the effect every second of play (60 wasted runs per
+  // minute, all of them no-ops outside the gameStatus transition we care
+  // about). Updated inline on every render so it's always fresh when the
+  // effect actually fires (on gameStatus change).
+  const elapsedTimeRef = useRef(state.elapsedTime);
+  elapsedTimeRef.current = state.elapsedTime;
+
   // Timer hook
   useTimer(state.gameStatus, actions.updateTime);
 
@@ -90,8 +99,10 @@ export function GameContainer() {
     const prevErrorsSize = prevErrorsSizeRef.current;
 
     if (state.gameStatus === GAME_STATUS.COMPLETED && prevStatus !== GAME_STATUS.COMPLETED) {
-      isNewBestTimeRef.current = updateBestTime(state.difficulty, state.elapsedTime);
-      recordGameComplete(state.sudokuType, state.difficulty, state.elapsedTime, state.mistakeCount);
+      // Use the ref instead of state.elapsedTime so this effect doesn't
+      // depend on the timer tick (see #143).
+      isNewBestTimeRef.current = updateBestTime(state.difficulty, elapsedTimeRef.current);
+      recordGameComplete(state.sudokuType, state.difficulty, elapsedTimeRef.current, state.mistakeCount);
       if (isPlayingDailyRef.current && playingDailyDateRef.current) {
         markDailyCompleted(playingDailyDateRef.current);
         isPlayingDailyRef.current = false;
@@ -115,10 +126,12 @@ export function GameContainer() {
 
     prevGameStatusRef.current = state.gameStatus;
     prevErrorsSizeRef.current = state.errors.size;
+    // state.elapsedTime intentionally NOT in deps — read via elapsedTimeRef
+    // so the effect doesn't fire on every timer tick (#143).
     // dailyInfo.date intentionally NOT in deps — completion uses the captured
     // playingDailyDateRef so midnight refresh of dailyInfo doesn't change which
     // day gets credited.
-  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, state.sudokuType, state.mistakeCount, markDailyCompleted, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
+  }, [state.errors, state.gameStatus, state.difficulty, state.sudokuType, state.mistakeCount, markDailyCompleted, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
 
   // Confetti on completion — declared AFTER the sound effect so React runs it
   // second, giving the sound effect a chance to update isNewBestTimeRef first.
