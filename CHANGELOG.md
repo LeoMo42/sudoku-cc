@@ -11,3 +11,5 @@ All notable changes to this project will be documented in this file.
 - Clicking "Play today" while mid-game now asks for confirmation before discarding your progress.
 - Countdown timer no longer shows negative or garbled values after midnight.
 - Countdown timer handles DST transitions correctly (no more "25:xx:xx" on fall-back nights).
+- Streak data integrity: future-date guard prevents clock-back streak farming; localStorage no longer accumulates an unbounded `completedDates` array (#147).
+- Daily puzzle now refreshes correctly when local midnight passes while the app is open or after waking from sleep (#148).

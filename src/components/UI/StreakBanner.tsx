@@ -13,8 +13,13 @@ interface StreakBannerProps {
 function timeUntilMidnight(): string {
   const now = new Date();
   const midnight = new Date(now);
+  // setDate(+1) + setHours(0,0,0,0) is DST-safe (JS Date arithmetic on local
+  // days normalizes wall-clock days). setHours(24,…) was unsafe on fall-back
+  // nights where 25:xx:xx could appear briefly.
   midnight.setDate(midnight.getDate() + 1);
   midnight.setHours(0, 0, 0, 0);
+  // Clamp to 0 so a clock that ticks exactly to midnight can't render
+  // negative or garbled times.
   const diff = Math.max(0, midnight.getTime() - now.getTime());
   const h = Math.floor(diff / 3_600_000);
   const m = Math.floor((diff % 3_600_000) / 60_000);
@@ -24,10 +29,15 @@ function timeUntilMidnight(): string {
 
 export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, onPlay }: StreakBannerProps) {
   const { t } = useTranslation();
+  // Initial value gated on isCompleted: when not in completion state the
+  // countdown is hidden anyway, so skip the computation. Empty string is
+  // never rendered visibly.
   const [countdown, setCountdown] = useState(() => isCompleted ? timeUntilMidnight() : '');
 
   useEffect(() => {
     if (!isCompleted) return;
+    // Synchronous first tick so the initial paint after isCompleted flips
+    // true shows a real countdown, not the empty-string seed.
     const tick = () => setCountdown(timeUntilMidnight());
     tick();
     const id = setInterval(tick, 1_000);
