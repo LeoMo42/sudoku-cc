@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Board } from './Board';
 import type { Board as BoardType } from '../../types/index';
 
@@ -170,6 +170,58 @@ describe('Board highlighting', () => {
     const r4c4 = screen.getByLabelText('R4C4: 5');
     expect(r4c4.className).not.toContain('cell-matching-value');
     expect(r4c4.className).not.toContain('cell-highlighted');
+  });
+
+  // Regression coverage for #134 — investigation closure. The original
+  // /qa-only finding observed via gstack browse synthesized clicks that
+  // the number pad stayed disabled when a cell appeared focused. The
+  // production click path (Cell.onClick → Board.onCellClick prop →
+  // GameContainer.handleCellClick → actions.selectCell) is straightforward
+  // and known-correct; the issue was a synthesized-click testing artifact,
+  // not a real user-facing bug. These tests pin the contract so nobody
+  // regresses it.
+  it('fires onCellClick with the cell coordinates on click (#134)', () => {
+    const board = makeBoard();
+    const onCellClick = vi.fn();
+    render(
+      <Board
+        board={board}
+        initialBoard={board}
+        selectedCell={null}
+        errors={new Set<string>()}
+        notes={new Map<string, Set<number>>()}
+        onCellClick={onCellClick}
+      />
+    );
+
+    const r3c5 = screen.getByLabelText('R3C5');
+    fireEvent.click(r3c5);
+
+    expect(onCellClick).toHaveBeenCalledTimes(1);
+    expect(onCellClick).toHaveBeenCalledWith(2, 4);
+  });
+
+  it('fires onCellClick on Enter or Space (keyboard activation) (#134)', () => {
+    const board = makeBoard();
+    const onCellClick = vi.fn();
+    render(
+      <Board
+        board={board}
+        initialBoard={board}
+        selectedCell={null}
+        errors={new Set<string>()}
+        notes={new Map<string, Set<number>>()}
+        onCellClick={onCellClick}
+      />
+    );
+
+    const r4c1 = screen.getByLabelText('R4C1');
+    fireEvent.keyDown(r4c1, { key: 'Enter' });
+    expect(onCellClick).toHaveBeenCalledWith(3, 0);
+
+    onCellClick.mockClear();
+    fireEvent.keyDown(r4c1, { key: ' ' });
+    expect(onCellClick).toHaveBeenCalledWith(3, 0);
   });
 
   it('threads colorBlindMode=true into cells so error cells include (error) in aria-label', () => {
