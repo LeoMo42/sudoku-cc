@@ -299,7 +299,9 @@
     "play": "Играть сегодня",
     "playing": "Играем…",
     "completed": "Выполнено ✓",
-    "streak": "Серия: {{count}} дн.",
+    "streak_one": "Серия: {{count}} день",
+    "streak_few": "Серия: {{count}} дня",
+    "streak_many": "Серия: {{count}} дней",
     "nextIn": "Следующая через {{time}}",
     "startStreak": "Начните серию",
     "playCta": "Играть сегодня →"

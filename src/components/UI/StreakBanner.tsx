@@ -28,7 +28,7 @@ function timeUntilMidnight(): string {
 }
 
 export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, onPlay }: StreakBannerProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Initial value gated on isCompleted: when not in completion state the
   // countdown is hidden anyway, so skip the computation. Empty string is
   // never rendered visibly.
@@ -66,7 +66,10 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
     };
   }, [isCompleted]);
 
-  const dayLabel = t('daily.day', { number: dailyInfo.dayNumber });
+  // Locale-aware thousands separator (#146). en-US: "9,611"; ru-RU: "9 611".
+  // Falls back to the bare number on locales we don't recognize.
+  const formattedDayNumber = new Intl.NumberFormat(i18n.language).format(dailyInfo.dayNumber);
+  const dayLabel = t('daily.day', { number: formattedDayNumber });
   const streakNode = streak.current > 0
     ? <><span aria-hidden="true">🔥</span>{' '}{t('daily.streak', { count: streak.current })}</>
     : <>{t('daily.startStreak')}</>;

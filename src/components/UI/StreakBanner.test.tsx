@@ -9,6 +9,10 @@ vi.mock('react-i18next', () => ({
       if (opts) return `${key}:${JSON.stringify(opts)}`;
       return key;
     },
+    // Minimal i18n shim — components that need locale-aware formatting
+    // (Intl.NumberFormat) read i18n.language. Default to 'en' so tests
+    // are deterministic across machine locales.
+    i18n: { language: 'en' },
   }),
 }));
 
