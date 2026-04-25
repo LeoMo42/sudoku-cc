@@ -41,7 +41,7 @@ export function loadStats(): StatsStore {
   }
 }
 
-export function saveStats(store: StatsStore): void {
+function saveStats(store: StatsStore): void {
   try {
     localStorage.setItem(STATS_KEY, JSON.stringify(store));
   } catch { /* private browsing or quota */ }

@@ -1,7 +1,8 @@
 {
-  "ignore": [".claude/**", "e2e/**"],
+  "entry": [
+    "vitest.unit.config.ts"
+  ],
   "ignoreDependencies": [
-    "@testing-library/react",
     "@testing-library/user-event"
   ],
   "ignoreBinaries": ["shellcheck"]
