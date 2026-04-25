@@ -5,6 +5,7 @@ import {
   recordDailyCompletion,
   getDailyStreak,
   toDateString,
+  toDayNumber,
   loadDailyStore,
 } from './dailyPuzzle';
 
@@ -16,6 +17,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe('getDailyInfo', () => {
@@ -51,6 +53,62 @@ describe('getDailyInfo', () => {
     const d1 = getDailyInfo(new Date(2024, 0, 1));
     const d2 = getDailyInfo(new Date(2024, 0, 2));
     expect(d2.dayNumber - d1.dayNumber).toBe(1);
+  });
+});
+
+describe('toDayNumber / toDateString consistency (#144 false-positive guard)', () => {
+  // Issue #144 claimed toDateString (local) and toDayNumber (allegedly UTC)
+  // describe different days near midnight. They don't — both are rooted in
+  // the user's LOCAL calendar day. These tests pin the invariant so future
+  // refactors don't accidentally introduce the drift codex hypothesized.
+
+  it('agree at noon (no edge case)', () => {
+    const d = new Date(2024, 5, 15, 12, 0, 0);
+    expect(toDateString(d)).toBe('2024-06-15');
+    // The same call run a second time should give the same dayNumber.
+    expect(toDayNumber(d)).toBe(toDayNumber(new Date(2024, 5, 15, 12, 0, 0)));
+  });
+
+  it('agree at 23:30 local (the case codex claimed would mismatch)', () => {
+    const d = new Date(2024, 5, 15, 23, 30, 0);
+    expect(toDateString(d)).toBe('2024-06-15');
+    // Same dayNumber as noon on the same local day.
+    expect(toDayNumber(d)).toBe(toDayNumber(new Date(2024, 5, 15, 12, 0, 0)));
+  });
+
+  it('agree at 00:30 local (start of day)', () => {
+    const d = new Date(2024, 5, 15, 0, 30, 0);
+    expect(toDateString(d)).toBe('2024-06-15');
+    expect(toDayNumber(d)).toBe(toDayNumber(new Date(2024, 5, 15, 12, 0, 0)));
+  });
+
+  it('roll over together at midnight', () => {
+    const beforeMidnight = new Date(2024, 5, 15, 23, 59, 59);
+    const afterMidnight = new Date(2024, 5, 16, 0, 0, 1);
+    expect(toDateString(beforeMidnight)).toBe('2024-06-15');
+    expect(toDateString(afterMidnight)).toBe('2024-06-16');
+    expect(toDayNumber(afterMidnight) - toDayNumber(beforeMidnight)).toBe(1);
+  });
+});
+
+describe('DST safety (#136 false-positive guard)', () => {
+  // Issue #136 worried that setDate(getDate()-1) would break across DST
+  // transitions. JS Date arithmetic on local days is DST-safe (the spec
+  // normalizes wall-clock days, not 24h chunks). These tests pin the
+  // behavior so a future refactor can't regress it.
+
+  it('records consecutive completions across spring-forward (US 2024-03-10)', () => {
+    // 2024-03-09 (Sat) and 2024-03-10 (Sun, spring-forward in US)
+    recordDailyCompletion(new Date(2024, 2, 9, 12, 0));
+    const store = recordDailyCompletion(new Date(2024, 2, 10, 12, 0));
+    expect(store.currentStreak).toBe(2);
+  });
+
+  it('records consecutive completions across fall-back (US 2024-11-03)', () => {
+    // 2024-11-02 (Sat) and 2024-11-03 (Sun, fall-back in US)
+    recordDailyCompletion(new Date(2024, 10, 2, 12, 0));
+    const store = recordDailyCompletion(new Date(2024, 10, 3, 12, 0));
+    expect(store.currentStreak).toBe(2);
   });
 });
 
@@ -108,6 +166,41 @@ describe('recordDailyCompletion', () => {
   });
 });
 
+describe('clock-back exploit guard (#142)', () => {
+  it('does NOT inflate streak when clock rolls back', () => {
+    // Step 1: user "travels" to tomorrow and completes.
+    recordDailyCompletion(new Date(2024, 0, 16));
+    expect(loadDailyStore().currentStreak).toBe(1);
+    expect(loadDailyStore().lastCompletedDayNumber).toBeGreaterThan(0);
+
+    // Step 2: user rolls clock back to today and tries to complete again.
+    // The future-date guard should detect this and reset to a fresh
+    // single-day streak instead of letting the user farm increments.
+    const store = recordDailyCompletion(new Date(2024, 0, 15));
+    expect(store.currentStreak).toBe(1); // not 2
+    // The stored date is now today (post-rollback), not tomorrow.
+    expect(store.lastCompletedDayNumber).toBe(
+      Math.floor(
+        (Date.UTC(2024, 0, 15) - Date.UTC(2000, 0, 1)) / 86_400_000,
+      ),
+    );
+  });
+
+  it('preserves bestStreak through a clock-back reset', () => {
+    // Build up a real streak first.
+    recordDailyCompletion(new Date(2024, 0, 10));
+    recordDailyCompletion(new Date(2024, 0, 11));
+    recordDailyCompletion(new Date(2024, 0, 12));
+    expect(loadDailyStore().bestStreak).toBe(3);
+
+    // Future date.
+    recordDailyCompletion(new Date(2024, 0, 14));
+    // Clock-back attempt.
+    const store = recordDailyCompletion(new Date(2024, 0, 13));
+    expect(store.bestStreak).toBe(3); // not lost
+  });
+});
+
 describe('getDailyStreak', () => {
   it('returns 0 when no completions', () => {
     const streak = getDailyStreak();
@@ -136,13 +229,105 @@ describe('loadDailyStore', () => {
   it('returns empty store when localStorage is empty', () => {
     const store = loadDailyStore();
     expect(store.currentStreak).toBe(0);
-    expect(store.completedDates).toHaveLength(0);
+    expect(store.lastCompletedDayNumber).toBeNull();
   });
 
-  it('returns empty store when stored version mismatches', () => {
+  it('returns empty store when stored version mismatches (forward-incompat)', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 99, currentStreak: 5 }));
     const store = loadDailyStore();
     expect(store.currentStreak).toBe(0);
+  });
+});
+
+describe('v1 → v2 migration (#137)', () => {
+  // v1 stored `lastCompletedDate: string` (YYYY-MM-DD) and
+  // `completedDates: string[]`. v2 stores `lastCompletedDayNumber: number`.
+  // Migration must preserve currentStreak, bestStreak, and the
+  // last-completed information so users don't lose their streak on upgrade.
+
+  it('preserves currentStreak and bestStreak from a v1 store', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        currentStreak: 7,
+        bestStreak: 12,
+        lastCompletedDate: '2024-06-15',
+        completedDates: ['2024-06-13', '2024-06-14', '2024-06-15'],
+      }),
+    );
+    const store = loadDailyStore();
+    expect(store.version).toBe(2);
+    expect(store.currentStreak).toBe(7);
+    expect(store.bestStreak).toBe(12);
+  });
+
+  it('converts lastCompletedDate string to a dayNumber that round-trips', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        currentStreak: 1,
+        bestStreak: 1,
+        lastCompletedDate: '2024-06-15',
+        completedDates: ['2024-06-15'],
+      }),
+    );
+    const store = loadDailyStore();
+    // The migrated dayNumber should match toDayNumber for the same date.
+    expect(store.lastCompletedDayNumber).toBe(toDayNumber(new Date(2024, 5, 15)));
+  });
+
+  it('lets a user continue their streak immediately after migration', () => {
+    // User had a streak of 5 ending yesterday; today they complete again.
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        currentStreak: 5,
+        bestStreak: 5,
+        lastCompletedDate: toDateString(yesterday),
+        completedDates: [toDateString(yesterday)],
+      }),
+    );
+    const store = recordDailyCompletion(new Date());
+    expect(store.currentStreak).toBe(6);
+  });
+
+  it('persists the migrated form so subsequent loads do not re-migrate', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        currentStreak: 3,
+        bestStreak: 3,
+        lastCompletedDate: '2024-06-15',
+        completedDates: ['2024-06-15'],
+      }),
+    );
+    loadDailyStore(); // triggers migration + save
+    const raw = localStorage.getItem(STORAGE_KEY);
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(raw!) as Record<string, unknown>;
+    expect(parsed.version).toBe(2);
+    expect(parsed.completedDates).toBeUndefined();
+    expect(typeof parsed.lastCompletedDayNumber).toBe('number');
+  });
+
+  it('handles a v1 store with missing lastCompletedDate gracefully', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        currentStreak: 0,
+        bestStreak: 0,
+        completedDates: [],
+      }),
+    );
+    const store = loadDailyStore();
+    expect(store.lastCompletedDayNumber).toBeNull();
   });
 });
 
