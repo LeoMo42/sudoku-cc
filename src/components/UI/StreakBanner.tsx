@@ -13,8 +13,9 @@ interface StreakBannerProps {
 function timeUntilMidnight(): string {
   const now = new Date();
   const midnight = new Date(now);
-  midnight.setHours(24, 0, 0, 0);
-  const diff = midnight.getTime() - now.getTime();
+  midnight.setDate(midnight.getDate() + 1);
+  midnight.setHours(0, 0, 0, 0);
+  const diff = Math.max(0, midnight.getTime() - now.getTime());
   const h = Math.floor(diff / 3_600_000);
   const m = Math.floor((diff % 3_600_000) / 60_000);
   const s = Math.floor((diff % 60_000) / 1_000);
@@ -23,11 +24,13 @@ function timeUntilMidnight(): string {
 
 export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, onPlay }: StreakBannerProps) {
   const { t } = useTranslation();
-  const [countdown, setCountdown] = useState(timeUntilMidnight);
+  const [countdown, setCountdown] = useState(() => isCompleted ? timeUntilMidnight() : '');
 
   useEffect(() => {
     if (!isCompleted) return;
-    const id = setInterval(() => setCountdown(timeUntilMidnight()), 1_000);
+    const tick = () => setCountdown(timeUntilMidnight());
+    tick();
+    const id = setInterval(tick, 1_000);
     return () => clearInterval(id);
   }, [isCompleted]);
 

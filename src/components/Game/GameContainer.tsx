@@ -273,11 +273,16 @@ export function GameContainer() {
   }, [state.difficulty, state.sudokuType, actions]);
 
   const handleStartDaily = useCallback(() => {
+    if (
+      state.gameStatus === GAME_STATUS.PLAYING &&
+      state.historyIndex > 0 &&
+      !window.confirm(t('game.confirmNewGame'))
+    ) return;
     isPlayingDailyRef.current = true;
     setIsPlayingDaily(true);
     actions.newGame(dailyInfo.difficulty, dailyInfo.type, dailyInfo.seed);
     recordGameStart(dailyInfo.type, dailyInfo.difficulty);
-  }, [dailyInfo, actions]);
+  }, [dailyInfo, actions, state.gameStatus, state.historyIndex, t]);
 
   const handleShare = useCallback(async () => {
     const typeName = t(`sudokuTypes.${state.sudokuType}.name`);
