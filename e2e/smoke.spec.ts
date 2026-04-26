@@ -153,4 +153,41 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     // Wait for new puzzle to load
     await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
   });
+
+  test('how-to-play "?" button has a 44×44 touch target', async ({ page }) => {
+    // #126: visible circle stays 24×24 (don't dominate the eyebrow row)
+    // but the click/tap area must meet WCAG AA + iOS HIG 44×44 minimum.
+    // Implemented via a `before:inset-[-10px]` pseudo-element that adds
+    // a 10px transparent halo around the visible circle.
+    const btn = page.locator('[data-testid="how-to-play-button"]');
+    await expect(btn).toBeVisible({ timeout: 5000 });
+
+    // Visible circle layout footprint stays 24×24
+    const visualBox = await btn.boundingBox();
+    expect(visualBox).not.toBeNull();
+    expect(visualBox!.width).toBe(24);
+    expect(visualBox!.height).toBe(24);
+
+    // The pseudo-element must inset -10px on all sides so the effective
+    // click area is 44×44 (24 + 10 + 10).
+    const pseudoInsets = await btn.evaluate((el) => {
+      const cs = getComputedStyle(el, '::before');
+      return { top: cs.top, right: cs.right, bottom: cs.bottom, left: cs.left };
+    });
+    expect(pseudoInsets.top).toBe('-10px');
+    expect(pseudoInsets.right).toBe('-10px');
+    expect(pseudoInsets.bottom).toBe('-10px');
+    expect(pseudoInsets.left).toBe('-10px');
+
+    // Functional check: clicking 8px outside the visible circle still
+    // hits the button (proves the halo is interactive, not just visual).
+    // Scroll into view first so the synthesized click lands in viewport,
+    // and target the modal by its specific aria-labelledby (not the
+    // generic [role="dialog"], which OnboardingTour also uses).
+    await btn.scrollIntoViewIfNeeded();
+    const fresh = await btn.boundingBox();
+    expect(fresh).not.toBeNull();
+    await page.mouse.click(fresh!.x - 8, fresh!.y + fresh!.height / 2);
+    await expect(page.locator('[aria-labelledby="htp-title"]')).toBeVisible({ timeout: 2000 });
+  });
 });
