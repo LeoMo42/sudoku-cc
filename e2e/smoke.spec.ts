@@ -179,15 +179,35 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     expect(pseudoInsets.bottom).toBe('-10px');
     expect(pseudoInsets.left).toBe('-10px');
 
-    // Functional check: clicking 8px outside the visible circle still
-    // hits the button (proves the halo is interactive, not just visual).
-    // Scroll into view first so the synthesized click lands in viewport,
-    // and target the modal by its specific aria-labelledby (not the
-    // generic [role="dialog"], which OnboardingTour also uses).
+    // Functional check: clicking 8px outside the visible circle on each
+    // of the four sides still hits the button. The computed-style check
+    // above proves the pseudo exists symmetrically; this proves the halo
+    // is genuinely hit-testable on every side (catches a future change
+    // that e.g. adds `pointer-events: none` to the pseudo). Target the
+    // modal by its specific aria-labelledby (not the generic
+    // [role="dialog"], which OnboardingTour also uses).
     await btn.scrollIntoViewIfNeeded();
-    const fresh = await btn.boundingBox();
-    expect(fresh).not.toBeNull();
-    await page.mouse.click(fresh!.x - 8, fresh!.y + fresh!.height / 2);
-    await expect(page.locator('[aria-labelledby="htp-title"]')).toBeVisible({ timeout: 2000 });
+    const dialog = page.locator('[aria-labelledby="htp-title"]');
+    const closeDialog = async () => {
+      await page.keyboard.press('Escape');
+      await expect(dialog).toBeHidden({ timeout: 1000 });
+    };
+
+    for (const side of ['left', 'right', 'top', 'bottom'] as const) {
+      const fresh = await btn.boundingBox();
+      expect(fresh).not.toBeNull();
+      const cx = fresh!.x + fresh!.width / 2;
+      const cy = fresh!.y + fresh!.height / 2;
+      const off = 8; // 8px outside the visible 24×24 circle
+      const pt =
+        side === 'left'   ? { x: fresh!.x - off, y: cy } :
+        side === 'right'  ? { x: fresh!.x + fresh!.width + off, y: cy } :
+        side === 'top'    ? { x: cx, y: fresh!.y - off } :
+                            { x: cx, y: fresh!.y + fresh!.height + off };
+
+      await page.mouse.click(pt.x, pt.y);
+      await expect(dialog, `halo click on ${side}`).toBeVisible({ timeout: 2000 });
+      await closeDialog();
+    }
   });
 });
