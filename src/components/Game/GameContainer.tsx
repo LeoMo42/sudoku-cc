@@ -17,12 +17,12 @@ import { useStats } from '../../hooks/useStats';
 import { useDaily } from '../../hooks/useDaily';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useAutoStartIdle } from '../../hooks/useAutoStartIdle';
+import { useShare } from '../../hooks/useShare';
 import { HowToPlayModal } from '../Controls/HowToPlayModal';
 import { StatsModal } from '../UI/StatsModal';
 import { StreakBanner } from '../UI/StreakBanner';
 import { recordGameStart, recordGameComplete } from '../../utils/stats';
 import { updateBestTime } from '../../utils/bestTime';
-import { shareOrCopy, buildShareUrl, formatElapsed } from '../../utils/share';
 import { ShareToast } from '../UI/ShareToast';
 import { SettingsDrawer } from '../UI/SettingsDrawer';
 import { Board } from '../Board/Board';
@@ -63,7 +63,11 @@ export function GameContainer() {
   // started, not the day it was solved on.
   const playingDailyDateRef = useRef<string | null>(null);
 
-  const [shareToastVisible, setShareToastVisible] = useState(false);
+  const { handleShare, shareToastVisible } = useShare({
+    sudokuType: state.sudokuType,
+    difficulty: state.difficulty,
+    elapsedTime: state.elapsedTime,
+  });
 
   // Resolved limit passed to the reducer on every placement. null when
   // the preference is off, so the reducer will not transition to LOST.
@@ -229,19 +233,6 @@ export function GameContainer() {
     actions.newGame(dailyInfo.difficulty, dailyInfo.type, dailyInfo.seed);
     recordGameStart(dailyInfo.type, dailyInfo.difficulty);
   }, [dailyInfo, actions, state.gameStatus, state.historyIndex, t]);
-
-  const handleShare = useCallback(async () => {
-    const typeName = t(`sudokuTypes.${state.sudokuType}.name`);
-    const diffName = t(`difficulty.${state.difficulty}`);
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const url = buildShareUrl(state.sudokuType, state.difficulty, baseUrl);
-    const text = t('game.shareText', { type: typeName, difficulty: diffName, time: formatElapsed(state.elapsedTime) });
-    const outcome = await shareOrCopy(text, url);
-    if (outcome === 'copied') {
-      setShareToastVisible(true);
-      setTimeout(() => setShareToastVisible(false), 2500);
-    }
-  }, [t, state.sudokuType, state.difficulty, state.elapsedTime]);
 
   const handleDifficultyChange = useCallback(
     (difficulty: Parameters<typeof actions.newGame>[0]) => {
