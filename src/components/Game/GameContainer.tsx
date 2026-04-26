@@ -16,6 +16,7 @@ import { useHowToPlay } from '../../hooks/useHowToPlay';
 import { useStats } from '../../hooks/useStats';
 import { useDaily } from '../../hooks/useDaily';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useAutoStartIdle } from '../../hooks/useAutoStartIdle';
 import { HowToPlayModal } from '../Controls/HowToPlayModal';
 import { StatsModal } from '../UI/StatsModal';
 import { StreakBanner } from '../UI/StreakBanner';
@@ -34,8 +35,8 @@ import { HintModal } from '../Controls/HintModal';
 import { GameOverModal } from '../Controls/GameOverModal';
 import { LanguageSwitcher } from '../UI/LanguageSwitcher';
 import { OddEvenLegend } from '../UI/OddEvenLegend';
-import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL, SUDOKU_TYPES } from '../../utils/constants';
-import type { HighlightRole, DifficultyLevel, SudokuTypeId } from '../../types/index';
+import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constants';
+import type { HighlightRole } from '../../types/index';
 
 /**
  * Main game container component
@@ -82,7 +83,13 @@ export function GameContainer() {
   // minute, all of them no-ops outside the gameStatus transition we care
   // about). Updated inline on every render so it's always fresh when the
   // effect actually fires (on gameStatus change).
+  // Intentional inline ref-mirror: the completion effect needs the LATEST
+  // elapsedTime when it fires (on gameStatus change), but listing
+  // state.elapsedTime as a dep would re-run it every second of play
+  // (#143). Until React's useEffectEvent stabilizes, mirroring into a
+  // ref during render is the documented workaround.
   const elapsedTimeRef = useRef(state.elapsedTime);
+  // eslint-disable-next-line react-hooks/refs
   elapsedTimeRef.current = state.elapsedTime;
 
   // Timer hook
@@ -142,24 +149,9 @@ export function GameContainer() {
     isNewBestTimeRef,
   );
 
-  // Auto-start game if status is IDLE, honouring ?type=&difficulty= deep-link params.
-  useEffect(() => {
-    if (state.gameStatus === GAME_STATUS.IDLE) {
-      const params = new URLSearchParams(window.location.search);
-      const typeParam = params.get('type') as SudokuTypeId | null;
-      const diffParam = params.get('difficulty') as DifficultyLevel | null;
-      const validType = typeParam && typeParam in SUDOKU_TYPES ? typeParam : state.sudokuType;
-      const validDiff = diffParam && diffParam in DIFFICULTY_LEVELS ? diffParam : state.difficulty;
-      actions.newGame(validDiff, validType);
-      recordGameStart(validType, validDiff);
-    } else if (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) {
-      // Returning user mid-game: count as a started game so a completion this
-      // session is visible in stats immediately. Skip COMPLETED/LOST to avoid
-      // inflating gamesStarted on every reload of a finished game.
-      recordGameStart(state.sudokuType, state.difficulty);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
+  // Mount-time auto-start + returning-user game-start recording (#116).
+  // See useAutoStartIdle for why empty deps are intentional.
+  useAutoStartIdle(state, actions);
 
   // Keyboard shortcuts: undo/redo + cell input (digits, clear, arrows, n).
   // Extracted to a hook so GameContainer stays focused on layout + flow
