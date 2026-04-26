@@ -69,12 +69,20 @@ export function OnboardingTour({ onClose }: Props) {
     };
   }, []);
 
-  // Scroll into view and measure only when step changes
+  // Scroll into view and measure only when step changes.
+  //
+  // The disable below IS load-bearing: `react-hooks/set-state-in-effect` is
+  // a real rule from `eslint-plugin-react-hooks` v7 (the plugin ships ~30
+  // rules, not just `rules-of-hooks` + `exhaustive-deps`), enabled at error
+  // level by `flat.recommended` which our `eslint.config.js` extends.
+  // Remove this line and CI fails. The setState here is a valid use — DOM
+  // measurement after the layout pass — not the antipattern the rule
+  // generally warns against. Do not delete.
   useEffect(() => {
     const el = document.querySelector(currentStep.targetSelector);
     if (el) el.scrollIntoView({ behavior: 'instant', block: 'nearest' });
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRect(getTargetRect(currentStep.targetSelector)); // DOM measurement — valid setState-in-effect use
+    setRect(getTargetRect(currentStep.targetSelector));
     nextButtonRef.current?.focus();
   }, [step, currentStep.targetSelector, getTargetRect]);
 
