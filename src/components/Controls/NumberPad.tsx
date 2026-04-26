@@ -32,11 +32,11 @@ export function NumberPad({ onNumberClick, onClear, disabled }: NumberPadProps) 
         ))}
       </div>
 
-      {/* Clear button full width */}
+      {/* Clear is reversible via Undo; reserve danger for permanent actions (#127) */}
       <Button
         onClick={onClear}
         disabled={disabled}
-        variant="danger"
+        variant="secondary"
         className="w-full h-12"
       >
         {t('game.clear')}
