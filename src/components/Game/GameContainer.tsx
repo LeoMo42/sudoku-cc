@@ -398,7 +398,13 @@ export function GameContainer() {
                     title={t('howToPlay.title')}
                     aria-label={t('howToPlay.title')}
                     data-testid="how-to-play-button"
-                    className="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    // 24×24 visible circle + a `before:` pseudo-element that
+                    // expands the hit-area to 44×44 (WCAG AA / iOS HIG
+                    // minimum). Layout footprint stays 24×24 so the eyebrow
+                    // row doesn't grow; only the click/tap target is bigger
+                    // (#126). before:inset-[-10px] = 24+10+10 = 44 in both
+                    // axes.
+                    className="relative w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-600 dark:hover:text-blue-400 transition-colors before:absolute before:inset-[-10px] before:content-['']"
                   >
                     ?
                   </button>
