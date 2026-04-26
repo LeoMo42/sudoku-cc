@@ -83,7 +83,7 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
               {dayLabel}
             </span>
             <span className="hidden sm:inline text-gray-300 dark:text-gray-600">·</span>
-            <span className="hidden sm:inline text-sm font-medium text-orange-500 dark:text-orange-400 whitespace-nowrap">
+            <span className="hidden sm:inline text-sm font-medium text-indigo-600 dark:text-indigo-300 whitespace-nowrap">
               {streakNode}
             </span>
             <span className="hidden sm:inline text-gray-300 dark:text-gray-600">·</span>
@@ -119,7 +119,7 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
               {dayLabel}
             </span>
             <span aria-hidden="true" className="hidden sm:inline text-gray-300 dark:text-gray-600">·</span>
-            <span className="hidden sm:inline text-sm font-medium text-orange-500 dark:text-orange-400 whitespace-nowrap">
+            <span className="hidden sm:inline text-sm font-medium text-indigo-600 dark:text-indigo-300 whitespace-nowrap">
               {streakNode}
             </span>
           </div>
