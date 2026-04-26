@@ -18,10 +18,11 @@ import { useDaily } from '../../hooks/useDaily';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useAutoStartIdle } from '../../hooks/useAutoStartIdle';
 import { useShare } from '../../hooks/useShare';
+import { usePuzzleLifecycle } from '../../hooks/usePuzzleLifecycle';
 import { HowToPlayModal } from '../Controls/HowToPlayModal';
 import { StatsModal } from '../UI/StatsModal';
 import { StreakBanner } from '../UI/StreakBanner';
-import { recordGameStart, recordGameComplete } from '../../utils/stats';
+import { recordGameComplete } from '../../utils/stats';
 import { updateBestTime } from '../../utils/bestTime';
 import { ShareToast } from '../UI/ShareToast';
 import { SettingsDrawer } from '../UI/SettingsDrawer';
@@ -56,12 +57,20 @@ export function GameContainer() {
   const { store: statsStore, reload: reloadStats, reset: resetStats } = useStats();
   const { dailyInfo, isCompleted: isDailyCompleted, streak: dailyStreak, markCompleted: markDailyCompleted } = useDaily();
   const [statsOpen, setStatsOpen] = useState(false);
-  const [isPlayingDaily, setIsPlayingDaily] = useState(false);
-  const isPlayingDailyRef = useRef(false);
-  // Captured at game start. Used at completion instead of dailyInfo.date so
-  // a midnight rollover mid-game records against the day the puzzle was
-  // started, not the day it was solved on.
-  const playingDailyDateRef = useRef<string | null>(null);
+
+  const {
+    isPlayingDaily,
+    handleNewGame,
+    handleStartDaily,
+    handleDifficultyChange,
+    handleTypeChange,
+  } = usePuzzleLifecycle({
+    state,
+    actions,
+    dailyInfo,
+    markDailyCompleted,
+    triggerAutoShow,
+  });
 
   const { handleShare, shareToastVisible } = useShare({
     sudokuType: state.sudokuType,
@@ -115,12 +124,6 @@ export function GameContainer() {
       // depend on the timer tick (see #143).
       isNewBestTimeRef.current = updateBestTime(state.difficulty, elapsedTimeRef.current);
       recordGameComplete(state.sudokuType, state.difficulty, elapsedTimeRef.current, state.mistakeCount);
-      if (isPlayingDailyRef.current && playingDailyDateRef.current) {
-        markDailyCompleted(playingDailyDateRef.current);
-        isPlayingDailyRef.current = false;
-        playingDailyDateRef.current = null;
-        setIsPlayingDaily(false);
-      }
       playVictorySound();
       vibrateComplete();
     } else if (pendingDigitSoundRef.current || pendingHapticRef.current) {
@@ -139,11 +142,9 @@ export function GameContainer() {
     prevGameStatusRef.current = state.gameStatus;
     prevErrorsSizeRef.current = state.errors.size;
     // state.elapsedTime intentionally NOT in deps — read via elapsedTimeRef
-    // so the effect doesn't fire on every timer tick (#143).
-    // dailyInfo.date intentionally NOT in deps — completion uses the captured
-    // playingDailyDateRef so midnight refresh of dailyInfo doesn't change which
-    // day gets credited.
-  }, [state.errors, state.gameStatus, state.difficulty, state.sudokuType, state.mistakeCount, markDailyCompleted, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
+    // so the effect doesn't fire on every timer tick (#143). Daily-completion
+    // routing now lives in usePuzzleLifecycle.
+  }, [state.errors, state.gameStatus, state.difficulty, state.sudokuType, state.mistakeCount, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
 
   // Confetti on completion — declared AFTER the sound effect so React runs it
   // second, giving the sound effect a chance to update isNewBestTimeRef first.
@@ -205,69 +206,6 @@ export function GameContainer() {
       actions.setCellValue(row, col, EMPTY_CELL, currentMistakeLimit);
     }
   }, [state.selectedCell, state.gameStatus, actions, currentMistakeLimit]);
-
-  const handleNewGame = useCallback(() => {
-    if (
-      (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
-      state.historyIndex > 0 &&
-      !window.confirm(t(isPlayingDailyRef.current ? 'game.confirmExitDaily' : 'game.confirmNewGame'))
-    ) return;
-    isPlayingDailyRef.current = false;
-    playingDailyDateRef.current = null;
-    setIsPlayingDaily(false);
-    actions.newGame(state.difficulty, state.sudokuType);
-    recordGameStart(state.sudokuType, state.difficulty);
-  }, [state.difficulty, state.sudokuType, state.gameStatus, state.historyIndex, actions, t]);
-
-  const handleStartDaily = useCallback(() => {
-    if (
-      (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
-      state.historyIndex > 0 &&
-      !window.confirm(t('game.confirmNewGame'))
-    ) return;
-    isPlayingDailyRef.current = true;
-    // Snapshot the puzzle's date NOW so a midnight rollover during play
-    // doesn't change which day completion credits.
-    playingDailyDateRef.current = dailyInfo.date;
-    setIsPlayingDaily(true);
-    actions.newGame(dailyInfo.difficulty, dailyInfo.type, dailyInfo.seed);
-    recordGameStart(dailyInfo.type, dailyInfo.difficulty);
-  }, [dailyInfo, actions, state.gameStatus, state.historyIndex, t]);
-
-  const handleDifficultyChange = useCallback(
-    (difficulty: Parameters<typeof actions.newGame>[0]) => {
-      if (
-        (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
-        state.historyIndex > 0 &&
-        !window.confirm(t(isPlayingDailyRef.current ? 'game.confirmExitDaily' : 'game.confirmNewGame'))
-      ) return;
-      isPlayingDailyRef.current = false;
-      playingDailyDateRef.current = null;
-      setIsPlayingDaily(false);
-      actions.newGame(difficulty, state.sudokuType);
-      if (difficulty) recordGameStart(state.sudokuType, difficulty);
-    },
-    [state.sudokuType, state.gameStatus, state.historyIndex, actions, t]
-  );
-
-  const handleTypeChange = useCallback(
-    (sudokuType: Parameters<typeof actions.newGame>[1]) => {
-      if (
-        (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) &&
-        state.historyIndex > 0 &&
-        !window.confirm(t(isPlayingDailyRef.current ? 'game.confirmExitDaily' : 'game.confirmNewGame'))
-      ) return;
-      isPlayingDailyRef.current = false;
-      playingDailyDateRef.current = null;
-      setIsPlayingDaily(false);
-      actions.newGame(state.difficulty, sudokuType);
-      if (sudokuType) {
-        recordGameStart(sudokuType, state.difficulty);
-        triggerAutoShow(sudokuType);
-      }
-    },
-    [state.difficulty, state.gameStatus, state.historyIndex, actions, t, triggerAutoShow]
-  );
 
   const maxHints = DIFFICULTY_LEVELS[state.difficulty].maxHints;
 
