@@ -426,9 +426,35 @@ export function GameContainer() {
       <div className="max-w-6xl mx-auto">
         {/* Header with title and language switcher */}
         <div className="flex items-center justify-between mb-4 sm:mb-8 print:hidden">
-          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
-            {t('game.title')}
-          </h1>
+          {/*
+            Wordmark with a small 3x3 grid mark (#130). The mark gives the
+            "Sudoku" text some brand specificity — without it the wordmark
+            is just a bold word in any sans typeface. With Manrope (#125)
+            + this glyph the masthead reads as intentional design rather
+            than default chrome. Indigo color ties it into the rest of
+            the now-disciplined palette (#127).
+          */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <svg
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-7 h-7 sm:w-9 sm:h-9 text-indigo-600 dark:text-indigo-400 flex-shrink-0"
+              aria-hidden="true"
+            >
+              <rect x="2" y="2" width="20" height="20" rx="3" />
+              <line x1="2" y1="9" x2="22" y2="9" />
+              <line x1="2" y1="16" x2="22" y2="16" />
+              <line x1="9" y1="2" x2="9" y2="22" />
+              <line x1="16" y1="2" x2="16" y2="22" />
+            </svg>
+            <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
+              {t('game.title')}
+            </h1>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => { reloadStats(); setStatsOpen(true); }}
