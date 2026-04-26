@@ -106,20 +106,17 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
           </span>
         </div>
       ) : (
-        // Decomposed (#132): the row is a plain div, only the CTA is a
-        // button. Previously the entire row was one <button>, which made
-        // its accessible name the concatenated "#N · streak text · Play
-        // today" — confusing for screen-reader users and ambiguous for
-        // keyboard users about what activation actually does. Now SR
-        // users hear the day/streak as plain text, then a separate
-        // "Play today" button.
-        <div className="flex items-center justify-between gap-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 whitespace-nowrap">
-              {dayLabel}
+        // Hero treatment (#124). Was a thin notice-bar with everything in
+        // text-sm; now reads as a real CTA module. Two-line content (small
+        // label + big headline) on the left, filled primary button on the
+        // right. SR semantics preserved from #132 — the headline group is
+        // a plain <div>, only the CTA is a <button>.
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-w-0 flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600/70 dark:text-indigo-400/70">
+              {t('daily.title')} <span className="font-mono">{dayLabel}</span>
             </span>
-            <span aria-hidden="true" className="hidden sm:inline text-gray-300 dark:text-gray-600">·</span>
-            <span className="hidden sm:inline text-sm font-medium text-indigo-600 dark:text-indigo-300 whitespace-nowrap">
+            <span className="text-lg sm:text-xl font-bold text-indigo-900 dark:text-indigo-100">
               {streakNode}
             </span>
           </div>
@@ -127,7 +124,7 @@ export function StreakBanner({ dailyInfo, isCompleted, isPlayingDaily, streak, o
             onClick={onPlay}
             disabled={isPlayingDaily}
             data-testid="streak-banner-play"
-            className="group text-sm font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex-shrink-0 px-2 py-1 -mr-2 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/40 disabled:cursor-default disabled:hover:bg-transparent transition-colors"
+            className="group flex-shrink-0 self-stretch sm:self-auto bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:disabled:bg-indigo-700 text-white font-semibold text-sm sm:text-base px-5 py-2.5 rounded-lg shadow-sm hover:shadow disabled:cursor-default disabled:shadow-none transition-all whitespace-nowrap"
           >
             <span className="inline-block group-hover:translate-x-0.5 group-disabled:translate-x-0 transition-transform">
               {isPlayingDaily ? t('daily.playing') : t('daily.playCta')}
