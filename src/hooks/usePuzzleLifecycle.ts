@@ -76,6 +76,12 @@ export function usePuzzleLifecycle({
       // the React-side bookkeeping that mirrors a ref into state so the
       // StreakBanner can re-render. No cascade — the effect's deps don't
       // include isPlayingDaily.
+      //
+      // The disable below IS load-bearing: `react-hooks/set-state-in-effect`
+      // is a real rule from `eslint-plugin-react-hooks` v7 (it ships ~30
+      // rules, not just `rules-of-hooks` + `exhaustive-deps`), enabled at
+      // error level by `flat.recommended` which our `eslint.config.js`
+      // extends. Remove this line and CI fails. Do not delete.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsPlayingDaily(false);
     }
