@@ -15,6 +15,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useHowToPlay } from '../../hooks/useHowToPlay';
 import { useStats } from '../../hooks/useStats';
 import { useDaily } from '../../hooks/useDaily';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { HowToPlayModal } from '../Controls/HowToPlayModal';
 import { StatsModal } from '../UI/StatsModal';
 import { StreakBanner } from '../UI/StreakBanner';
@@ -160,94 +161,17 @@ export function GameContainer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
-  // Undo/redo keyboard shortcuts (work without cell selection)
-  useEffect(() => {
-    const handleUndoRedo = (e: KeyboardEvent) => {
-      if (tourOpen) return;
-      if (state.gameStatus !== GAME_STATUS.PLAYING) return;
-      const ctrlOrMeta = e.ctrlKey || e.metaKey;
-      if (ctrlOrMeta && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        actions.undo();
-      } else if (ctrlOrMeta && e.key === 'z' && e.shiftKey) {
-        e.preventDefault();
-        actions.redo();
-      } else if (ctrlOrMeta && e.key === 'y') {
-        e.preventDefault();
-        actions.redo();
-      }
-    };
-    window.addEventListener('keydown', handleUndoRedo);
-    return () => window.removeEventListener('keydown', handleUndoRedo);
-  }, [state.gameStatus, actions, tourOpen]);
-
-  // Handle keyboard input
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (tourOpen) return;
-      if (!state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING) {
-        return;
-      }
-
-      const { row, col } = state.selectedCell;
-
-      // Number keys 1-9
-      if (e.key >= '1' && e.key <= '9') {
-        e.preventDefault();
-        const num = parseInt(e.key);
-
-        if (state.notesMode) {
-          actions.setNote(row, col, num);
-        } else {
-          const isInitialCell = state.initialBoard[row][col] !== EMPTY_CELL;
-          if (!isInitialCell) {
-            pendingDigitSoundRef.current = true;
-            pendingHapticRef.current = true;
-          }
-          actions.setCellValue(row, col, num as 1|2|3|4|5|6|7|8|9, currentMistakeLimit);
-        }
-      }
-
-      // Backspace or Delete to clear cell
-      if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
-        e.preventDefault();
-        actions.setCellValue(row, col, EMPTY_CELL, currentMistakeLimit);
-      }
-
-      // Arrow keys for navigation
-      if (e.key.startsWith('Arrow')) {
-        e.preventDefault();
-        let newRow = row;
-        let newCol = col;
-
-        switch (e.key) {
-          case 'ArrowUp':
-            newRow = Math.max(0, row - 1);
-            break;
-          case 'ArrowDown':
-            newRow = Math.min(8, row + 1);
-            break;
-          case 'ArrowLeft':
-            newCol = Math.max(0, col - 1);
-            break;
-          case 'ArrowRight':
-            newCol = Math.min(8, col + 1);
-            break;
-        }
-
-        actions.selectCell(newRow, newCol);
-      }
-
-      // 'n' key to toggle notes mode
-      if (e.key === 'n' || e.key === 'N') {
-        e.preventDefault();
-        actions.toggleNotesMode();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.selectedCell, state.gameStatus, state.notesMode, state.initialBoard, actions, currentMistakeLimit, tourOpen]);
+  // Keyboard shortcuts: undo/redo + cell input (digits, clear, arrows, n).
+  // Extracted to a hook so GameContainer stays focused on layout + flow
+  // orchestration, not raw keydown plumbing (#116 — first slice).
+  useKeyboardShortcuts({
+    state,
+    actions,
+    currentMistakeLimit,
+    tourOpen,
+    pendingDigitSoundRef,
+    pendingHapticRef,
+  });
 
   const handleCellClick = useCallback(
     (row: number, col: number) => {
