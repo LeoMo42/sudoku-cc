@@ -39,10 +39,20 @@ import { OddEvenLegend } from '../UI/OddEvenLegend';
 import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constants';
 import type { HighlightRole } from '../../types/index';
 
+interface GameContainerProps {
+  /**
+   * Set by the SEO landing-page route (`/{lang}/{slug}`) to force the
+   * game to boot into a specific variant on mount. When unset (the
+   * default home route or query-param deep links), GameContainer
+   * falls back to query params or persisted state.
+   */
+  forcedVariant?: import('../../types/index').SudokuTypeId;
+}
+
 /**
  * Main game container component
  */
-export function GameContainer() {
+export function GameContainer({ forcedVariant }: GameContainerProps = {}) {
   const { t, i18n } = useTranslation();
   const { state, actions } = useGameState();
   const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
@@ -161,7 +171,7 @@ export function GameContainer() {
 
   // Mount-time auto-start + returning-user game-start recording (#116).
   // See useAutoStartIdle for why empty deps are intentional.
-  useAutoStartIdle(state, actions);
+  useAutoStartIdle(state, actions, { forcedVariant });
 
   // Keyboard shortcuts: undo/redo + cell input (digits, clear, arrows, n).
   // Extracted to a hook so GameContainer stays focused on layout + flow
