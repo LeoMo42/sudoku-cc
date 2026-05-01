@@ -18,6 +18,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # `auto` is the documented default but we make it explicit so the
+    # intent doesn't drift if dependabot ever changes defaults. Combined
+    # with strict branch protection (require branches up-to-date),
+    # this lets dependabot rebase its own PRs when dev advances —
+    # without us hand-typing `@dependabot rebase` after every merge.
+    rebase-strategy: auto
     groups:
       minor-and-patch:
         update-types:
@@ -29,3 +35,4 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    rebase-strategy: auto
