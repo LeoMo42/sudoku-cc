@@ -1,0 +1,32 @@
+name: Dependabot auto-merge
+
+# Enables GitHub's native auto-merge queue on every dependabot PR. The
+# workflow does NOT approve — the human still clicks "Approve" when
+# they're ready. Once approved + CI green + branch up-to-date, GitHub
+# squash-merges automatically.
+#
+# Why pull_request_target: dependabot PRs run with read-only secrets
+# under the regular `pull_request` trigger, so `gh pr merge --auto` can't
+# write. `pull_request_target` runs in the context of the BASE repo
+# (writable secrets) which is what we need. Safe here because we never
+# check out PR head code — we only call the gh CLI against PR metadata.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Enable auto-merge (squash)
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
