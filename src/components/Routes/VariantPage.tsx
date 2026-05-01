@@ -5,7 +5,7 @@ import {
   variantFromSlug,
   detectPreferredLanguage,
 } from '../../utils/variantSlugs';
-import { useLanguageSync } from '../../hooks/useLanguageSync';
+import { LanguageBridge } from './LanguageBridge';
 
 /**
  * `/{lang}/{slug}` — the SEO landing page for one variant. The slug
@@ -35,9 +35,4 @@ export function VariantPage() {
       <GameContainer forcedVariant={variant} />
     </>
   );
-}
-
-function LanguageBridge({ lang }: { lang: string }) {
-  useLanguageSync(lang);
-  return null;
 }

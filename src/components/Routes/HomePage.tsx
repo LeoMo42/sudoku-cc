@@ -1,7 +1,7 @@
 import { useParams, Navigate } from 'react-router-dom';
 import { GameContainer } from '../Game/GameContainer';
 import { isSupportedLanguage, detectPreferredLanguage } from '../../utils/variantSlugs';
-import { useLanguageSync } from '../../hooks/useLanguageSync';
+import { LanguageBridge } from './LanguageBridge';
 
 /**
  * `/{lang}` — the no-variant home page. Renders the existing
@@ -22,9 +22,4 @@ export function HomePage() {
       <GameContainer />
     </>
   );
-}
-
-function LanguageBridge({ lang }: { lang: string }) {
-  useLanguageSync(lang);
-  return null;
 }
