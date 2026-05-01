@@ -89,7 +89,11 @@ poll_once() {
     # 1. Issue comments (general PR discussion). `?since=` filters by
     #    updated_at, which catches edits too. That's fine for our use
     #    case — an edited review is still worth seeing.
-    gh api "repos/$REPO_NWO/issues/$pr_num/comments?since=$cursor&per_page=100" \
+    #    --paginate follows Link headers across all pages so a long
+    #    outage that produces >100 events on resume can't silently drop
+    #    the tail (the cursor would otherwise advance to "now" past
+    #    events we never wrote).
+    gh api --paginate "repos/$REPO_NWO/issues/$pr_num/comments?since=$cursor&per_page=100" \
       --jq '.[] | {pr: '"$pr_num"', kind: "comment", author: .user.login, url: .html_url, body: .body, ts: .updated_at}' 2>/dev/null \
       | while IFS= read -r line; do
           [ -z "$line" ] && continue
@@ -105,8 +109,9 @@ poll_once() {
 
     # 2. Formal PR reviews (the "Approve / Request changes / Comment"
     #    kind). The reviews endpoint doesn't support `?since=`, so we
-    #    filter client-side by `submitted_at`.
-    gh api "repos/$REPO_NWO/pulls/$pr_num/reviews?per_page=100" \
+    #    filter client-side by `submitted_at`. --paginate ensures
+    #    long-tail correctness (same reasoning as comments above).
+    gh api --paginate "repos/$REPO_NWO/pulls/$pr_num/reviews?per_page=100" \
       --jq '.[] | select(.submitted_at != null and .submitted_at > "'"$cursor"'") | {pr: '"$pr_num"', kind: "review", author: .user.login, url: .html_url, body: (.body // ""), ts: .submitted_at, state: .state}' 2>/dev/null \
       | while IFS= read -r line; do
           [ -z "$line" ] && continue
