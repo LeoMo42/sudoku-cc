@@ -210,4 +210,50 @@ test.describe('Sudoku Sensei – smoke tests', () => {
       await closeDialog();
     }
   });
+
+  test('SEO routes: /{lang}/{slug} forces variant; / redirects', async ({ page }) => {
+    // #23 PR1: routing skeleton. Direct landings on a variant URL should
+    // boot into that variant. Bare `/` redirects to `/{lang}` based on
+    // localStorage / navigator.language.
+
+    // Direct landing on /en/killer-sudoku starts a Killer puzzle.
+    await page.goto('/en/killer-sudoku');
+    await expect(page).toHaveURL(/\/en\/killer-sudoku$/);
+    // Killer has 0 initial cells; wait for the type selector to update
+    // instead. The selector text starts with "Killer" once newGame fires.
+    await expect(
+      page.locator('[aria-haspopup="listbox"]').first(),
+    ).toContainText('Killer', { timeout: 10000 });
+
+    // /ru/windoku boots into Windoku in Russian.
+    await page.goto('/ru/windoku');
+    await expect(page).toHaveURL(/\/ru\/windoku$/);
+    await expect(
+      page.locator('[aria-haspopup="listbox"]').first(),
+    ).toContainText('Windoku', { timeout: 10000 });
+
+    // Unknown slug bounces to /{lang} home.
+    await page.goto('/en/totally-bogus');
+    await expect(page).toHaveURL(/\/en$/);
+
+    // Unknown language bounces to default (/en since fresh ctx → no
+    // localStorage, navigator.language defaults to en in headless).
+    await page.goto('/de/whatever');
+    await expect(page).toHaveURL(/\/(en|ru)$/);
+
+    // Bare / redirects.
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/(en|ru)$/);
+  });
+
+  test('LanguageSwitcher updates the URL :lang segment', async ({ page }) => {
+    await page.goto('/en/thermo-sudoku');
+    await expect(page.locator('[aria-haspopup="listbox"]').first()).toContainText('Thermo', { timeout: 10000 });
+
+    await page.locator('button[aria-label="Switch to RU"]').click();
+    await expect(page).toHaveURL(/\/ru\/thermo-sudoku$/);
+
+    await page.locator('button[aria-label="Switch to EN"]').click();
+    await expect(page).toHaveURL(/\/en\/thermo-sudoku$/);
+  });
 });
