@@ -16,7 +16,10 @@ on:
     types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
-  contents: write
+  # Least-privilege: gh pr merge --auto only flips the auto-merge flag
+  # (a PR metadata operation), never moves refs. pull-requests: write
+  # is sufficient; contents: write would be needed only if we performed
+  # the merge ourselves.
   pull-requests: write
 
 jobs:
