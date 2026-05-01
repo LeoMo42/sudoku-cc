@@ -148,6 +148,27 @@ npm run storybook
 - **useCallback** для обработчиков событий
 - Кастомная функция сравнения для мемоизации Cell
 
+## Инструменты разработки
+
+### `scripts/pr-watcher.sh` — фоновый поллер ревью PR
+
+Опрашивает GitHub API для всех моих открытых PR и пишет новые комменты / ревью одной JSON-строкой за событие в `~/.pr-inbox/inbox.jsonl`. Парный с `tail -F` (или Monitor в Claude Code) — AI получает уведомление только когда есть что смотреть, без расходов токенов на пустые опросы.
+
+```bash
+# Один проход, выйти
+./scripts/pr-watcher.sh
+
+# Watch-режим, опрашивать каждые 600 секунд
+./scripts/pr-watcher.sh --watch
+
+# С кастомным интервалом (300 сек)
+./scripts/pr-watcher.sh --watch 300
+```
+
+State в `~/.pr-inbox/`: `inbox.jsonl` (append-only, можно читать и чистить), `cursors/pr-N.txt` (last-seen ISO timestamp per PR), `.last-poll` (debug). Требует `gh` (авторизованный) и `jq`.
+
+Фильтрация: всё кроме комментов автора репо. Чтобы расширить — `EXCLUDE_AUTHORS` в скрипте.
+
 ## Лицензия
 
 MIT

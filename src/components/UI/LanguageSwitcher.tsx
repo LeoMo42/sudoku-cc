@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { isSupportedLanguage } from '../../utils/variantSlugs';
 
 interface Language {
   code: string;
@@ -7,10 +9,15 @@ interface Language {
 }
 
 /**
- * Language switcher component
+ * Language switcher component. Navigates to the same path under the
+ * new language prefix (e.g. `/en/killer-sudoku` ↔ `/ru/killer-sudoku`)
+ * so the URL stays the source of truth. useLanguageSync inside the
+ * route components picks up the URL change and calls i18n.changeLanguage.
  */
 export function LanguageSwitcher() {
   const { i18n } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const languages: Language[] = [
     { code: 'ru', label: 'RU', flag: '🇷🇺' },
@@ -18,7 +25,15 @@ export function LanguageSwitcher() {
   ];
 
   const handleLanguageChange = (langCode: string): void => {
-    i18n.changeLanguage(langCode);
+    // Replace the leading /{lang} segment in the current path. If we're
+    // on `/en/killer-sudoku`, switching to RU goes to `/ru/killer-sudoku`.
+    const segments = location.pathname.split('/').filter(Boolean);
+    if (segments.length > 0 && isSupportedLanguage(segments[0])) {
+      segments[0] = langCode;
+    } else {
+      segments.unshift(langCode);
+    }
+    navigate(`/${segments.join('/')}${location.search}${location.hash}`);
   };
 
   return (
