@@ -8,6 +8,7 @@ import {
 } from '../../utils/variantSlugs';
 import { LanguageBridge } from './LanguageBridge';
 import { LandingMeta } from './LandingMeta';
+import { VariantLanding } from './VariantLanding';
 
 /**
  * `/{lang}/{slug}` — the SEO landing page for one variant. The slug
@@ -16,13 +17,13 @@ import { LandingMeta } from './LandingMeta';
  * useAutoStartIdle's forcedVariant). Unknown slugs or unsupported
  * languages bounce to the language home.
  *
- * Renders `<LandingMeta>` for per-variant `<title>` / `<meta description>`
- * / canonical / hreflang and passes the variant name into GameContainer
- * as `headingTitle` so the page's `<h1>` matches the SEO topic instead
- * of the generic "Sudoku" brand wordmark — single h1 per page.
- *
- * PR4 will add a per-variant intro paragraph + rules block above the
- * game (variant-specific landing copy).
+ * Renders three React components in head/body order:
+ *   - `<LandingMeta>` — per-variant title/description/canonical/hreflang
+ *   - `<VariantLanding>` — visible per-variant intro + rules, passed
+ *     into GameContainer's landingContent slot so it sits between the
+ *     streak banner and the game grid
+ *   - `<GameContainer>` — game itself, with `headingTitle` so the
+ *     masthead `<h1>` matches the variant SEO topic
  */
 export function VariantPage() {
   const { lang, slug } = useParams();
@@ -44,6 +45,7 @@ export function VariantPage() {
       <GameContainer
         forcedVariant={variant}
         headingTitle={t(`sudokuTypes.${variant}.name`)}
+        landingContent={<VariantLanding variant={variant} />}
       />
     </>
   );
