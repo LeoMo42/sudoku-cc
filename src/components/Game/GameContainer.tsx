@@ -47,12 +47,20 @@ interface GameContainerProps {
    * falls back to query params or persisted state.
    */
   forcedVariant?: import('../../types/index').SudokuTypeId;
+  /**
+   * Overrides the masthead `<h1>` text. Variant landing pages pass the
+   * variant's display name so the page's `<h1>` matches its SEO topic
+   * ("Killer Sudoku") instead of the generic brand wordmark
+   * ("Sudoku"). When unset (home route), falls back to the brand
+   * wordmark — there's only ever one `<h1>` per page.
+   */
+  headingTitle?: string;
 }
 
 /**
  * Main game container component
  */
-export function GameContainer({ forcedVariant }: GameContainerProps = {}) {
+export function GameContainer({ forcedVariant, headingTitle }: GameContainerProps = {}) {
   const { t, i18n } = useTranslation();
   const { state, actions } = useGameState();
   const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
@@ -312,7 +320,7 @@ export function GameContainer({ forcedVariant }: GameContainerProps = {}) {
               <line x1="16" y1="2" x2="16" y2="22" />
             </svg>
             <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
-              {t('game.title')}
+              {headingTitle ?? t('game.title')}
             </h1>
           </div>
           <div className="flex items-center gap-2">
