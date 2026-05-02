@@ -117,8 +117,13 @@ async function prerender() {
       await ctx.close();
     }
   } finally {
-    await browser.close();
-    await new Promise((res) => server.httpServer.close(res));
+    // Promise.allSettled so if either close throws, the other still runs.
+    // Sequential `await` would leak the preview server if browser.close()
+    // failed first. CI shrugs (process exits anyway), local re-runs care.
+    await Promise.allSettled([
+      browser.close(),
+      new Promise((res) => server.httpServer.close(res)),
+    ]);
   }
 
   if (errors.length) {
