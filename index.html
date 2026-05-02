@@ -8,13 +8,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
-      `description` and OG tags moved into React (HomeMeta + LandingMeta)
-      so they're route-aware. React 19 hoists <meta> from anywhere in the
-      tree but does NOT dedupe — leaving a static description here would
-      double up with the per-route variant description on /{lang}/{slug}.
-      Keep <title> as the pre-mount fallback (React 19 DOES dedupe title).
+      No <title> / <meta description> / OG tags here — they're rendered
+      by React (HomeMeta on /{lang}, LandingMeta on /{lang}/{slug}) so
+      they're route-aware. React 19 hoists meta tags from anywhere in
+      the tree but does NOT dedupe against static index.html content;
+      leaving any meta here would double up. Pre-mount state briefly
+      has no title (a ~100ms gap until React mounts) — acceptable
+      tradeoff for the per-route correctness on prerendered HTML
+      (PR3 of #23) and live JS pages alike.
     -->
-    <title>Sudoku Sensei — 13 Variant Puzzles Online</title>
     <meta name="theme-color" content="#7c3aed" />
 
     <!-- Favicon -->
