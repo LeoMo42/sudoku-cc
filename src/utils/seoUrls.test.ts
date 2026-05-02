@@ -35,3 +35,18 @@ describe('hreflangAlternates', () => {
     );
   });
 });
+
+describe('drift between seoUrls.ts and scripts/prerender.mjs', () => {
+  it('CANONICAL_BASE in the prerender script matches the one used here', async () => {
+    // Both produce canonical URLs and they MUST point at the same prod
+    // origin — sitemap.xml entries (from the script) must agree with
+    // the <link rel="canonical"> in rendered HTML (from this code).
+    const mod = (await import(
+      // @ts-expect-error — no type declarations for the .mjs script
+      '../../scripts/prerender.mjs'
+    )) as { CANONICAL_BASE: string };
+    expect(canonicalUrl('en', 'killer-sudoku')).toBe(
+      `${mod.CANONICAL_BASE}/en/killer-sudoku`,
+    );
+  });
+});
