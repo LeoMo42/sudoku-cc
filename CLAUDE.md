@@ -15,6 +15,13 @@ If gstack skills aren't working, run `cd .claude/skills/gstack && ./setup` to bu
 - deadcode: npx knip
 - shell: shellcheck ci.sh
 
+## Build pipeline
+
+- `vite build --base /sudoku-cc/` produces `dist/` SPA shell
+- `PRERENDER_BASE=/sudoku-cc/ npm run prerender` (after build) crawls 28 routes via Playwright + writes per-variant `dist/{lang}/{slug}/index.html`, plus `dist/sitemap.xml` and `dist/robots.txt`
+- `cp dist/index.html dist/404.html` for GH Pages SPA fallback on unknown paths
+- All three steps are encoded in `.github/workflows/deploy.yml`
+
 ## Skill routing
 
 When the user's request matches an available skill, ALWAYS invoke it using the Skill
