@@ -1,4 +1,10 @@
 {
+  "meta": {
+    "home": {
+      "title": "Sudoku Sensei — 13 Variant Puzzles Online",
+      "description": "Play 13 Sudoku variants for free: Classic, Diagonal, Killer, Thermo, Sandwich, Kropki, and more. Choose your difficulty and sharpen your mind."
+    }
+  },
   "game": {
     "title": "Sudoku",
     "newGame": "New Game",

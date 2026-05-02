@@ -256,4 +256,60 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     await page.locator('button[aria-label="Switch to EN"]').click();
     await expect(page).toHaveURL(/\/en\/thermo-sudoku$/);
   });
+
+  test('SEO meta: variant landing page emits per-variant title, meta, canonical, hreflang', async ({ page }) => {
+    // PR2 of #23: per-route Helmet-equivalent meta via React 19 native
+    // document-metadata hoisting.
+    await page.goto('/en/killer-sudoku');
+    await expect(page.locator('[aria-haspopup="listbox"]').first()).toContainText('Killer', { timeout: 10000 });
+
+    // <title> includes the variant + brand suffix.
+    await expect(page).toHaveTitle(/Killer.*Sudoku Sensei/);
+
+    // <h1> matches the page topic — the page MUST have exactly one h1
+    // (the variant name) so SEO crawlers index against the right intent.
+    // :visible filters out the print-only h1 (hidden display:none on screen,
+    // shown in print stylesheet). Crawlers honor display:none too; this is
+    // what Googlebot indexes.
+    const h1s = await page.locator('h1:visible').allTextContents();
+    expect(h1s).toEqual(['Killer']);
+
+    // <meta name="description"> reflects the variant.
+    const descContent = await page.locator('head > meta[name="description"]').getAttribute('content');
+    expect(descContent).toMatch(/Killer|cages/i);
+
+    // Canonical URL points at the prod deploy, regardless of localhost.
+    const canonicalHref = await page.locator('head > link[rel="canonical"]').getAttribute('href');
+    expect(canonicalHref).toBe('https://leomo42.github.io/sudoku-cc/en/killer-sudoku');
+
+    // hreflang alternates: at minimum en + ru + x-default.
+    const hreflangs = await page.locator('head > link[rel="alternate"][hreflang]').evaluateAll((els) =>
+      (els as HTMLLinkElement[]).map((el) => ({ lang: el.hreflang, href: el.href })),
+    );
+    expect(hreflangs).toContainEqual({ lang: 'en', href: 'https://leomo42.github.io/sudoku-cc/en/killer-sudoku' });
+    expect(hreflangs).toContainEqual({ lang: 'ru', href: 'https://leomo42.github.io/sudoku-cc/ru/killer-sudoku' });
+    expect(hreflangs).toContainEqual({ lang: 'x-default', href: 'https://leomo42.github.io/sudoku-cc/en/killer-sudoku' });
+
+    // Switching to RU should swap title + canonical + h1 into Russian.
+    await page.locator('button[aria-label="Switch to RU"]').click();
+    await expect(page).toHaveURL(/\/ru\/killer-sudoku$/);
+    await expect(page).toHaveTitle(/Sudoku Sensei/);
+    const ruCanonical = await page.locator('head > link[rel="canonical"]').getAttribute('href');
+    expect(ruCanonical).toBe('https://leomo42.github.io/sudoku-cc/ru/killer-sudoku');
+  });
+
+  test('home route /{lang} renders HomeMeta + brand wordmark h1', async ({ page }) => {
+    await page.goto('/en');
+    // h1 = brand wordmark on home (no variant override).
+    const h1s = await page.locator('h1:visible').allTextContents();
+    expect(h1s).toEqual(['Sudoku']);
+    // Title from i18n meta.home.title.
+    await expect(page).toHaveTitle(/Sudoku Sensei.*13 Variant/);
+    // Canonical points at the language home.
+    const canonical = await page.locator('head > link[rel="canonical"]').getAttribute('href');
+    expect(canonical).toBe('https://leomo42.github.io/sudoku-cc/en');
+    // Exactly one meta description (no duplicate from index.html anymore).
+    const descCount = await page.locator('head > meta[name="description"]').count();
+    expect(descCount).toBe(1);
+  });
 });
