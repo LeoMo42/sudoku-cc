@@ -41,7 +41,10 @@ jobs:
           # to date, exits non-zero only on a true failure (conflict,
           # permission, missing PR). We swallow the exit so one bad PR
           # doesn't break the loop for the others.
-          for pr in $(gh pr list --base dev --state open --json number --jq '.[].number'); do
+          # --limit 100: gh's default cap is 30, so without this the
+          # tail of a large open-PR list would silently miss updates.
+          # 100 is comfortably above any realistic open-PR count here.
+          for pr in $(gh pr list --base dev --state open --limit 100 --json number --jq '.[].number'); do
             echo "→ updating PR #$pr"
             gh pr update-branch "$pr" --rebase || echo "  (skipped: not updatable)"
           done
