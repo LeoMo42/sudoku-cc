@@ -55,12 +55,20 @@ interface GameContainerProps {
    * wordmark — there's only ever one `<h1>` per page.
    */
   headingTitle?: string;
+  /**
+   * Slot for landing-page copy (intro paragraph, rules block) rendered
+   * between the StreakBanner and the game grid on /{lang}/{slug}
+   * routes. Plain ReactNode so VariantPage can compose it with the
+   * `<VariantLanding>` component without GameContainer needing to
+   * know about variant-specific i18n keys.
+   */
+  landingContent?: import('react').ReactNode;
 }
 
 /**
  * Main game container component
  */
-export function GameContainer({ forcedVariant, headingTitle }: GameContainerProps = {}) {
+export function GameContainer({ forcedVariant, headingTitle, landingContent }: GameContainerProps = {}) {
   const { t, i18n } = useTranslation();
   const { state, actions } = useGameState();
   const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
@@ -368,6 +376,13 @@ export function GameContainer({ forcedVariant, headingTitle }: GameContainerProp
           streak={dailyStreak}
           onPlay={handleStartDaily}
         />
+
+        {/* Landing copy slot — present only on /{lang}/{slug} routes
+            (VariantPage renders <VariantLanding>). Sits between the
+            streak banner and the game grid so SEO crawlers reach the
+            variant-specific intro + rules without scrolling past
+            the board. */}
+        {landingContent}
 
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start justify-center">
           {/* Left side - Board, then Type and Difficulty below */}

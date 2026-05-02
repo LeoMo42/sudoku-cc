@@ -298,7 +298,24 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     expect(ruCanonical).toBe('https://leomo42.github.io/sudoku-cc/ru/killer-sudoku');
   });
 
-  test('home route /{lang} renders HomeMeta + brand wordmark h1', async ({ page }) => {
+  test('variant landing page renders intro + rules block (PR5)', async ({ page }) => {
+    // PR5 of #23: each /{lang}/{slug} renders <VariantLanding> between
+    // the streak banner and the game — variant description + collapsible
+    // rules. Reuses existing sudokuTypes.{X}.description and
+    // howToPlay.variants.{X}.rules keys; no new strings.
+    await page.goto('/en/killer-sudoku');
+    const landing = page.locator('[data-testid="variant-landing"]');
+    await expect(landing).toBeVisible({ timeout: 10000 });
+    // Intro paragraph names the variant's defining mechanic.
+    await expect(landing).toContainText(/cage/i);
+    // Rules <details> block exists; content present in DOM (closed by
+    // default doesn't hide from SEO crawlers — display:none does, but
+    // <details> is just collapsed).
+    await expect(landing.locator('details')).toBeAttached();
+    await expect(landing.locator('details')).toContainText(/cage/i);
+  });
+
+  test('home route /{lang} renders HomeMeta + brand wordmark h1 (no landing copy)', async ({ page }) => {
     await page.goto('/en');
     // h1 = brand wordmark on home (no variant override).
     const h1s = await page.locator('h1:visible').allTextContents();
@@ -311,5 +328,7 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     // Exactly one meta description (no duplicate from index.html anymore).
     const descCount = await page.locator('head > meta[name="description"]').count();
     expect(descCount).toBe(1);
+    // No variant-landing copy on home — that's variant-routes-only.
+    await expect(page.locator('[data-testid="variant-landing"]')).toHaveCount(0);
   });
 });
