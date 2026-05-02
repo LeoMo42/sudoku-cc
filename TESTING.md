@@ -1,150 +1,113 @@
-# Тестирование Sudoku приложения
+# Тестирование Sudoku Sensei
 
-## Автоматические тесты
+Тестовое покрытие — три слоя: unit (Vitest), e2e (Playwright), и drift-tests против build-time дубликации.
 
-### Запуск unit тестов:
+## Health stack (CI gates)
+
+Все 7 gate'ов required для merge'а в `dev` (см. branch protection):
+
 ```bash
-npm run test:run    # Запустить все тесты
-npm run test        # Запустить в watch режиме
-npm run test:ui     # Запустить с UI интерфейсом
+npx eslint .                                    # 0 warnings
+npx tsc --noEmit                                # 0 errors
+npx vitest run --config vitest.unit.config.ts   # все unit-тесты
+npx vite build --base /sudoku-cc/               # production bundle
+npx playwright test --project=chromium          # e2e
+npx playwright test --project=firefox           # e2e
+npx playwright test --project=webkit            # e2e
 ```
 
-### Статус тестов:
-- ✅ **sudokuValidator.test.js** - 13 тестов (PASS)
-- ✅ **sudokuGenerator.test.js** - 8 тестов (PASS)
-- ⚠️  **sudokuSolver.test.js** - 3 теста (медленные, но работают)
+Дополнительно (опционально, не required):
+- `npx knip` — мёртвый код
+- `shellcheck scripts/*.sh` — bash linting
 
-## Мануальное тестирование
+## Unit-тесты (Vitest)
 
-### 1. Запуск приложения
+228+ тестовых файлов в `src/**/*.test.ts(x)`. Покрытие сосредоточено на:
+
+| Модуль | Покрытие |
+|---|---|
+| `src/utils/` | sudokuValidator, sudokuGenerator, hintEngine, dailyPuzzle, share, stats, bestTime, candidateGrid, seoUrls, variantSlugs |
+| `src/hooks/` | каждый кастомный hook с фокус-тестами (useDaily, usePuzzleLifecycle, useShare, useAutoStartIdle, useTimer, useSound, useColorBlindMode, useHaptic, etc.) |
+| `src/context/` | GameContext reducer (LOAD_STATE, NEW_GAME, SET_CELL_VALUE, etc.) + GameProvider integration |
+| `src/components/` | Board, Cell, StreakBanner, OnboardingTour, SudokuTypeSelector |
+| **Drift tests** | `variantSlugs.test.ts` + `seoUrls.test.ts` — TS↔MJS parity (slug list + `CANONICAL_BASE` совпадают между `.ts` source и `scripts/prerender.mjs`) |
+
+Запуск:
+
 ```bash
-npm run dev
+npm run test         # watch
+npm run test:run     # single pass (без timeout — vitest+jsdom иногда зависает после)
+npm run test:ui      # UI runner
 ```
-Откройте http://localhost:5173/ в браузере
 
-### 2. Базовая функциональность
+**Гэп: vitest+jsdom hang.** После завершения тестов vitest иногда не выходит — оборачивай в `timeout`:
 
-#### ✅ Начало игры
-- [ ] При загрузке страницы автоматически генерируется новая головоломка
-- [ ] Доска 9x9 отображается корректно
-- [ ] Начальные числа выделены серым цветом и жирным шрифтом
-- [ ] Таймер начинает отсчет
+```bash
+timeout 180 npx vitest run --config vitest.unit.config.ts
+```
 
-#### ✅ Взаимодействие с ячейками
-- [ ] Клик по пустой ячейке выделяет её синей рамкой
-- [ ] Ячейки в той же строке/столбце/блоке 3x3 подсвечиваются голубым
-- [ ] Клик по начальной (серой) ячейке не позволяет редактировать её
+## E2E (Playwright)
 
-#### ✅ Ввод чисел
-**С клавиатуры:**
-- [ ] Нажатие 1-9 вводит число в выбранную ячейку
-- [ ] Backspace/Delete очищает ячейку
-- [ ] Стрелки (↑↓←→) перемещают выделение между ячейками
+`e2e/smoke.spec.ts` покрывает критические user flows на трёх браузерах (chromium, firefox, webkit). 11 тестов:
 
-**С помощью Number Pad:**
-- [ ] Клик по кнопкам 1-9 вводит число
-- [ ] Кнопка "Очистить" удаляет число
-- [ ] Кнопки неактивны когда ячейка не выбрана
+| # | Тест | Что проверяет |
+|---|---|---|
+| 1 | App loads, 81 cells | Rendering + reducer init |
+| 2 | Cell select + digit input | Click-to-select, NumberPad enable, board update |
+| 3 | Type selector dropdown | Dropdown open/close, click-outside dismiss |
+| 4 | Highlight + toggle persistence | Matching-value + peer highlight, settings drawer toggle, localStorage persistence across reload |
+| 5 | New Game button | Fresh puzzle generation |
+| 6 | Help-button 44×44 touch target | Visible 24×24 + `::before` halo, click hits all 4 sides, modal opens (issue #126) |
+| 7 | SEO routes | `/{lang}/{slug}` forces variant, `/` redirects, unknown slugs/langs bounce |
+| 8 | LanguageSwitcher | URL `:lang` segment swap |
+| 9 | SEO meta on variant landing | per-variant title, single-h1, meta description, canonical, hreflang en/ru/x-default, locale swap correctness |
+| 10 | Variant landing intro + rules block | `<VariantLanding>` visible на variant route, отсутствует на home |
+| 11 | Home meta + h1 | `HomeMeta` rendering, brand wordmark h1, single meta description |
 
-### 3. Игровые функции
+Запуск:
 
-#### ✅ Уровни сложности
-- [ ] Кнопки сложности: Легкий, Средний, Сложный, Эксперт
-- [ ] Активная сложность подсвечена синим
-- [ ] Нажатие на другую сложность начинает новую игру
-- [ ] **Легкий**: больше заполненных ячеек (~40-50)
-- [ ] **Эксперт**: меньше заполненных ячеек (~20-25)
+```bash
+npx playwright test                              # all browsers
+npx playwright test --project=chromium           # chromium only
+npx playwright test e2e/smoke.spec.ts -g "SEO meta"  # фильтр
+```
 
-#### ✅ Система подсказок
-- [ ] Кнопка "Подсказка" показывает количество использованных подсказок
-- [ ] Клик на "Подсказка" заполняет одну случайную ячейку правильным числом
-- [ ] После исчерпания лимита кнопка становится неактивной
-- [ ] Лимит подсказок зависит от сложности (3-5)
+## Drift detection
 
-#### ✅ Режим заметок
-- [ ] Кнопка "Заметки" переключает режим
-- [ ] В активном режиме кнопка подсвечена синим с галочкой
-- [ ] Клавиша 'N' также переключает режим
-- [ ] Ввод чисел 1-9 добавляет/убирает маленькие цифры в ячейке
-- [ ] Заметки отображаются в виде сетки 3x3
+Канонические URL'ы и slug-list дублированы между TypeScript исходниками и `.mjs` build script (Node-running ESM не может тривиально импортировать `.ts`). Drift ловится unit-тестами:
 
-#### ✅ Проверка решения
-- [ ] Кнопка "Проверить" проверяет текущее состояние
-- [ ] Ошибочные ячейки подсвечиваются красным
-- [ ] Конфликты проверяются в строках, столбцах и блоках 3x3
+- `src/utils/variantSlugs.test.ts` — `VARIANT_SLUGS` в `.mjs` совпадает с TS source
+- `src/utils/seoUrls.test.ts` — `CANONICAL_BASE` в `.mjs` совпадает
 
-#### ✅ Завершение игры
-- [ ] При правильном заполнении всех ячеек появляется сообщение "🎉 Поздравляем!"
-- [ ] Зеленая рамка с сообщением о победе
-- [ ] Таймер останавливается
+Если добавляешь slug в TS — добавь и в `.mjs` (drift test упадёт сам).
 
-### 4. Дополнительные функции
+## Manual smoke
 
-#### ✅ Таймер
-- [ ] Отображается в формате MM:SS
-- [ ] Обновляется каждую секунду
-- [ ] Останавливается при паузе/завершении
+Перед production deploy проверь вручную:
 
-#### ✅ Пауза
-- [ ] Кнопка "Пауза" приостанавливает игру
-- [ ] Появляется желтое уведомление "Игра на паузе"
-- [ ] Кнопка меняется на "Продолжить"
-- [ ] Клики по ячейкам не работают во время паузы
-- [ ] Таймер останавливается
+1. **`/` redirect** — направляет на `/{en|ru}` по localStorage / navigator.language
+2. **`/en/killer-sudoku`** — h1 = "Killer", cages видимы, intro paragraph + collapsible rules выше доски
+3. **Switch language** — кнопка RU/EN меняет URL `:lang`, контент перерисовывается
+4. **Dark mode toggle** — settings → dark mode, тема меняется, выживает reload
+5. **Daily puzzle** — кликнуть Play today, completion → "Completed ✓" + countdown to midnight
+6. **Print preview** — `Cmd+P` → board fills page, masthead скрыт, print-h1 видим
 
-#### ✅ Новая игра
-- [ ] Кнопка "Новая игра" генерирует новую головоломку
-- [ ] Сохраняется выбранная сложность
-- [ ] Таймер сбрасывается
-- [ ] Счетчик подсказок сбрасывается
-
-#### ✅ Автосохранение
-- [ ] Закройте вкладку браузера
-- [ ] Откройте снова
-- [ ] Игра должна восстановиться с того же места
-
-### 5. Валидация алгоритмов
-
-#### ✅ Генерация головоломок
-- [ ] Каждая новая игра генерирует уникальную доску
-- [ ] Все сгенерированные головоломки решаемы
-- [ ] Начальные числа не нарушают правила судоку
-
-#### ✅ Проверка ошибок
-- [ ] Попробуйте ввести одинаковые числа в одной строке → ошибка
-- [ ] Попробуйте ввести одинаковые числа в одном столбце → ошибка
-- [ ] Попробуйте ввести одинаковые числа в блоке 3x3 → ошибка
-- [ ] Правильные числа не подсвечиваются красным
-
-### 6. UI/UX
-
-#### ✅ Адаптивность
-- [ ] Приложение корректно отображается на desktop
-- [ ] Все элементы видны и доступны
-- [ ] Нет горизонтальной прокрутки
-
-#### ✅ Визуальное оформление
-- [ ] Границы блоков 3x3 толще обычных границ ячеек
-- [ ] Цветовая схема понятна и приятна глазу
-- [ ] Переходы и hover эффекты работают плавно
-
-### 7. Производительность
-
-- [ ] Клики по ячейкам отзывчивы (нет задержек)
-- [ ] Ввод чисел моментальный
-- [ ] Генерация новой игры занимает < 2 секунд
-- [ ] Нет "lag" при переключении между ячейками
+После deploy на GH Pages:
+1. `view-source:https://leomo42.github.io/sudoku-cc/en/killer-sudoku` — `<title>`, `<meta description>`, `<h1>`, intro, rules, canonical, hreflang все в HTML до JS execution (это что crawler видит)
+2. `curl https://leomo42.github.io/sudoku-cc/sitemap.xml` — 28 `<url>` блоков
+3. Twitter Card Validator / Facebook Sharing Debugger — `og:image` thumbnail, title, description
 
 ## Известные ограничения
 
-1. **Генератор головоломок**: Иногда не может удалить достаточно ячеек для самых сложных уровней, сохраняя при этом уникальность решения. Это нормальное поведение для алгоритма с проверкой уникальности.
+- **Generator runtime**: Killer + Sandwich иногда генерируют доску за 200-500ms. Не баг — backtracking + uniqueness check.
+- **Vitest+jsdom zombie**: см. выше. Always wrap in `timeout`.
+- **Onboarding tour blocks pointer events** в e2e: тесты делают `localStorage.setItem('sudoku-onboarding-done', 'true')` в `beforeEach`.
+- **Some unit tests slow** (>30s) для uniqueness-проверки головоломок — оставлены в полном suite, но иногда лучше запускать с `-t` фильтром при разработке.
 
-2. **Unit тесты**: Некоторые тесты для функций проверки уникальности решения очень медленные (> 30 сек) из-за сложности backtracking алгоритма. Они работают корректно, но отключены в CI для экономии времени.
+## Bug reports
 
-## Баг-репорты
-
-Если вы нашли баг, пожалуйста, создайте issue на GitHub с описанием:
-- Шаги для воспроизведения
-- Ожидаемое поведение
-- Фактическое поведение
-- Скриншот (если применимо)
+Issue на GitHub с:
+- Шаги воспроизведения
+- Ожидаемое vs фактическое поведение
+- Скриншот / video для visual bugs
+- Browser + OS version
