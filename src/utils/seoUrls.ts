@@ -10,6 +10,13 @@ import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './variantSlugs';
  */
 const CANONICAL_BASE = 'https://leomo42.github.io/sudoku-cc';
 
+/**
+ * Absolute URL for the social-share preview image. OG/Twitter scrapers
+ * don't follow `<base>` and reject relative paths, so this MUST be a
+ * fully-qualified URL pointing at the prod deploy.
+ */
+export const OG_IMAGE_URL = `${CANONICAL_BASE}/icon-512.png`;
+
 /** Build a canonical URL for `/{lang}` (slug omitted) or `/{lang}/{slug}`. */
 export function canonicalUrl(lang: string, slug?: string): string {
   const path = slug ? `/${lang}/${slug}` : `/${lang}`;

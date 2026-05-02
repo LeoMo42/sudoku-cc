@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { canonicalUrl, hreflangAlternates } from '../../utils/seoUrls';
+import { canonicalUrl, hreflangAlternates, OG_IMAGE_URL } from '../../utils/seoUrls';
 import type { SudokuTypeId } from '../../types/index';
 
 interface Props {
@@ -46,6 +46,7 @@ export function LandingMeta({ variant, lang, slug }: Props) {
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonical} />
       <meta property="og:type" content="website" />
+      <meta property="og:image" content={OG_IMAGE_URL} />
     </>
   );
 }
