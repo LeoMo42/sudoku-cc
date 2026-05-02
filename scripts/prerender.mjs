@@ -56,6 +56,19 @@ export const ROUTES = [
 
 const BASE = process.env.PRERENDER_BASE || '/';
 
+// MUST stay in sync with CANONICAL_BASE in src/utils/seoUrls.ts. Drift
+// caught by the unit test (same mechanism as VARIANT_SLUGS).
+export const CANONICAL_BASE = 'https://leomo42.github.io/sudoku-cc';
+
+function canonicalUrl(lang, slug) {
+  return slug ? `${CANONICAL_BASE}/${lang}/${slug}` : `${CANONICAL_BASE}/${lang}`;
+}
+
+/** All hreflang alternates for one path — same set our LandingMeta emits. */
+function hreflangAlternates(slug) {
+  return LANGS.map((lang) => ({ lang, href: canonicalUrl(lang, slug) }));
+}
+
 async function prerender() {
   // Vite preview reads `base` from vite.config.ts unless overridden.
   // We pass it explicitly so the script works regardless of how the
@@ -132,6 +145,78 @@ async function prerender() {
     process.exit(1);
   }
   console.log(`\n[prerender] OK — ${written.length} routes prerendered.`);
+
+  // PR4 of #23 — write sitemap.xml + robots.txt alongside the
+  // prerendered HTML. Same URL list, same canonical base; doing it
+  // here keeps a single source of truth.
+  await writeSitemap();
+  await writeRobots();
+}
+
+/**
+ * Generate sitemap.xml at dist root listing every prerendered URL with
+ * full hreflang alternates (per Google's recommendation for
+ * international sites — each <url> entry lists itself plus every
+ * sibling-language version).
+ *
+ * Uses today's date as <lastmod>. Granular per-page lastmod via git
+ * blame would be more accurate but rarely moves the needle in SE
+ * crawl scheduling for a site this size.
+ */
+async function writeSitemap() {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const entries = [
+    ...LANGS.map((lang) => ({ lang, slug: undefined, priority: '1.0' })),
+    ...LANGS.flatMap((lang) =>
+      VARIANT_SLUGS.map((slug) => ({ lang, slug, priority: '0.8' })),
+    ),
+  ];
+
+  const urlBlocks = entries.map(({ lang, slug, priority }) => {
+    const loc = canonicalUrl(lang, slug);
+    const alts = hreflangAlternates(slug);
+    const altLinks = alts
+      .map(
+        (a) =>
+          `    <xhtml:link rel="alternate" hreflang="${a.lang}" href="${a.href}"/>`,
+      )
+      .join('\n');
+    const xDefault = canonicalUrl('en', slug);
+    return `  <url>
+    <loc>${loc}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>${priority}</priority>
+${altLinks}
+    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>
+  </url>`;
+  });
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+${urlBlocks.join('\n')}
+</urlset>
+`;
+  const outPath = path.join(distDir, 'sitemap.xml');
+  await fs.writeFile(outPath, xml, 'utf-8');
+  console.log(`[prerender] wrote sitemap.xml (${entries.length} URLs)`);
+}
+
+/**
+ * Static robots.txt — `Allow: /` for everything, plus a Sitemap:
+ * pointer at the absolute URL so crawlers fetch it without a
+ * separate Search Console submission.
+ */
+async function writeRobots() {
+  const txt = `User-agent: *
+Allow: /
+
+Sitemap: ${CANONICAL_BASE}/sitemap.xml
+`;
+  const outPath = path.join(distDir, 'robots.txt');
+  await fs.writeFile(outPath, txt, 'utf-8');
+  console.log(`[prerender] wrote robots.txt`);
 }
 
 // Allow `node scripts/prerender.mjs` to run as a CLI; tests can import
