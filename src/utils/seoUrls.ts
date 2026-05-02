@@ -28,8 +28,8 @@ export function canonicalUrl(lang: string, slug?: string): string {
  * supported languages (each variant page exists in every language) so
  * Google can serve the right one based on the user's Accept-Language.
  * Per Google docs, every page should also list itself in its own
- * alternates — the `current` flag tells the renderer to mark which
- * one is the page emitting the tags.
+ * alternates — the rendering component emits a `<link rel="alternate">`
+ * for every returned entry, including the page's own language.
  */
 export function hreflangAlternates(slug?: string): { lang: SupportedLanguage; href: string }[] {
   return SUPPORTED_LANGUAGES.map((lang) => ({ lang, href: canonicalUrl(lang, slug) }));
