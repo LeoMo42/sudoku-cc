@@ -108,11 +108,14 @@ test.describe('Sudoku Sensei – smoke tests', () => {
     const highlightedCount = await page.locator('.cell-highlighted').count();
     expect(highlightedCount).toBeGreaterThan(0);
 
-    // Toggle highlights off via the button (data-testid is stable across
-    // future buttons that might also use aria-pressed).
+    // Toggle highlights off — the button lives inside the settings drawer,
+    // so open it first via the gear icon.
+    await page.locator('[data-testid="settings-gear"]').click();
     const toggle = page.locator('[data-testid="toggle-highlights"]');
     await expect(toggle).toBeVisible();
     await toggle.click();
+    // Close the drawer so it doesn't obscure subsequent assertions
+    await page.keyboard.press('Escape');
 
     // After toggling off, no cell should carry either highlight class
     await expect(page.locator('.cell-matching-value')).toHaveCount(0);
@@ -149,5 +152,183 @@ test.describe('Sudoku Sensei – smoke tests', () => {
 
     // Wait for new puzzle to load
     await expect(page.locator('.cell-initial').first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test('how-to-play "?" button has a 44×44 touch target', async ({ page }) => {
+    // #126: visible circle stays 24×24 (don't dominate the eyebrow row)
+    // but the click/tap area must meet WCAG AA + iOS HIG 44×44 minimum.
+    // Implemented via a `before:inset-[-10px]` pseudo-element that adds
+    // a 10px transparent halo around the visible circle.
+    const btn = page.locator('[data-testid="how-to-play-button"]');
+    await expect(btn).toBeVisible({ timeout: 5000 });
+
+    // Visible circle layout footprint stays 24×24
+    const visualBox = await btn.boundingBox();
+    expect(visualBox).not.toBeNull();
+    expect(visualBox!.width).toBe(24);
+    expect(visualBox!.height).toBe(24);
+
+    // The pseudo-element must inset -10px on all sides so the effective
+    // click area is 44×44 (24 + 10 + 10).
+    const pseudoInsets = await btn.evaluate((el) => {
+      const cs = getComputedStyle(el, '::before');
+      return { top: cs.top, right: cs.right, bottom: cs.bottom, left: cs.left };
+    });
+    expect(pseudoInsets.top).toBe('-10px');
+    expect(pseudoInsets.right).toBe('-10px');
+    expect(pseudoInsets.bottom).toBe('-10px');
+    expect(pseudoInsets.left).toBe('-10px');
+
+    // Functional check: clicking 8px outside the visible circle on each
+    // of the four sides still hits the button. The computed-style check
+    // above proves the pseudo exists symmetrically; this proves the halo
+    // is genuinely hit-testable on every side (catches a future change
+    // that e.g. adds `pointer-events: none` to the pseudo). Target the
+    // modal by its specific aria-labelledby (not the generic
+    // [role="dialog"], which OnboardingTour also uses).
+    await btn.scrollIntoViewIfNeeded();
+    const dialog = page.locator('[aria-labelledby="htp-title"]');
+    const closeDialog = async () => {
+      await page.keyboard.press('Escape');
+      await expect(dialog).toBeHidden({ timeout: 1000 });
+    };
+
+    for (const side of ['left', 'right', 'top', 'bottom'] as const) {
+      const fresh = await btn.boundingBox();
+      expect(fresh).not.toBeNull();
+      const cx = fresh!.x + fresh!.width / 2;
+      const cy = fresh!.y + fresh!.height / 2;
+      const off = 8; // 8px outside the visible 24×24 circle
+      const pt =
+        side === 'left'   ? { x: fresh!.x - off, y: cy } :
+        side === 'right'  ? { x: fresh!.x + fresh!.width + off, y: cy } :
+        side === 'top'    ? { x: cx, y: fresh!.y - off } :
+                            { x: cx, y: fresh!.y + fresh!.height + off };
+
+      await page.mouse.click(pt.x, pt.y);
+      await expect(dialog, `halo click on ${side}`).toBeVisible({ timeout: 2000 });
+      await closeDialog();
+    }
+  });
+
+  test('SEO routes: /{lang}/{slug} forces variant; / redirects', async ({ page }) => {
+    // #23 PR1: routing skeleton. Direct landings on a variant URL should
+    // boot into that variant. Bare `/` redirects to `/{lang}` based on
+    // localStorage / navigator.language.
+
+    // Direct landing on /en/killer-sudoku starts a Killer puzzle.
+    await page.goto('/en/killer-sudoku');
+    await expect(page).toHaveURL(/\/en\/killer-sudoku$/);
+    // Killer has 0 initial cells; wait for the type selector to update
+    // instead. The selector text starts with "Killer" once newGame fires.
+    await expect(
+      page.locator('[aria-haspopup="listbox"]').first(),
+    ).toContainText('Killer', { timeout: 10000 });
+
+    // /ru/windoku boots into Windoku in Russian.
+    await page.goto('/ru/windoku');
+    await expect(page).toHaveURL(/\/ru\/windoku$/);
+    await expect(
+      page.locator('[aria-haspopup="listbox"]').first(),
+    ).toContainText('Windoku', { timeout: 10000 });
+
+    // Unknown slug bounces to /{lang} home.
+    await page.goto('/en/totally-bogus');
+    await expect(page).toHaveURL(/\/en$/);
+
+    // Unknown language bounces to default (/en since fresh ctx → no
+    // localStorage, navigator.language defaults to en in headless).
+    await page.goto('/de/whatever');
+    await expect(page).toHaveURL(/\/(en|ru)$/);
+
+    // Bare / redirects.
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/(en|ru)$/);
+  });
+
+  test('LanguageSwitcher updates the URL :lang segment', async ({ page }) => {
+    await page.goto('/en/thermo-sudoku');
+    await expect(page.locator('[aria-haspopup="listbox"]').first()).toContainText('Thermo', { timeout: 10000 });
+
+    await page.locator('button[aria-label="Switch to RU"]').click();
+    await expect(page).toHaveURL(/\/ru\/thermo-sudoku$/);
+
+    await page.locator('button[aria-label="Switch to EN"]').click();
+    await expect(page).toHaveURL(/\/en\/thermo-sudoku$/);
+  });
+
+  test('SEO meta: variant landing page emits per-variant title, meta, canonical, hreflang', async ({ page }) => {
+    // PR2 of #23: per-route Helmet-equivalent meta via React 19 native
+    // document-metadata hoisting.
+    await page.goto('/en/killer-sudoku');
+    await expect(page.locator('[aria-haspopup="listbox"]').first()).toContainText('Killer', { timeout: 10000 });
+
+    // <title> includes the variant + brand suffix.
+    await expect(page).toHaveTitle(/Killer.*Sudoku Sensei/);
+
+    // <h1> matches the page topic — the page MUST have exactly one h1
+    // (the variant name) so SEO crawlers index against the right intent.
+    // :visible filters out the print-only h1 (hidden display:none on screen,
+    // shown in print stylesheet). Crawlers honor display:none too; this is
+    // what Googlebot indexes.
+    const h1s = await page.locator('h1:visible').allTextContents();
+    expect(h1s).toEqual(['Killer']);
+
+    // <meta name="description"> reflects the variant.
+    const descContent = await page.locator('head > meta[name="description"]').getAttribute('content');
+    expect(descContent).toMatch(/Killer|cages/i);
+
+    // Canonical URL points at the prod deploy, regardless of localhost.
+    const canonicalHref = await page.locator('head > link[rel="canonical"]').getAttribute('href');
+    expect(canonicalHref).toBe('https://leomo42.github.io/sudoku-cc/en/killer-sudoku');
+
+    // hreflang alternates: at minimum en + ru + x-default.
+    const hreflangs = await page.locator('head > link[rel="alternate"][hreflang]').evaluateAll((els) =>
+      (els as HTMLLinkElement[]).map((el) => ({ lang: el.hreflang, href: el.href })),
+    );
+    expect(hreflangs).toContainEqual({ lang: 'en', href: 'https://leomo42.github.io/sudoku-cc/en/killer-sudoku' });
+    expect(hreflangs).toContainEqual({ lang: 'ru', href: 'https://leomo42.github.io/sudoku-cc/ru/killer-sudoku' });
+    expect(hreflangs).toContainEqual({ lang: 'x-default', href: 'https://leomo42.github.io/sudoku-cc/en/killer-sudoku' });
+
+    // Switching to RU should swap title + canonical + h1 into Russian.
+    await page.locator('button[aria-label="Switch to RU"]').click();
+    await expect(page).toHaveURL(/\/ru\/killer-sudoku$/);
+    await expect(page).toHaveTitle(/Sudoku Sensei/);
+    const ruCanonical = await page.locator('head > link[rel="canonical"]').getAttribute('href');
+    expect(ruCanonical).toBe('https://leomo42.github.io/sudoku-cc/ru/killer-sudoku');
+  });
+
+  test('variant landing page renders intro + rules block (PR5)', async ({ page }) => {
+    // PR5 of #23: each /{lang}/{slug} renders <VariantLanding> between
+    // the streak banner and the game — variant description + collapsible
+    // rules. Reuses existing sudokuTypes.{X}.description and
+    // howToPlay.variants.{X}.rules keys; no new strings.
+    await page.goto('/en/killer-sudoku');
+    const landing = page.locator('[data-testid="variant-landing"]');
+    await expect(landing).toBeVisible({ timeout: 10000 });
+    // Intro paragraph names the variant's defining mechanic.
+    await expect(landing).toContainText(/cage/i);
+    // Rules <details> block exists; content present in DOM (closed by
+    // default doesn't hide from SEO crawlers — display:none does, but
+    // <details> is just collapsed).
+    await expect(landing.locator('details')).toBeAttached();
+    await expect(landing.locator('details')).toContainText(/cage/i);
+  });
+
+  test('home route /{lang} renders HomeMeta + brand wordmark h1 (no landing copy)', async ({ page }) => {
+    await page.goto('/en');
+    // h1 = brand wordmark on home (no variant override).
+    const h1s = await page.locator('h1:visible').allTextContents();
+    expect(h1s).toEqual(['Sudoku']);
+    // Title from i18n meta.home.title.
+    await expect(page).toHaveTitle(/Sudoku Sensei.*13 Variant/);
+    // Canonical points at the language home.
+    const canonical = await page.locator('head > link[rel="canonical"]').getAttribute('href');
+    expect(canonical).toBe('https://leomo42.github.io/sudoku-cc/en');
+    // Exactly one meta description (no duplicate from index.html anymore).
+    const descCount = await page.locator('head > meta[name="description"]').count();
+    expect(descCount).toBe(1);
+    // No variant-landing copy on home — that's variant-routes-only.
+    await expect(page.locator('[data-testid="variant-landing"]')).toHaveCount(0);
   });
 });

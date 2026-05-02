@@ -1,6 +1,45 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Self-hosted variable fonts (#125). Manrope for UI/body, JetBrains Mono
+ * for numerical surfaces (cells, timer, day-badge thousands separator).
+ * `wght.css` is the variable-axis variant — single file covers all weights
+ * (300–800 for Manrope, 100–800 for JetBrains Mono). font-display: swap is
+ * built into @fontsource-variable, so users see fallback briefly during
+ * load instead of an invisible-text flash. */
+@import '@fontsource-variable/manrope/wght.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+
+/* Tailwind 4 collapses the three @tailwind directives into a single
+   @import. Configuration lives natively in CSS — no tailwind.config.js
+   needed. */
+@import 'tailwindcss';
+
+/* darkMode: 'class' equivalent. Selector matches `.dark` on any
+   ancestor (including documentElement, where our no-flash script in
+   index.html toggles the class). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Custom font stacks (#125). Self-hosted variable fonts: Manrope for
+   UI/body, JetBrains Mono for numerical surfaces. Fallback chains keep
+   system-ui visible during the brief @font-face load (FOUT, not FOIT —
+   @fontsource ships font-display: swap). Setting --font-sans /
+   --font-mono on @theme makes the `font-sans` and `font-mono` utility
+   classes pick these up automatically. */
+@theme {
+  --font-sans: 'Manrope Variable', ui-sans-serif, system-ui, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+/* Tailwind 4 changed default border-color from gray-200 to currentColor.
+   Restoring the v3 default keeps every existing border-* utility in the
+   codebase rendering with the same gray hairline it always did, instead
+   of inheriting text color. Local overrides (border-red-500 etc.) win
+   normally. */
+@layer base {
+  *, ::after, ::before, ::backdrop {
+    border-color: theme('colors.gray.200');
+  }
+}
 
 @layer base {
   body {

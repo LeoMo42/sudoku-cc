@@ -15,13 +15,17 @@ import { useTheme } from '../../hooks/useTheme';
 import { useHowToPlay } from '../../hooks/useHowToPlay';
 import { useStats } from '../../hooks/useStats';
 import { useDaily } from '../../hooks/useDaily';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useAutoStartIdle } from '../../hooks/useAutoStartIdle';
+import { useShare } from '../../hooks/useShare';
+import { usePuzzleLifecycle } from '../../hooks/usePuzzleLifecycle';
 import { HowToPlayModal } from '../Controls/HowToPlayModal';
 import { StatsModal } from '../UI/StatsModal';
-import { DailyBanner } from '../UI/DailyBanner';
-import { recordGameStart, recordGameComplete } from '../../utils/stats';
+import { StreakBanner } from '../UI/StreakBanner';
+import { recordGameComplete } from '../../utils/stats';
 import { updateBestTime } from '../../utils/bestTime';
-import { shareOrCopy, buildShareUrl, formatElapsed } from '../../utils/share';
 import { ShareToast } from '../UI/ShareToast';
+import { SettingsDrawer } from '../UI/SettingsDrawer';
 import { Board } from '../Board/Board';
 import { Timer } from '../Controls/Timer';
 import { NumberPad } from '../Controls/NumberPad';
@@ -32,13 +36,39 @@ import { HintModal } from '../Controls/HintModal';
 import { GameOverModal } from '../Controls/GameOverModal';
 import { LanguageSwitcher } from '../UI/LanguageSwitcher';
 import { OddEvenLegend } from '../UI/OddEvenLegend';
-import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL, SUDOKU_TYPES } from '../../utils/constants';
-import type { HighlightRole, DifficultyLevel, SudokuTypeId } from '../../types/index';
+import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../../utils/constants';
+import type { HighlightRole } from '../../types/index';
+
+interface GameContainerProps {
+  /**
+   * Set by the SEO landing-page route (`/{lang}/{slug}`) to force the
+   * game to boot into a specific variant on mount. When unset (the
+   * default home route or query-param deep links), GameContainer
+   * falls back to query params or persisted state.
+   */
+  forcedVariant?: import('../../types/index').SudokuTypeId;
+  /**
+   * Overrides the masthead `<h1>` text. Variant landing pages pass the
+   * variant's display name so the page's `<h1>` matches its SEO topic
+   * ("Killer Sudoku") instead of the generic brand wordmark
+   * ("Sudoku"). When unset (home route), falls back to the brand
+   * wordmark — there's only ever one `<h1>` per page.
+   */
+  headingTitle?: string;
+  /**
+   * Slot for landing-page copy (intro paragraph, rules block) rendered
+   * between the StreakBanner and the game grid on /{lang}/{slug}
+   * routes. Plain ReactNode so VariantPage can compose it with the
+   * `<VariantLanding>` component without GameContainer needing to
+   * know about variant-specific i18n keys.
+   */
+  landingContent?: import('react').ReactNode;
+}
 
 /**
  * Main game container component
  */
-export function GameContainer() {
+export function GameContainer({ forcedVariant, headingTitle, landingContent }: GameContainerProps = {}) {
   const { t, i18n } = useTranslation();
   const { state, actions } = useGameState();
   const { soundEnabled, toggleSound, playDigitSound, playErrorSound, playVictorySound } = useSound();
@@ -53,10 +83,26 @@ export function GameContainer() {
   const { store: statsStore, reload: reloadStats, reset: resetStats } = useStats();
   const { dailyInfo, isCompleted: isDailyCompleted, streak: dailyStreak, markCompleted: markDailyCompleted } = useDaily();
   const [statsOpen, setStatsOpen] = useState(false);
-  const [isPlayingDaily, setIsPlayingDaily] = useState(false);
-  const isPlayingDailyRef = useRef(false);
 
-  const [shareToastVisible, setShareToastVisible] = useState(false);
+  const {
+    isPlayingDaily,
+    handleNewGame,
+    handleStartDaily,
+    handleDifficultyChange,
+    handleTypeChange,
+  } = usePuzzleLifecycle({
+    state,
+    actions,
+    dailyInfo,
+    markDailyCompleted,
+    triggerAutoShow,
+  });
+
+  const { handleShare, shareToastVisible } = useShare({
+    sudokuType: state.sudokuType,
+    difficulty: state.difficulty,
+    elapsedTime: state.elapsedTime,
+  });
 
   // Resolved limit passed to the reducer on every placement. null when
   // the preference is off, so the reducer will not transition to LOST.
@@ -69,6 +115,26 @@ export function GameContainer() {
   // React runs effects in declaration order, so useConfetti's effect sees
   // the updated value.
   const isNewBestTimeRef = useRef(false);
+
+  // Live mirror of state.elapsedTime so the completion effect can read the
+  // current value WITHOUT depending on state.elapsedTime — which would
+  // otherwise re-run the effect every second of play (60 wasted runs per
+  // minute, all of them no-ops outside the gameStatus transition we care
+  // about). Updated inline on every render so it's always fresh when the
+  // effect actually fires (on gameStatus change).
+  // Intentional inline ref-mirror: the completion effect needs the LATEST
+  // elapsedTime when it fires (on gameStatus change), but listing
+  // state.elapsedTime as a dep would re-run it every second of play
+  // (#143). Until React's useEffectEvent stabilizes, mirroring into a
+  // ref during render is the documented workaround.
+  const elapsedTimeRef = useRef(state.elapsedTime);
+  // The disable below IS load-bearing: `react-hooks/refs` is a real rule
+  // from `eslint-plugin-react-hooks` v7 (the plugin ships ~30 rules, not
+  // just `rules-of-hooks` + `exhaustive-deps`), enabled at error level by
+  // `flat.recommended` which our `eslint.config.js` extends. Remove this
+  // line and CI fails. Do not delete.
+  // eslint-disable-next-line react-hooks/refs
+  elapsedTimeRef.current = state.elapsedTime;
 
   // Timer hook
   useTimer(state.gameStatus, actions.updateTime);
@@ -85,13 +151,10 @@ export function GameContainer() {
     const prevErrorsSize = prevErrorsSizeRef.current;
 
     if (state.gameStatus === GAME_STATUS.COMPLETED && prevStatus !== GAME_STATUS.COMPLETED) {
-      isNewBestTimeRef.current = updateBestTime(state.difficulty, state.elapsedTime);
-      recordGameComplete(state.sudokuType, state.difficulty, state.elapsedTime, state.mistakeCount);
-      if (isPlayingDailyRef.current) {
-        markDailyCompleted(dailyInfo.date);
-        isPlayingDailyRef.current = false;
-        setIsPlayingDaily(false);
-      }
+      // Use the ref instead of state.elapsedTime so this effect doesn't
+      // depend on the timer tick (see #143).
+      isNewBestTimeRef.current = updateBestTime(state.difficulty, elapsedTimeRef.current);
+      recordGameComplete(state.sudokuType, state.difficulty, elapsedTimeRef.current, state.mistakeCount);
       playVictorySound();
       vibrateComplete();
     } else if (pendingDigitSoundRef.current || pendingHapticRef.current) {
@@ -109,7 +172,10 @@ export function GameContainer() {
 
     prevGameStatusRef.current = state.gameStatus;
     prevErrorsSizeRef.current = state.errors.size;
-  }, [state.errors, state.gameStatus, state.elapsedTime, state.difficulty, state.sudokuType, state.mistakeCount, dailyInfo.date, markDailyCompleted, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
+    // state.elapsedTime intentionally NOT in deps — read via elapsedTimeRef
+    // so the effect doesn't fire on every timer tick (#143). Daily-completion
+    // routing now lives in usePuzzleLifecycle.
+  }, [state.errors, state.gameStatus, state.difficulty, state.sudokuType, state.mistakeCount, playVictorySound, playErrorSound, playDigitSound, vibrateComplete, vibrateError, vibrateDigit]);
 
   // Confetti on completion — declared AFTER the sound effect so React runs it
   // second, giving the sound effect a chance to update isNewBestTimeRef first.
@@ -119,113 +185,21 @@ export function GameContainer() {
     isNewBestTimeRef,
   );
 
-  // Auto-start game if status is IDLE, honouring ?type=&difficulty= deep-link params.
-  useEffect(() => {
-    if (state.gameStatus === GAME_STATUS.IDLE) {
-      const params = new URLSearchParams(window.location.search);
-      const typeParam = params.get('type') as SudokuTypeId | null;
-      const diffParam = params.get('difficulty') as DifficultyLevel | null;
-      const validType = typeParam && typeParam in SUDOKU_TYPES ? typeParam : state.sudokuType;
-      const validDiff = diffParam && diffParam in DIFFICULTY_LEVELS ? diffParam : state.difficulty;
-      actions.newGame(validDiff, validType);
-      recordGameStart(validType, validDiff);
-    } else if (state.gameStatus === GAME_STATUS.PLAYING || state.gameStatus === GAME_STATUS.PAUSED) {
-      // Returning user mid-game: count as a started game so a completion this
-      // session is visible in stats immediately. Skip COMPLETED/LOST to avoid
-      // inflating gamesStarted on every reload of a finished game.
-      recordGameStart(state.sudokuType, state.difficulty);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
+  // Mount-time auto-start + returning-user game-start recording (#116).
+  // See useAutoStartIdle for why empty deps are intentional.
+  useAutoStartIdle(state, actions, { forcedVariant });
 
-  // Undo/redo keyboard shortcuts (work without cell selection)
-  useEffect(() => {
-    const handleUndoRedo = (e: KeyboardEvent) => {
-      if (tourOpen) return;
-      if (state.gameStatus !== GAME_STATUS.PLAYING) return;
-      const ctrlOrMeta = e.ctrlKey || e.metaKey;
-      if (ctrlOrMeta && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        actions.undo();
-      } else if (ctrlOrMeta && e.key === 'z' && e.shiftKey) {
-        e.preventDefault();
-        actions.redo();
-      } else if (ctrlOrMeta && e.key === 'y') {
-        e.preventDefault();
-        actions.redo();
-      }
-    };
-    window.addEventListener('keydown', handleUndoRedo);
-    return () => window.removeEventListener('keydown', handleUndoRedo);
-  }, [state.gameStatus, actions, tourOpen]);
-
-  // Handle keyboard input
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (tourOpen) return;
-      if (!state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING) {
-        return;
-      }
-
-      const { row, col } = state.selectedCell;
-
-      // Number keys 1-9
-      if (e.key >= '1' && e.key <= '9') {
-        e.preventDefault();
-        const num = parseInt(e.key);
-
-        if (state.notesMode) {
-          actions.setNote(row, col, num);
-        } else {
-          const isInitialCell = state.initialBoard[row][col] !== EMPTY_CELL;
-          if (!isInitialCell) {
-            pendingDigitSoundRef.current = true;
-            pendingHapticRef.current = true;
-          }
-          actions.setCellValue(row, col, num as 1|2|3|4|5|6|7|8|9, currentMistakeLimit);
-        }
-      }
-
-      // Backspace or Delete to clear cell
-      if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
-        e.preventDefault();
-        actions.setCellValue(row, col, EMPTY_CELL, currentMistakeLimit);
-      }
-
-      // Arrow keys for navigation
-      if (e.key.startsWith('Arrow')) {
-        e.preventDefault();
-        let newRow = row;
-        let newCol = col;
-
-        switch (e.key) {
-          case 'ArrowUp':
-            newRow = Math.max(0, row - 1);
-            break;
-          case 'ArrowDown':
-            newRow = Math.min(8, row + 1);
-            break;
-          case 'ArrowLeft':
-            newCol = Math.max(0, col - 1);
-            break;
-          case 'ArrowRight':
-            newCol = Math.min(8, col + 1);
-            break;
-        }
-
-        actions.selectCell(newRow, newCol);
-      }
-
-      // 'n' key to toggle notes mode
-      if (e.key === 'n' || e.key === 'N') {
-        e.preventDefault();
-        actions.toggleNotesMode();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.selectedCell, state.gameStatus, state.notesMode, state.initialBoard, actions, currentMistakeLimit, tourOpen]);
+  // Keyboard shortcuts: undo/redo + cell input (digits, clear, arrows, n).
+  // Extracted to a hook so GameContainer stays focused on layout + flow
+  // orchestration, not raw keydown plumbing (#116 — first slice).
+  useKeyboardShortcuts({
+    state,
+    actions,
+    currentMistakeLimit,
+    tourOpen,
+    pendingDigitSoundRef,
+    pendingHapticRef,
+  });
 
   const handleCellClick = useCallback(
     (row: number, col: number) => {
@@ -263,56 +237,6 @@ export function GameContainer() {
       actions.setCellValue(row, col, EMPTY_CELL, currentMistakeLimit);
     }
   }, [state.selectedCell, state.gameStatus, actions, currentMistakeLimit]);
-
-  const handleNewGame = useCallback(() => {
-    isPlayingDailyRef.current = false;
-    setIsPlayingDaily(false);
-    actions.newGame(state.difficulty, state.sudokuType);
-    recordGameStart(state.sudokuType, state.difficulty);
-  }, [state.difficulty, state.sudokuType, actions]);
-
-  const handleStartDaily = useCallback(() => {
-    isPlayingDailyRef.current = true;
-    setIsPlayingDaily(true);
-    actions.newGame(dailyInfo.difficulty, dailyInfo.type, dailyInfo.seed);
-    recordGameStart(dailyInfo.type, dailyInfo.difficulty);
-  }, [dailyInfo, actions]);
-
-  const handleShare = useCallback(async () => {
-    const typeName = t(`sudokuTypes.${state.sudokuType}.name`);
-    const diffName = t(`difficulty.${state.difficulty}`);
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const url = buildShareUrl(state.sudokuType, state.difficulty, baseUrl);
-    const text = t('game.shareText', { type: typeName, difficulty: diffName, time: formatElapsed(state.elapsedTime) });
-    const outcome = await shareOrCopy(text, url);
-    if (outcome === 'copied') {
-      setShareToastVisible(true);
-      setTimeout(() => setShareToastVisible(false), 2500);
-    }
-  }, [t, state.sudokuType, state.difficulty, state.elapsedTime]);
-
-  const handleDifficultyChange = useCallback(
-    (difficulty: Parameters<typeof actions.newGame>[0]) => {
-      isPlayingDailyRef.current = false;
-      setIsPlayingDaily(false);
-      actions.newGame(difficulty, state.sudokuType);
-      if (difficulty) recordGameStart(state.sudokuType, difficulty);
-    },
-    [state.sudokuType, actions]
-  );
-
-  const handleTypeChange = useCallback(
-    (sudokuType: Parameters<typeof actions.newGame>[1]) => {
-      isPlayingDailyRef.current = false;
-      setIsPlayingDaily(false);
-      actions.newGame(state.difficulty, sudokuType);
-      if (sudokuType) {
-        recordGameStart(sudokuType, state.difficulty);
-        triggerAutoShow(sudokuType);
-      }
-    },
-    [state.difficulty, actions, triggerAutoShow]
-  );
 
   const maxHints = DIFFICULTY_LEVELS[state.difficulty].maxHints;
 
@@ -378,9 +302,35 @@ export function GameContainer() {
       <div className="max-w-6xl mx-auto">
         {/* Header with title and language switcher */}
         <div className="flex items-center justify-between mb-4 sm:mb-8 print:hidden">
-          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
-            {t('game.title')}
-          </h1>
+          {/*
+            Wordmark with a small 3x3 grid mark (#130). The mark gives the
+            "Sudoku" text some brand specificity — without it the wordmark
+            is just a bold word in any sans typeface. With Manrope (#125)
+            + this glyph the masthead reads as intentional design rather
+            than default chrome. Indigo color ties it into the rest of
+            the now-disciplined palette (#127).
+          */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <svg
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-7 h-7 sm:w-9 sm:h-9 text-indigo-600 dark:text-indigo-400 flex-shrink-0"
+              aria-hidden="true"
+            >
+              <rect x="2" y="2" width="20" height="20" rx="3" />
+              <line x1="2" y1="9" x2="22" y2="9" />
+              <line x1="2" y1="16" x2="22" y2="16" />
+              <line x1="9" y1="2" x2="9" y2="22" />
+              <line x1="16" y1="2" x2="16" y2="22" />
+            </svg>
+            <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
+              {headingTitle ?? t('game.title')}
+            </h1>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => { reloadStats(); setStatsOpen(true); }}
@@ -392,50 +342,51 @@ export function GameContainer() {
               <span aria-hidden="true">📊</span>
             </button>
             <LanguageSwitcher />
+            {/*
+              Settings drawer moved here from the Time/Mistakes card (#128).
+              It used to sit inline next to the timer where it visually
+              implied "settings for the time"; in the header it joins the
+              other top-right utility buttons (stats, language) which is
+              the conventional location.
+            */}
+            <SettingsDrawer
+              highlightsEnabled={highlightsEnabled}
+              toggleHighlights={toggleHighlights}
+              soundEnabled={soundEnabled}
+              toggleSound={toggleSound}
+              celebrationEnabled={celebrationEnabled}
+              toggleCelebration={toggleCelebration}
+              hapticEnabled={hapticEnabled}
+              toggleHaptic={toggleHaptic}
+              isDark={isDark}
+              toggleTheme={toggleTheme}
+              colorBlindMode={colorBlindMode}
+              toggleColorBlindMode={toggleColorBlindMode}
+              onTour={openTour}
+              onPrint={() => window.print()}
+            />
           </div>
         </div>
 
+        {/* Daily streak — full-width hero above the board */}
+        <StreakBanner
+          dailyInfo={dailyInfo}
+          isCompleted={isDailyCompleted}
+          isPlayingDaily={isPlayingDaily}
+          streak={dailyStreak}
+          onPlay={handleStartDaily}
+        />
+
+        {/* Landing copy slot — present only on /{lang}/{slug} routes
+            (VariantPage renders <VariantLanding>). Sits between the
+            streak banner and the game grid so SEO crawlers reach the
+            variant-specific intro + rules without scrolling past
+            the board. */}
+        {landingContent}
+
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start justify-center">
-          {/* Left side - Board with Type and Difficulty */}
+          {/* Left side - Board, then Type and Difficulty below */}
           <div className="flex flex-col gap-3 md:gap-4 w-full md:w-auto">
-            {/* Type + Difficulty row */}
-            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 print:hidden">
-              {/* Sudoku Type Selector */}
-              <div data-tour="type-selector" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
-                <div className="flex items-center justify-between mb-2 md:mb-3">
-                  <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {t('game.type')}
-                  </h2>
-                  <button
-                    onClick={openHowToPlay}
-                    title={t('howToPlay.title')}
-                    aria-label={t('howToPlay.title')}
-                    data-testid="how-to-play-button"
-                    className="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                  >
-                    ?
-                  </button>
-                </div>
-                <SudokuTypeSelector
-                  currentType={state.sudokuType}
-                  onTypeChange={handleTypeChange}
-                  disabled={false}
-                />
-              </div>
-
-              {/* Difficulty Selector */}
-              <div data-tour="difficulty-selector" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
-                <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 md:mb-3">
-                  {t('game.difficulty')}
-                </h2>
-                <DifficultySelector
-                  currentDifficulty={state.difficulty}
-                  onDifficultyChange={handleDifficultyChange}
-                  disabled={false}
-                />
-              </div>
-            </div>
-
             {/* Print-only header: variant, difficulty, date */}
             <div className="hidden print:block mb-4">
               <h1 className="text-xl font-bold text-black">
@@ -471,93 +422,86 @@ export function GameContainer() {
               {/* Odd-Even Legend */}
               {state.sudokuType === 'ODD_EVEN' && <OddEvenLegend />}
             </div>
+
+            {/* Type + Difficulty row — below the board (pre-game settings) */}
+            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 print:hidden">
+              {/* Sudoku Type Selector */}
+              <div data-tour="type-selector" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
+                  <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    {t('game.type')}
+                  </h2>
+                  <button
+                    onClick={openHowToPlay}
+                    title={t('howToPlay.title')}
+                    aria-label={t('howToPlay.title')}
+                    data-testid="how-to-play-button"
+                    // 24×24 visible circle + a `before:` pseudo-element that
+                    // expands the hit-area to 44×44 (WCAG AA / iOS HIG
+                    // minimum). Layout footprint stays 24×24 so the eyebrow
+                    // row doesn't grow; only the click/tap target is bigger
+                    // (#126). before:inset-[-10px] = 24+10+10 = 44 in both
+                    // axes.
+                    className="relative w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-600 dark:hover:text-blue-400 transition-colors before:absolute before:inset-[-10px] before:content-['']"
+                  >
+                    ?
+                  </button>
+                </div>
+                <SudokuTypeSelector
+                  currentType={state.sudokuType}
+                  onTypeChange={handleTypeChange}
+                  disabled={false}
+                />
+              </div>
+
+              {/* Difficulty Selector */}
+              <div data-tour="difficulty-selector" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 flex-1">
+                <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 md:mb-3">
+                  {t('game.difficulty')}
+                </h2>
+                <DifficultySelector
+                  currentDifficulty={state.difficulty}
+                  onDifficultyChange={handleDifficultyChange}
+                  disabled={false}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Right side - Controls */}
           <div className="flex flex-col gap-4 md:gap-6 w-full md:w-auto md:min-w-[280px] print:hidden">
-            {/* Timer and Game Controls - combined on mobile */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
-              <div className="flex items-start justify-between mb-4">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400 pt-3">{t('game.time')}</span>
-                <div className="flex items-center flex-wrap gap-2 sm:gap-3 justify-end">
-                  <Timer elapsedTime={state.elapsedTime} />
-                  <button
-                    onClick={toggleHighlights}
-                    title={highlightsEnabled ? t('game.highlightsOn') : t('game.highlightsOff')}
-                    aria-label={highlightsEnabled ? t('game.highlightsOn') : t('game.highlightsOff')}
-                    aria-pressed={highlightsEnabled}
-                    data-testid="toggle-highlights"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{highlightsEnabled ? '🔆' : '🔅'}</span>
-                  </button>
-                  <button
-                    onClick={toggleSound}
-                    title={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
-                    aria-label={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{soundEnabled ? '🔊' : '🔇'}</span>
-                  </button>
-                  <button
-                    onClick={toggleCelebration}
-                    title={celebrationEnabled ? t('game.celebrationOn') : t('game.celebrationOff')}
-                    aria-label={celebrationEnabled ? t('game.celebrationOn') : t('game.celebrationOff')}
-                    aria-pressed={celebrationEnabled}
-                    data-testid="toggle-celebration"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{celebrationEnabled ? '🎉' : '🚫'}</span>
-                  </button>
-                  <button
-                    onClick={toggleHaptic}
-                    title={hapticEnabled ? t('game.hapticOn') : t('game.hapticOff')}
-                    aria-label={hapticEnabled ? t('game.hapticOn') : t('game.hapticOff')}
-                    aria-pressed={hapticEnabled}
-                    data-testid="toggle-haptic"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{hapticEnabled ? '📳' : '📴'}</span>
-                  </button>
-                  <button
-                    onClick={toggleTheme}
-                    title={isDark ? t('game.darkModeOn') : t('game.darkModeOff')}
-                    aria-label={isDark ? t('game.darkModeOn') : t('game.darkModeOff')}
-                    aria-pressed={isDark}
-                    data-testid="toggle-theme"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{isDark ? '🌙' : '☀️'}</span>
-                  </button>
-                  <button
-                    onClick={toggleColorBlindMode}
-                    title={colorBlindMode ? t('game.colorBlindOn') : t('game.colorBlindOff')}
-                    aria-label={colorBlindMode ? t('game.colorBlindOn') : t('game.colorBlindOff')}
-                    aria-pressed={colorBlindMode}
-                    data-testid="toggle-colorblind"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">{colorBlindMode ? '👁' : '🎨'}</span>
-                  </button>
-                  <button
-                    onClick={openTour}
-                    title={t('game.startTour')}
-                    aria-label={t('game.startTour')}
-                    data-testid="start-tour"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">🧭</span>
-                  </button>
-                  <button
-                    onClick={() => window.print()}
-                    title={t('game.print')}
-                    aria-label={t('game.print')}
-                    data-testid="print-button"
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-xl leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg"
-                  >
-                    <span aria-hidden="true">🖨️</span>
-                  </button>
-                </div>
+            {/* Number Pad — topmost so it's adjacent to the board */}
+            <div data-tour="numberpad" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+              <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 text-center">
+                {t('game.numberInput')}
+              </h2>
+              <div className="min-h-[1.25rem] mb-2" aria-live="polite">
+                {!state.selectedCell && state.gameStatus === GAME_STATUS.PLAYING && (
+                  <p className="text-xs text-blue-500 dark:text-blue-400 text-center">
+                    {t('game.selectCellHint')}
+                  </p>
+                )}
+              </div>
+              <div className="flex justify-center">
+                <NumberPad
+                  onNumberClick={handleNumberClick}
+                  onClear={handleClear}
+                  disabled={
+                    !state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Timer + mistake counter card. Padding tightened (#128)
+                from p-4/sm:p-6 to p-3/sm:p-4 — the previous card was
+                ~50% empty space because the two slim rows of content
+                didn't justify the inset. SettingsDrawer was here too,
+                moved to the top header next to language/stats. */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('game.time')}</span>
+                <Timer elapsedTime={state.elapsedTime} />
               </div>
 
               {/* Mistake counter row: shows X N (or X N/M when limit on),
@@ -566,7 +510,7 @@ export function GameContainer() {
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('game.mistakes')}</span>
                 <div className="flex items-center gap-3">
                   <span
-                    className="text-base font-semibold tabular-nums text-gray-800 dark:text-gray-200"
+                    className="text-base font-mono font-semibold tabular-nums text-gray-800 dark:text-gray-200"
                     data-testid="mistake-counter"
                     aria-live="polite"
                     aria-label={
@@ -603,15 +547,6 @@ export function GameContainer() {
                 </div>
               )}
             </div>
-
-            {/* Daily Puzzle */}
-            <DailyBanner
-              dailyInfo={dailyInfo}
-              isCompleted={isDailyCompleted}
-              isPlayingDaily={isPlayingDaily}
-              streak={dailyStreak}
-              onPlay={handleStartDaily}
-            />
 
             {/* Game Controls */}
             <div data-tour="game-controls" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
@@ -674,31 +609,6 @@ export function GameContainer() {
             {/* Onboarding tour */}
             {tourOpen && <OnboardingTour onClose={closeTour} />}
 
-            {/* Number Pad */}
-            <div data-tour="numberpad" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
-              <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 text-center">
-                {t('game.numberInput')}
-              </h2>
-              <div className="min-h-[1.25rem] mb-2" aria-live="polite">
-                {!state.selectedCell && state.gameStatus === GAME_STATUS.PLAYING && (
-                  <p className="text-xs text-blue-500 dark:text-blue-400 text-center">
-                    {t('game.selectCellHint')}
-                  </p>
-                )}
-              </div>
-              <div className="flex justify-center">
-                <NumberPad
-                  onNumberClick={handleNumberClick}
-                  onClear={handleClear}
-                  disabled={
-                    !state.selectedCell || state.gameStatus !== GAME_STATUS.PLAYING
-                  }
-                />
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-                {t('controls.keyboard')}
-              </p>
-            </div>
           </div>
         </div>
       </div>

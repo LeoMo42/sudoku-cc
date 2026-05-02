@@ -87,6 +87,37 @@ export function HowToPlayModal({
           {tip}
         </div>
 
+        {/* Keyboard shortcuts (#129) — generic across all variants. The
+            previous noisy single-line under the number pad is gone; this
+            modal is the home for keyboard discoverability. */}
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+            {t('controls.keyboard.title')}
+          </h3>
+          <ul className="space-y-1.5 text-sm text-gray-700 dark:text-gray-300">
+            <li className="flex items-baseline gap-3">
+              <kbd className="font-mono text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded whitespace-nowrap">1–9</kbd>
+              <span>{t('controls.keyboard.enterDigit')}</span>
+            </li>
+            <li className="flex items-baseline gap-3">
+              <kbd className="font-mono text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded whitespace-nowrap">↑ ↓ ← →</kbd>
+              <span>{t('controls.keyboard.move')}</span>
+            </li>
+            <li className="flex items-baseline gap-3">
+              <kbd className="font-mono text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded whitespace-nowrap">Backspace</kbd>
+              <span>{t('controls.keyboard.clear')}</span>
+            </li>
+            <li className="flex items-baseline gap-3">
+              <kbd className="font-mono text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded whitespace-nowrap">N</kbd>
+              <span>{t('controls.keyboard.notes')}</span>
+            </li>
+            <li className="flex items-baseline gap-3">
+              <kbd className="font-mono text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded whitespace-nowrap">Ctrl+Z / Ctrl+Y</kbd>
+              <span>{t('controls.keyboard.undoRedo')}</span>
+            </li>
+          </ul>
+        </div>
+
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 pt-1">
           <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600 dark:text-gray-400">

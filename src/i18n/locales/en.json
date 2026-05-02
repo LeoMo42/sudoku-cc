@@ -1,4 +1,10 @@
 {
+  "meta": {
+    "home": {
+      "title": "Sudoku Sensei — 13 Variant Puzzles Online",
+      "description": "Play 13 Sudoku variants for free: Classic, Diagonal, Killer, Thermo, Sandwich, Kropki, and more. Choose your difficulty and sharpen your mind."
+    }
+  },
   "game": {
     "title": "Sudoku",
     "newGame": "New Game",
@@ -43,7 +49,10 @@
     "colorBlindOff": "Color-blind mode off (click to enable)",
     "startTour": "Replay tour",
     "print": "Print puzzle",
-    "notesModeActive": "✏️ Notes mode"
+    "notesModeActive": "✏️ Notes mode",
+    "confirmNewGame": "Start a new game? Your current progress will be lost.",
+    "confirmExitDaily": "Exit today's daily puzzle? Your progress will be lost and you'll lose your shot at today's streak credit.",
+    "settings": "Settings"
   },
   "tour": {
     "skip": "Skip tour",
@@ -79,7 +88,14 @@
     "EXPERT": "Expert"
   },
   "controls": {
-    "keyboard": "Use keys 1-9, arrows for navigation, Backspace to clear, N for notes, Ctrl+Z/Ctrl+Y for undo/redo"
+    "keyboard": {
+      "title": "Keyboard shortcuts",
+      "enterDigit": "Enter digit in selected cell",
+      "move": "Move selection",
+      "clear": "Clear selected cell",
+      "notes": "Toggle notes mode",
+      "undoRedo": "Undo / Redo"
+    }
   },
   "hint": {
     "title": "Hint",
@@ -296,8 +312,11 @@
     "play": "Play Today's Puzzle",
     "playing": "Playing…",
     "completed": "Completed ✓",
-    "streak": "{{count}} day streak",
-    "nextIn": "Next in {{time}}"
+    "streak_one": "{{count}} day streak",
+    "streak_other": "{{count}} days streak",
+    "nextIn": "Next in {{time}}",
+    "startStreak": "Start your streak",
+    "playCta": "Play today →"
   },
   "stats": {
     "title": "Statistics",

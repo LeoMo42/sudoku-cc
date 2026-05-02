@@ -1,3 +1,19 @@
+// TypeScript is pinned to ~5.9 (not the latest 6.x) deliberately. Two
+// load-bearing reasons:
+//
+//   1. eslint-plugin-react-hooks v7 + @typescript-eslint v8 (our current
+//      versions) only know about TS ^5 AST node types. On TS 6 some
+//      rules throw "Unhandled node type: <kind>" because new TS 6 nodes
+//      aren't enumerated. Until @typescript-eslint v9 ships with TS 6
+//      support, the linter is brittle on TS 6.
+//
+//   2. i18next + react-i18next peer-require typescript ^5; npm warns
+//      "invalid: ^5 from node_modules/i18next" on TS 6.
+//
+// Re-evaluate when @typescript-eslint v9 lands stable (it'll add TS 6
+// AST coverage). Until then: bump within 5.9.x for patch fixes, do not
+// move to 5.10 / 6.x without re-running lint + tests against the full
+// repo. See PR pinning this version for the failing-rule reproduction.
 {
   "compilerOptions": {
     "target": "ES2020",
@@ -22,7 +38,6 @@
     "noUncheckedIndexedAccess": false,
 
     /* Paths */
-    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

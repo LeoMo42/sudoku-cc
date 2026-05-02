@@ -24,7 +24,7 @@ export function NumberPad({ onNumberClick, onClear, disabled }: NumberPadProps) 
             onClick={() => onNumberClick(num)}
             disabled={disabled}
             variant="secondary"
-            className="w-12 h-12 sm:w-14 sm:h-14 text-lg font-bold"
+            className="w-12 h-12 sm:w-14 sm:h-14 text-lg font-mono font-bold"
             aria-label={String(num)}
           >
             {num}
@@ -32,11 +32,11 @@ export function NumberPad({ onNumberClick, onClear, disabled }: NumberPadProps) 
         ))}
       </div>
 
-      {/* Clear button full width */}
+      {/* Clear is reversible via Undo; reserve danger for permanent actions (#127) */}
       <Button
         onClick={onClear}
         disabled={disabled}
-        variant="danger"
+        variant="secondary"
         className="w-full h-12"
       >
         {t('game.clear')}

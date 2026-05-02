@@ -1,0 +1,38 @@
+# Dependabot configuration — keeps npm + GitHub Actions deps current.
+# Closes issue #121.
+#
+# Why this config:
+# - npm: weekly schedule keeps cadence predictable. Minor + patch bumps
+#   are grouped into one PR per week so we don't get N PRs for N
+#   incremental version bumps. Major bumps stay separate (they need
+#   attention anyway — breaking changes, deprecations, etc.).
+# - github-actions: weekly. Pairs with the planned SHA-pinning of
+#   anthropics/claude-code-action (#120) — once SHA-pinned, this rule
+#   keeps it fresh automatically.
+# - open-pull-requests-limit caps noise; tune later if it bites.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # `auto` is the documented default but we make it explicit so the
+    # intent doesn't drift if dependabot ever changes defaults. Combined
+    # with strict branch protection (require branches up-to-date),
+    # this lets dependabot rebase its own PRs when dev advances —
+    # without us hand-typing `@dependabot rebase` after every merge.
+    rebase-strategy: auto
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    rebase-strategy: auto

@@ -22,13 +22,27 @@ jobs:
     timeout-minutes: 10
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Playwright is needed by the prerender step below — it crawls the
+      # built site with a headless Chromium to capture per-route static
+      # HTML. e2e CI installs the browser separately; this job does too.
+      - run: npx playwright install --with-deps chromium
       - run: npx vite build --base /sudoku-cc/
+      # PR3 of #23: prerender each /{lang} and /{lang}/{slug} URL into a
+      # static HTML file under dist/ so GitHub Pages serves crawler-ready
+      # HTML for every variant page on the very first request, no JS
+      # execution required. PRERENDER_BASE matches the deploy base.
+      - run: PRERENDER_BASE=/sudoku-cc/ npm run prerender
+      # GitHub Pages SPA fallback for paths the prerender doesn't cover
+      # (truly invalid URLs, query-string deep links). Static prerender
+      # handles the canonical /{lang}/{slug} set; 404.html catches the
+      # rest by booting the SPA which then redirects via react-router.
+      - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist/

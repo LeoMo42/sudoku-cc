@@ -78,7 +78,11 @@ export const Cell = memo(function Cell({
   colorBlindMode = false,
   onClick,
 }: CellProps) {
-  const baseStyles = 'w-full h-full flex items-center justify-center text-xl font-medium cursor-pointer select-none transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset';
+  // font-mono (#125): cell digits use JetBrains Mono for tabular widths
+  // (so 1 occupies the same space as 8) and for the typographic character
+  // sudoku boards deserve. Falls back to the default mono stack on slow
+  // first-paint.
+  const baseStyles = 'w-full h-full flex items-center justify-center text-xl font-mono font-medium cursor-pointer select-none transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset';
 
   let cellStyles = '';
   if (isError) {

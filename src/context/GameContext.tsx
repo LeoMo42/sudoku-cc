@@ -11,7 +11,6 @@ import type {
   DifficultyLevel,
   SudokuTypeId,
   CellValue,
-  BoardSnapshot,
   OddEvenMarkers,
   KropkiDots,
   GreaterThanSigns,
@@ -438,9 +437,42 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   }
 }
 
+/**
+ * Synchronous lazy initializer for useReducer. Reads (and migrates)
+ * any persisted in-flight game from localStorage during the first
+ * render — BEFORE GameContainer's mount-time effects fire. This is
+ * load-bearing: the SEO landing routes (`/{lang}/{slug}`) need
+ * useAutoStartIdle to see the actual persisted state on its first
+ * run so its variantMismatch branch can decide whether to override.
+ *
+ * Previously the load happened in a mount effect that fired AFTER
+ * useAutoStartIdle, which clobbered any forcedVariant boot.
+ */
+function loadInitialState(): GameState {
+  if (typeof window === 'undefined') return initialState;
+  const savedState = window.localStorage?.getItem(STORAGE_KEY);
+  if (!savedState) return initialState;
+  try {
+    const parsed = JSON.parse(savedState);
+    if (!isValidSavedState(parsed)) {
+      console.warn('Saved game data is corrupted, starting fresh');
+      window.localStorage.removeItem(STORAGE_KEY);
+      return initialState;
+    }
+    const migrated = migrateSavedState(parsed);
+    // Reuse the LOAD_STATE reducer body so transformations stay in
+    // exactly one place.
+    return gameReducer(initialState, { type: Actions.LOAD_STATE, payload: migrated });
+  } catch (error) {
+    console.warn('Failed to load saved game, starting fresh:', error);
+    window.localStorage.removeItem(STORAGE_KEY);
+    return initialState;
+  }
+}
+
 // Provider component
 export function GameProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(gameReducer, initialState);
+  const [state, dispatch] = useReducer(gameReducer, undefined, loadInitialState);
 
   // Save state to localStorage
   useEffect(() => {
@@ -466,26 +498,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(STORAGE_KEY);
     }
   }, [state]);
-
-  // Load state from localStorage on mount
-  useEffect(() => {
-    const savedState = localStorage.getItem(STORAGE_KEY);
-    if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState);
-        if (!isValidSavedState(parsed)) {
-          console.warn('Saved game data is corrupted, starting fresh');
-          localStorage.removeItem(STORAGE_KEY);
-          return;
-        }
-        const migrated = migrateSavedState(parsed);
-        dispatch({ type: Actions.LOAD_STATE, payload: migrated });
-      } catch (error) {
-        console.warn('Failed to load saved game, starting fresh:', error);
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-  }, []);
 
   const newGame = useCallback((difficulty: DifficultyLevel = 'MEDIUM', sudokuType: SudokuTypeId = 'CLASSIC', seed?: number) => {
     dispatch({ type: Actions.NEW_GAME, payload: { difficulty, sudokuType, seed } });
