@@ -7,9 +7,33 @@
 @import '@fontsource-variable/manrope/wght.css';
 @import '@fontsource-variable/jetbrains-mono/wght.css';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind 4 collapses the three @tailwind directives into a single
+   @import. */
+@import 'tailwindcss';
+
+/* @config explicitly loads the legacy JS config (tailwind.config.js —
+   custom font stacks). Without it v4 doesn't auto-discover JS configs
+   reliably. Long-term: migrate fontFamily etc. into a CSS-native
+   @theme block and drop tailwind.config.js entirely. */
+@config "../tailwind.config.js";
+
+/* darkMode: 'class' equivalent for Tailwind 4. The legacy JS config's
+   `darkMode: 'class'` is NOT picked up by v4 — the CSS-native
+   @custom-variant is the supported way. The selector matches `.dark`
+   on any ancestor (including the documentElement, where our no-flash
+   script in index.html toggles the class). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tailwind 4 changed default border-color from gray-200 to currentColor.
+   Restoring the v3 default keeps every existing border-* utility in the
+   codebase rendering with the same gray hairline it always did, instead
+   of inheriting text color. Local overrides (border-red-500 etc.) win
+   normally. */
+@layer base {
+  *, ::after, ::before, ::backdrop {
+    border-color: theme('colors.gray.200');
+  }
+}
 
 @layer base {
   body {
