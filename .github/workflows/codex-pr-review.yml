@@ -17,6 +17,10 @@ jobs:
       github.event.pull_request.user.login == 'LeoMo42'
     runs-on: ubuntu-latest
     name: Codex Code Review
+    # Hard cap: a typical Codex review on a PR runs in ~30s–5min. 15 minutes
+    # is cheap insurance against a hung action burning Actions minutes and
+    # OpenAI quota up to GitHub's 6-hour default.
+    timeout-minutes: 15
 
     steps:
       - name: Checkout PR merge ref
