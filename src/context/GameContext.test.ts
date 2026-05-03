@@ -31,6 +31,7 @@ function createTestState(): GameState {
     hintsUsed: 0,
     errors: new Set(),
     mistakeCount: 0,
+    wrongAttempts: new Map(),
     notesMode: false,
     notes: new Map(),
     activeHint: null,
@@ -864,7 +865,10 @@ describe('mistake counter', () => {
     expect(state.mistakeCount).toBe(1);
   });
 
-  it('counts wrong-clear-wrong as two mistakes', () => {
+  // D2 (research-round interview): same wrong digit at the same cell
+  // counts ONE mistake total, even if the player clears between attempts.
+  // Previously this counted as two — punitive on muscle-memory typos.
+  it('does NOT double-count wrong-clear-same-wrong (D2 #219 logic)', () => {
     let state = withSolution();
     state = gameReducer(state, {
       type: Actions.SET_CELL_VALUE,
@@ -878,7 +882,7 @@ describe('mistake counter', () => {
       type: Actions.SET_CELL_VALUE,
       payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
     });
-    expect(state.mistakeCount).toBe(2);
+    expect(state.mistakeCount).toBe(1);
   });
 
   it('does not decrement on undo', () => {
@@ -976,6 +980,122 @@ describe('mistake counter', () => {
       payload: {},
     });
     expect(next.mistakeCount).toBe(0);
+  });
+
+  // Per-cell wrongAttempts tracking (D2). Each unique wrong digit at a
+  // given cell counts exactly once across the lifetime of the game.
+  describe('per-cell wrongAttempts (D2)', () => {
+    it('records the wrong digit in wrongAttempts on first attempt', () => {
+      const state = withSolution();
+      const next = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      expect(next.wrongAttempts.get('0,0')?.has(9)).toBe(true);
+      expect(next.mistakeCount).toBe(1);
+    });
+
+    it('does not record correct placements in wrongAttempts', () => {
+      const state = withSolution();
+      const next = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5, mistakeLimit: null },
+      });
+      expect(next.wrongAttempts.has('0,0')).toBe(false);
+    });
+
+    it('keeps wrongAttempts across clear (digit history is sticky)', () => {
+      let state = withSolution();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: EMPTY_CELL, mistakeLimit: null },
+      });
+      expect(state.wrongAttempts.get('0,0')?.has(9)).toBe(true);
+    });
+
+    it('counts two distinct wrong digits at same cell as two mistakes', () => {
+      let state = withSolution();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 8, mistakeLimit: null },
+      });
+      expect(state.mistakeCount).toBe(2);
+      expect(state.wrongAttempts.get('0,0')?.has(9)).toBe(true);
+      expect(state.wrongAttempts.get('0,0')?.has(8)).toBe(true);
+    });
+
+    it('does NOT re-count a digit already in wrongAttempts (third repeat)', () => {
+      let state = withSolution();
+      // 9 wrong, 8 wrong, 9 wrong again — third placement should not
+      // bump the counter.
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 8, mistakeLimit: null },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      expect(state.mistakeCount).toBe(2);
+    });
+
+    it('tracks per-cell independently (same digit at different cells = 2 mistakes)', () => {
+      let state = withSolution();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 1, value: 9, mistakeLimit: null },
+      });
+      expect(state.mistakeCount).toBe(2);
+      expect(state.wrongAttempts.get('0,0')?.has(9)).toBe(true);
+      expect(state.wrongAttempts.get('0,1')?.has(9)).toBe(true);
+    });
+
+    it('NEW_GAME resets wrongAttempts to empty Map', () => {
+      const state = withSolution();
+      state.wrongAttempts.set('5,5', new Set([3, 7]));
+      const next = gameReducer(state, {
+        type: Actions.NEW_GAME,
+        payload: { difficulty: 'EASY', sudokuType: 'CLASSIC' },
+      });
+      expect(next.wrongAttempts.size).toBe(0);
+    });
+
+    it('LOAD_STATE deserializes wrongAttempts from saved entries', () => {
+      const state = createTestState();
+      const next = gameReducer(state, {
+        type: Actions.LOAD_STATE,
+        payload: { wrongAttempts: [['0,0', [9, 8]], ['1,1', [3]]] } as never,
+      });
+      expect(next.wrongAttempts.get('0,0')?.has(9)).toBe(true);
+      expect(next.wrongAttempts.get('0,0')?.has(8)).toBe(true);
+      expect(next.wrongAttempts.get('1,1')?.has(3)).toBe(true);
+    });
+
+    it('LOAD_STATE defaults to empty Map for old saves without wrongAttempts', () => {
+      const state = createTestState();
+      state.wrongAttempts.set('5,5', new Set([7]));
+      const next = gameReducer(state, {
+        type: Actions.LOAD_STATE,
+        payload: {},
+      });
+      expect(next.wrongAttempts.size).toBe(0);
+    });
   });
 });
 

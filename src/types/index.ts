@@ -172,6 +172,14 @@ export interface GameState {
   // game. Resets to 0 on NEW_GAME. Not affected by undo/redo so the stat
   // remains honest for the future stats dashboard.
   mistakeCount: number;
+  // Per-cell record of wrong digits the player has placed at that cell
+  // during this game. Each NEW wrong digit counts as a mistake; the same
+  // wrong digit re-tried at the same cell does NOT count again — the
+  // player already learned that placement is wrong, double-counting was
+  // punitive on muscle-memory typos and accidental fat-finger retries.
+  // Decision D2 from the research-round interview. Key is "row,col";
+  // value is the Set of wrong digits attempted at that cell.
+  wrongAttempts: Map<string, Set<number>>;
   notesMode: boolean;
   notes: Map<string, Set<number>>;
   activeHint: HintStep | null;
