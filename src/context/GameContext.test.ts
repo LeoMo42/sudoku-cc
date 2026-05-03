@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { gameReducer, Actions, isValidSavedState, migrateSavedState } from './GameContext';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { gameReducer, Actions, isValidSavedState, migrateSavedState, safeSetItem, safeRemoveItem } from './GameContext';
 import { GAME_STATUS, EMPTY_CELL } from '../utils/constants';
 import { copyBoard } from '../utils/sudokuValidator';
 import type { GameState } from '../types/index';
@@ -378,6 +378,69 @@ describe('gameReducer', () => {
       const undone = gameReducer(after, { type: Actions.UNDO });
       expect(undone.notes.get('0,0')?.has(1)).toBe(true);
       expect(undone.notes.get('0,0')?.has(3)).toBe(true);
+    });
+  });
+
+  // Regression #217 — every reducer that mutates the board (or the
+  // candidate grid via notes) must clear activeHint, so a stale hint
+  // can't be applied against a state it was no longer computed against.
+  describe('activeHint clearing on board mutation (#217)', () => {
+    function withActiveHint(): GameState {
+      return {
+        ...createTestState(),
+        // Minimal placement-shaped activeHint. The reducer doesn't
+        // inspect its fields here — it just needs to be non-null so
+        // the assertion has something to clear.
+        activeHint: {
+          technique: 'NAKED_SINGLE',
+          placement: { row: 0, col: 0, value: 5 },
+          eliminations: [],
+          highlightCells: [],
+          message: 'stub',
+        } as never,
+      };
+    }
+
+    it('SET_CELL_VALUE clears activeHint', () => {
+      const state = withActiveHint();
+      const next = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 1, col: 1, value: 3 },
+      });
+      expect(next.activeHint).toBeNull();
+    });
+
+    it('UNDO clears activeHint', () => {
+      let state = createTestState();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5 },
+      });
+      // Inject a stale hint AFTER a move was made (so history exists)
+      state = { ...state, activeHint: { technique: 'NAKED_SINGLE', placement: { row: 0, col: 0, value: 5 }, eliminations: [], highlightCells: [], message: 'stub' } as never };
+      const undone = gameReducer(state, { type: Actions.UNDO });
+      expect(undone.activeHint).toBeNull();
+    });
+
+    it('REDO clears activeHint', () => {
+      let state = createTestState();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5 },
+      });
+      state = gameReducer(state, { type: Actions.UNDO });
+      state = { ...state, activeHint: { technique: 'NAKED_SINGLE', placement: { row: 0, col: 0, value: 5 }, eliminations: [], highlightCells: [], message: 'stub' } as never };
+      const redone = gameReducer(state, { type: Actions.REDO });
+      expect(redone.activeHint).toBeNull();
+    });
+
+    it('SET_NOTE clears activeHint', () => {
+      const state = withActiveHint();
+      const next = gameReducer(state, {
+        type: Actions.SET_NOTE,
+        payload: { row: 1, col: 1, number: 3 },
+      });
+      expect(next.activeHint).toBeNull();
     });
   });
 
@@ -840,5 +903,61 @@ describe('migrateSavedState', () => {
     const result = migrateSavedState(data);
     expect(data.version).toBeUndefined();
     expect(result).not.toBe(data);
+  });
+});
+
+// Regression #218 — localStorage helpers must not propagate throws from
+// SecurityError / QuotaExceededError environments (private browsing,
+// blocked-domain policies, full quota). The previous code called
+// localStorage.setItem/getItem/removeItem directly and crashed the
+// provider mount on hostile storage.
+describe('safe localStorage helpers (#218)', () => {
+  function mockThrowingStorage(): Storage {
+    const storage = {
+      length: 0,
+      clear: () => { throw new Error('SecurityError'); },
+      getItem: () => { throw new Error('SecurityError'); },
+      key: () => { throw new Error('SecurityError'); },
+      removeItem: () => { throw new Error('SecurityError'); },
+      setItem: () => { throw new Error('SecurityError'); },
+    } satisfies Storage;
+    return storage;
+  }
+
+  let originalStorage: Storage;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    originalStorage = window.localStorage;
+    Object.defineProperty(window, 'localStorage', {
+      value: mockThrowingStorage(),
+      configurable: true,
+      writable: true,
+    });
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'localStorage', {
+      value: originalStorage,
+      configurable: true,
+      writable: true,
+    });
+    warnSpy.mockRestore();
+  });
+
+  it('safeSetItem swallows SecurityError instead of crashing the caller', () => {
+    expect(() => safeSetItem('any-key', 'any-value')).not.toThrow();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Failed to persist to localStorage:',
+      expect.any(Error),
+    );
+  });
+
+  it('safeRemoveItem swallows SecurityError silently (cleanup path)', () => {
+    expect(() => safeRemoveItem('any-key')).not.toThrow();
+    // safeRemoveItem deliberately does NOT log — it's only called from
+    // already-failing paths where adding more noise hurts signal.
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 });
