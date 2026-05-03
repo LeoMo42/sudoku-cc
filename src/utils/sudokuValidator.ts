@@ -268,16 +268,49 @@ export function isValidMove(
       for (const { row: cr, col: cc } of cage.cells) {
         if ((cr !== row || cc !== col) && board[cr][cc] === num) return false;
       }
-      // If cage would be complete, check sum
-      let sum = num;
-      let complete = true;
+
+      // Partial-state check (#212). The pre-fix code broke on the first
+      // empty cell, missing two failure modes: (1) the placed digits
+      // already overshoot the target, and (2) what remains can't be
+      // filled because no combination of distinct unused digits sums
+      // to the difference. Both lead to dead-end states that the
+      // player only discovers after several more placements.
+      const placed = new Set<number>([num]);
+      let placedSum = num;
+      let emptyCount = 0;
       for (const { row: cr, col: cc } of cage.cells) {
         if (cr === row && cc === col) continue;
         const v = board[cr][cc];
-        if (v === EMPTY_CELL) { complete = false; break; }
-        sum += v;
+        if (v === EMPTY_CELL) {
+          emptyCount++;
+        } else {
+          placed.add(v);
+          placedSum += v;
+        }
       }
-      if (complete && sum !== cage.sum) return false;
+
+      if (emptyCount === 0) {
+        if (placedSum !== cage.sum) return false;
+      } else {
+        // Available digits = {1..9} \ placed. Need to fill emptyCount
+        // distinct cells, no duplicates with placed (cage rule).
+        const available: number[] = [];
+        for (let d = 1; d <= 9; d++) {
+          if (!placed.has(d)) available.push(d);
+        }
+        if (available.length < emptyCount) return false;
+        const needed = cage.sum - placedSum;
+        // Smallest N and largest N digits from `available` (already
+        // ascending). The interval [minRemaining, maxRemaining] is
+        // every sum reachable by some distinct N-subset of available.
+        let minRemaining = 0;
+        for (let i = 0; i < emptyCount; i++) minRemaining += available[i];
+        let maxRemaining = 0;
+        for (let i = available.length - emptyCount; i < available.length; i++) {
+          maxRemaining += available[i];
+        }
+        if (needed < minRemaining || needed > maxRemaining) return false;
+      }
     }
   }
 
@@ -291,7 +324,6 @@ export function isValidMove(
       const nr = row + dr, nc = col + dc;
       if (nr < 0 || nr >= GRID_SIZE || nc < 0 || nc >= GRID_SIZE) continue;
       const adjVal = board[nr][nc];
-      if (adjVal === EMPTY_CELL) continue;
 
       // Build canonical edge key and determine if num is the left/top value
       let key: string;
@@ -303,6 +335,21 @@ export function isValidMove(
 
       const sign = greaterThanSigns.get(key);
       if (!sign) continue;
+
+      // Empty neighbor: pre-fix `continue` skipped the structural
+      // boundary check, so impossible placements (e.g. `9` on the
+      // less-than side of a `<` with no other constraints) were
+      // silently accepted (#212). The neighbor digit must be in 1-9
+      // and satisfy the sign, so num is bounded:
+      //   num must be greater  → neighbor in [1, num-1] → num >= 2
+      //   num must be less     → neighbor in [num+1, 9] → num <= 8
+      if (adjVal === EMPTY_CELL) {
+        const numMustBeGreater = (numIsLeftOrTop && sign === '>') || (!numIsLeftOrTop && sign === '<');
+        const numMustBeLess    = (numIsLeftOrTop && sign === '<') || (!numIsLeftOrTop && sign === '>');
+        if (numMustBeGreater && num < 2) return false;
+        if (numMustBeLess && num > 8) return false;
+        continue;
+      }
 
       const leftOrTop     = numIsLeftOrTop ? num    : adjVal;
       const rightOrBottom = numIsLeftOrTop ? adjVal : num;
@@ -354,16 +401,35 @@ export function isValidMove(
     for (const thermo of thermos) {
       const idx = thermo.findIndex(c => c.row === row && c.col === col);
       if (idx === -1) continue;
-      // All filled cells before this position must be strictly less
+
+      // Partial-state structural check (#212). The pre-fix code only
+      // compared num to filled cells before/after, missing the case
+      // where empty cells transitively constrain num. Example: 9 at
+      // the bulb of a length-3 thermo with later cells empty was
+      // accepted, but cells beyond would need to be >9 — impossible.
+      //
+      // Lower bound: idx + 1 (cells before need 1..idx ascending),
+      // strengthened by any filled cell at i<idx with value v
+      // (num >= v + (idx - i) so cells between can fit).
+      // Upper bound: 9 - (length - 1 - idx) (cells after need
+      // increasing values up to 9), strengthened by any filled cell
+      // at j>idx with value v (num <= v - (j - idx)).
+      const len = thermo.length;
+      let minNum = idx + 1;
+      let maxNum = 9 - (len - 1 - idx);
       for (let i = 0; i < idx; i++) {
         const v = board[thermo[i].row][thermo[i].col];
-        if (v !== EMPTY_CELL && v >= num) return false;
+        if (v !== EMPTY_CELL) {
+          minNum = Math.max(minNum, v + (idx - i));
+        }
       }
-      // All filled cells after this position must be strictly greater
-      for (let i = idx + 1; i < thermo.length; i++) {
+      for (let i = idx + 1; i < len; i++) {
         const v = board[thermo[i].row][thermo[i].col];
-        if (v !== EMPTY_CELL && v <= num) return false;
+        if (v !== EMPTY_CELL) {
+          maxNum = Math.min(maxNum, v - (i - idx));
+        }
       }
+      if (num < minNum || num > maxNum) return false;
     }
   }
 

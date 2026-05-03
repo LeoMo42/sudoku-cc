@@ -7,7 +7,14 @@ import {
   copyBoard,
 } from './sudokuValidator';
 import { EMPTY_CELL } from './constants';
-import type { Board, OddEvenMarkers, SandwichClues } from '../types/index';
+import type {
+  Board,
+  OddEvenMarkers,
+  SandwichClues,
+  KillerCage,
+  Thermo,
+  GreaterThanSigns,
+} from '../types/index';
 
 describe('Sudoku Validator', () => {
   // Valid complete sudoku board for testing
@@ -389,6 +396,182 @@ describe('Sudoku Validator', () => {
       const clues: SandwichClues = { ...emptySandwich, rows: [null, null, null, null, null, null, null, null, null] };
 
       expect(isValidMove(board, 0, 2, 8, 'SANDWICH', null, null, null, null, null, null, clues)).toBe(true);
+    });
+  });
+
+  // Regression #212 — partial-state checks for variant rules. The
+  // pre-fix validator silently accepted placements that were already
+  // impossible to complete (Killer cage that overshoots its target,
+  // Thermo cell that no later cell could exceed, Greater-than signs
+  // pointing into empty cells with values out of the achievable
+  // range). Player would only learn about the dead-end state after
+  // several more placements.
+
+  describe('Killer Sudoku partial-state (#212)', () => {
+    function emptyBoard(): Board {
+      return Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)) as Board;
+    }
+    // 4-cell L-shaped cage at top-left with target sum 10.
+    const cage: KillerCage = {
+      sum: 10,
+      cells: [
+        { row: 0, col: 0 },
+        { row: 0, col: 1 },
+        { row: 0, col: 2 },
+        { row: 1, col: 0 },
+      ],
+    };
+
+    it('rejects placement when partial sum already exceeds target', () => {
+      // 7 + 5 placed (sum 12); cage target 10. Adding any digit
+      // would overshoot even before completion.
+      const board = emptyBoard();
+      board[0]![0] = 7;
+      board[0]![1] = 5;
+      // Try to place anything at the third cage cell — should fail
+      // because partial sum 12 + N > 10 for any positive N.
+      expect(isValidMove(board, 0, 2, 1, 'KILLER', null, null, [cage])).toBe(false);
+    });
+
+    it('rejects placement that makes minimum completion still overshoot', () => {
+      // Cage target 10, three cells already have 8 + 9 = 17 wait that
+      // duplicates... Use a 4-cell cage with target 10 and place 9 at
+      // cell 0. Remaining 3 cells need sum 1 with three distinct
+      // digits not in {9} — impossible (smallest 1+2+3 = 6 > 1, AND
+      // largest = 6+7+8 = 21 ≥ 1 — so we need sum=1 from 3 distinct
+      // unused digits, which is impossible).
+      const board = emptyBoard();
+      // Cage is 4 cells; place 9 at first. Required from remaining 3
+      // cells: 10 - 9 = 1. Min is 1+2+3 = 6. So undershoot impossible.
+      expect(isValidMove(board, 0, 0, 9, 'KILLER', null, null, [cage])).toBe(false);
+    });
+
+    it('accepts placement that leaves a valid completion path', () => {
+      // Cage target 10, place 1 at first. Remaining 3 cells need sum
+      // 9 from {2..9}\{1} — many valid combos (2+3+4=9, etc).
+      const board = emptyBoard();
+      expect(isValidMove(board, 0, 0, 1, 'KILLER', null, null, [cage])).toBe(true);
+    });
+
+    it('rejects when no enough distinct digits left for remaining cells', () => {
+      // Synthetic: a 5-cell cage in a tight area where 4 are already
+      // placed with values consuming most of the small digits, then
+      // the 5th cell has no distinct digit left that satisfies sum.
+      const tightCage: KillerCage = {
+        sum: 30,
+        cells: [
+          { row: 0, col: 0 },
+          { row: 0, col: 1 },
+          { row: 0, col: 2 },
+          { row: 0, col: 3 },
+          { row: 0, col: 4 },
+        ],
+      };
+      const board = emptyBoard();
+      board[0]![0] = 9;
+      board[0]![1] = 8;
+      board[0]![2] = 7;
+      board[0]![3] = 6;
+      // Need sum 30 - 30 = 0 from one remaining cell. Impossible.
+      expect(isValidMove(board, 0, 4, 5, 'KILLER', null, null, [tightCage])).toBe(false);
+    });
+
+    it('still accepts a complete-cage placement that hits exact sum', () => {
+      // 4-cell cage sum 10, three cells filled 1+2+3 = 6, place 4 to
+      // complete (1+2+3+4=10).
+      const board = emptyBoard();
+      board[0]![0] = 1;
+      board[0]![1] = 2;
+      board[0]![2] = 3;
+      expect(isValidMove(board, 1, 0, 4, 'KILLER', null, null, [cage])).toBe(true);
+    });
+  });
+
+  describe('Thermo Sudoku partial-state (#212)', () => {
+    function emptyBoard(): Board {
+      return Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)) as Board;
+    }
+    // Length-3 horizontal thermo at row 0, cols 0-2 (bulb left).
+    const len3Thermo: Thermo = [
+      { row: 0, col: 0 }, // bulb (idx 0)
+      { row: 0, col: 1 }, // idx 1
+      { row: 0, col: 2 }, // tip (idx 2)
+    ];
+
+    it('rejects 9 at the bulb of a length-3 thermo (no room to ascend)', () => {
+      // Bulb max = 9 - (3-1-0) = 7. So 8 and 9 are impossible.
+      const board = emptyBoard();
+      expect(isValidMove(board, 0, 0, 9, 'THERMO', null, null, null, null, null, [len3Thermo])).toBe(false);
+      expect(isValidMove(board, 0, 0, 8, 'THERMO', null, null, null, null, null, [len3Thermo])).toBe(false);
+    });
+
+    it('rejects 1 at the tip of a length-3 thermo (no room to descend)', () => {
+      // Tip min = idx + 1 = 3. So 1 and 2 are impossible.
+      const board = emptyBoard();
+      expect(isValidMove(board, 0, 2, 1, 'THERMO', null, null, null, null, null, [len3Thermo])).toBe(false);
+      expect(isValidMove(board, 0, 2, 2, 'THERMO', null, null, null, null, null, [len3Thermo])).toBe(false);
+    });
+
+    it('accepts valid bulb placements within range', () => {
+      const board = emptyBoard();
+      // Bulb range is 1..7
+      for (const v of [1, 4, 7] as const) {
+        expect(isValidMove(board, 0, 0, v, 'THERMO', null, null, null, null, null, [len3Thermo])).toBe(true);
+      }
+    });
+
+    it('rejects gap-aware: num=4 at idx=0 with idx=2=5 forces idx=1 between 4 and 5', () => {
+      // Pre-fix this passed (5 > 4 OK). Post-fix: max(num at idx=0)
+      // is min(7, 5 - 2) = 3. So num=4 should fail.
+      const board = emptyBoard();
+      board[0]![2] = 5;
+      expect(isValidMove(board, 0, 0, 4, 'THERMO', null, null, null, null, null, [len3Thermo])).toBe(false);
+    });
+
+    it('still accepts num=2 at idx=0 with idx=2=5 (idx=1 can be 3 or 4)', () => {
+      const board = emptyBoard();
+      board[0]![2] = 5;
+      expect(isValidMove(board, 0, 0, 2, 'THERMO', null, null, null, null, null, [len3Thermo])).toBe(true);
+    });
+  });
+
+  describe('Greater-than partial-state (#212)', () => {
+    function emptyBoard(): Board {
+      return Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL)) as Board;
+    }
+
+    it('rejects 9 on the less-than side of `<` with empty neighbor', () => {
+      // Cell (0,0) `<` (0,1): num at (0,0) must be < neighbor.
+      // Empty neighbor: num <= 8, so 9 must fail.
+      const signs: GreaterThanSigns = new Map([['0,0,r', '<']]);
+      const board = emptyBoard();
+      expect(isValidMove(board, 0, 0, 9, 'GREATER_THAN', null, null, null, null, signs)).toBe(false);
+    });
+
+    it('rejects 1 on the greater-than side of `>` with empty neighbor', () => {
+      // Cell (0,0) `>` (0,1): num at (0,0) must be > neighbor.
+      // Empty neighbor: num >= 2, so 1 must fail.
+      const signs: GreaterThanSigns = new Map([['0,0,r', '>']]);
+      const board = emptyBoard();
+      expect(isValidMove(board, 0, 0, 1, 'GREATER_THAN', null, null, null, null, signs)).toBe(false);
+    });
+
+    it('accepts valid placements with empty neighbor', () => {
+      // 2..8 are valid for either side (range allows neighbor 1..9).
+      const signs: GreaterThanSigns = new Map([['0,0,r', '<']]);
+      const board = emptyBoard();
+      expect(isValidMove(board, 0, 0, 5, 'GREATER_THAN', null, null, null, null, signs)).toBe(true);
+      expect(isValidMove(board, 0, 0, 8, 'GREATER_THAN', null, null, null, null, signs)).toBe(true);
+    });
+
+    it('still validates filled-neighbor cases (regression on existing logic)', () => {
+      const signs: GreaterThanSigns = new Map([['0,0,r', '>']]);
+      const board = emptyBoard();
+      board[0]![1] = 5;
+      // num at (0,0) must be > 5. 4 fails.
+      expect(isValidMove(board, 0, 0, 4, 'GREATER_THAN', null, null, null, null, signs)).toBe(false);
+      // 6 succeeds.
+      expect(isValidMove(board, 0, 0, 6, 'GREATER_THAN', null, null, null, null, signs)).toBe(true);
     });
   });
 });
