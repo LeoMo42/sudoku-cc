@@ -56,6 +56,7 @@ const initialState: GameState = {
   hintsUsed: 0,
   errors: new Set(),
   mistakeCount: 0,
+  wrongAttempts: new Map(),
   notesMode: false,
   notes: new Map(),
   activeHint: null,
@@ -181,17 +182,40 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       // Check for errors
       const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
 
-      // Mistake counter: a placement is a mistake when it's a non-empty
-      // value that disagrees with the unique solution AND it's a *new*
-      // placement (not re-confirming the same wrong digit). Replacing a
-      // wrong digit with the correct one does NOT count, replacing wrong
-      // with another wrong DOES count, clearing never counts.
+      // Mistake counter (D2 from research-round interview).
+      //
+      // A placement is a mistake when it's a non-empty value that
+      // disagrees with the unique solution AND the player has not
+      // already tried that exact wrong digit at this cell. The previous
+      // implementation used `value !== oldValue` as the "new" check,
+      // which double-counted typo→clear→same-typo and let mistake-limit
+      // bombs trigger from one wrong button tapped three times in a row.
+      //
+      // Tracking wrongAttempts as Map<cellKey, Set<digit>> means each
+      // unique wrong guess for a cell counts exactly once. Clearing the
+      // cell does NOT clear wrongAttempts — the player still already
+      // learned that digit was wrong.
+      //
+      // Memory ceiling: 81 cells × 9 distinct wrong digits each = 729
+      // entries, well under 6 KB worst case.
       const solutionValue = state.solution[row]![col];
-      const isNewWrongPlacement =
-        value !== EMPTY_CELL &&
-        value !== solutionValue &&
-        value !== oldValue;
+      const cellKey = `${row},${col}`;
+      const isWrongPlacement =
+        value !== EMPTY_CELL && value !== solutionValue;
+      const alreadyTried = state.wrongAttempts.get(cellKey)?.has(value) ?? false;
+      const isNewWrongPlacement = isWrongPlacement && !alreadyTried;
       const mistakeCount = isNewWrongPlacement ? state.mistakeCount + 1 : state.mistakeCount;
+
+      // Append this wrong digit to the per-cell history so the next
+      // re-tap of the same digit doesn't re-count. Correct placements
+      // and clears don't update wrongAttempts.
+      let newWrongAttempts = state.wrongAttempts;
+      if (isNewWrongPlacement) {
+        newWrongAttempts = new Map(state.wrongAttempts);
+        const cellSet = new Set(newWrongAttempts.get(cellKey) ?? []);
+        cellSet.add(value);
+        newWrongAttempts.set(cellKey, cellSet);
+      }
 
       // Check if puzzle is solved. Annotate the type explicitly so the
       // narrowing from the early-return guard above (which excludes LOST
@@ -215,6 +239,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         board: newBoard,
         errors,
         mistakeCount,
+        wrongAttempts: newWrongAttempts,
         gameStatus,
         notes: newNotes,
         // Any board mutation invalidates a previously-computed hint:
@@ -450,11 +475,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const payload = action.payload as Partial<GameState> & {
         errors?: string[];
         notes?: [string, number[]][];
+        wrongAttempts?: [string, number[]][];
         oddEvenMarkers?: [string, string][] | null;
         kropkiDots?: [string, string][] | null;
         greaterThanSigns?: [string, string][] | null;
       };
       const loadedNotes = new Map((payload.notes || []).map(([k, v]) => [k, new Set(v)]));
+      // Old saves predate wrongAttempts; default to empty Map so a
+      // player loading an in-flight game from before D2 shipped doesn't
+      // get NaN/undefined when the reducer reads it on next placement.
+      const loadedWrongAttempts = new Map(
+        (payload.wrongAttempts || []).map(([k, v]) => [k, new Set(v)] as [string, Set<number>]),
+      );
       const loadedBoard = payload.board ?? state.board;
       return {
         ...state,
@@ -465,6 +497,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         mistakeCount: typeof payload.mistakeCount === 'number' ? payload.mistakeCount : 0,
         errors: new Set(payload.errors || []),
         notes: loadedNotes,
+        wrongAttempts: loadedWrongAttempts,
         activeHint: null,
         history: [{ board: copyBoard(loadedBoard as number[][]), notes: cloneNotes(loadedNotes) }],
         historyIndex: 0,
@@ -563,6 +596,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         version: SAVE_VERSION,
         errors: Array.from(state.errors),
         notes: Array.from(state.notes.entries()).map(([k, v]) => [k, Array.from(v)]),
+        wrongAttempts: Array.from(state.wrongAttempts.entries()).map(([k, v]) => [k, Array.from(v)]),
         activeHint: null,
         oddEvenMarkers: state.oddEvenMarkers ? Array.from(state.oddEvenMarkers.entries()) : null,
         kropkiDots: state.kropkiDots ? Array.from(state.kropkiDots.entries()) : null,
