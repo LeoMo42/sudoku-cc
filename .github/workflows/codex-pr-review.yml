@@ -1,0 +1,237 @@
+name: Codex PR Review
+
+on:
+  pull_request:
+    branches: [dev]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  codex-review:
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login == 'LeoMo42'
+    runs-on: ubuntu-latest
+    name: Codex Code Review
+    # Hard cap: a typical Codex review on a PR runs in ~30s–5min. 15 minutes
+    # is cheap insurance against a hung CLI burning Actions minutes up to
+    # GitHub's 6-hour default.
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout PR merge ref
+        uses: actions/checkout@v6
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 0
+
+      - name: Capture PR diff and prior comments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr.diff
+          gh pr view ${{ github.event.pull_request.number }} --comments \
+            > /tmp/pr.comments || true
+          echo "Diff bytes: $(wc -c < /tmp/pr.diff)"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      # Pinned to a known-good version for reproducibility. Bump manually
+      # (or via Dependabot if codex CLI ends up in package.json) when
+      # validating a new release. Latest at ship time of this workflow:
+      # https://www.npmjs.com/package/@openai/codex
+      - name: Install Codex CLI
+        run: |
+          npm install -g @openai/codex@0.128.0
+          codex --version
+
+      # Why ChatGPT auth instead of OPENAI_API_KEY:
+      # - Plus subscription quota is way more generous than Tier-1 API TPM
+      # - $0 marginal cost per review (covered by the $20/mo Plus)
+      # - The OpenAI doc covering this CI/CD recipe lives at
+      #   https://developers.openai.com/codex/auth/ci-cd-auth
+      #
+      # Sessions expire after roughly 8 days. Run scripts/codex-auth-refresh.sh
+      # from a logged-in Mac weekly to re-seed CODEX_AUTH_JSON.
+      - name: Seed Codex auth from secret
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          if [ -z "$CODEX_AUTH_JSON" ]; then
+            echo "::error::CODEX_AUTH_JSON secret is empty or not configured. See scripts/codex-auth-refresh.sh."
+            exit 1
+          fi
+          mkdir -p "$HOME/.codex"
+          chmod 700 "$HOME/.codex"
+          printf '%s' "$CODEX_AUTH_JSON" > "$HOME/.codex/auth.json"
+          chmod 600 "$HOME/.codex/auth.json"
+          # Sanity check without leaking secret content
+          if ! command -v jq >/dev/null 2>&1; then sudo apt-get install -y -q jq >/dev/null; fi
+          mode=$(jq -r '.auth_mode // "unknown"' "$HOME/.codex/auth.json")
+          if [ "$mode" != "chatgpt" ]; then
+            echo "::error::auth.json is mode='$mode', expected 'chatgpt'. Re-seed via scripts/codex-auth-refresh.sh."
+            exit 1
+          fi
+          echo "Auth mode: $mode (refresh-token: present)"
+
+      - name: Build Codex prompt
+        run: |
+          cat > /tmp/codex-prompt.md <<'PROMPT_EOF'
+          You are reviewing a PR for Sudoku Sensei, a React 19 + TypeScript + Vite
+          sudoku app with 13 variant types (Classic, Diagonal, Killer, Thermo,
+          Sandwich, Kropki, Anti-Knight, Anti-King, Non-Consecutive, Odd-Even,
+          Greater-than, Little-Killer, Windoku).
+
+          Stack: React 19, TypeScript (strict), Vite 8, Tailwind CSS 4 (migrated
+          from v3 in #200), Vitest 4, Playwright, i18next (ru/en), prerendered
+          to GitHub Pages with 28 SEO-indexable routes.
+
+          You are running in **parallel with a Claude reviewer** on the same PR.
+          Both produce independent reviews. Do your own thinking — do not defer
+          to or echo the other reviewer.
+
+          ## Inputs
+
+          - The PR diff and any prior PR comments are appended below this prompt
+            under `---PR_DIFF---` and `---PRIOR_PR_COMMENTS---` markers.
+          - The full repo is checked out at the working directory. You may
+            `Read` / `grep` files **touched by the diff** to verify a finding,
+            but stay within the diff scope. Do not audit unchanged code.
+
+          ## Your Task
+
+          Produce a code review of the diff. Your **final agent message IS the
+          review** — the workflow captures it via `--output-last-message`. Do
+          NOT run `gh` commands; the workflow handles posting.
+
+          Do not re-raise issues that prior comments already raised, fixed, or
+          that the author explicitly defended. Do not relitigate accepted
+          approaches.
+
+          ## What to look for (in order of priority)
+
+          - **Game logic correctness**: Sudoku constraints, puzzle uniqueness,
+            variant rules (diagonal, anti-knight, sandwich, killer cages,
+            kropki dots, thermo arrows, etc.), undo/redo consistency, mistake
+            counter logic.
+          - **Real bugs**: crashes, data loss, broken localStorage, race
+            conditions, wrong state transitions, accessibility regressions
+            that break a screen reader.
+          - **Type safety holes** that admit runtime errors (not stylistic widening).
+          - **Performance regressions** with a concrete reproduction (81-cell
+            grid re-render is the bar — speculative "this might be slow"
+            doesn't count).
+          - **Tailwind 4 migration relics**: v3-only utilities like
+            `bg-opacity-*`, `flex-shrink-*`, deprecated arbitrary syntax
+            that may not generate in v4.
+
+          ## Falsifiability rule (REQUIRED for Critical / Important)
+
+          Every Critical or Important issue MUST include either:
+          - A concrete input or user action that triggers the bug, OR
+          - A failing test you can describe in one sentence.
+
+          If you cannot produce one, the issue is NOT Critical or Important.
+          Demote it to Suggestions or omit it entirely. "This could theoretically
+          fail if X" without a path to X is not a real issue.
+
+          ## Do NOT flag (skip-list)
+
+          - Defensive guards that duplicate an upstream check — defense-in-depth
+            is fine.
+          - Redundant `title` + `aria-label` on the same element — both are valid.
+          - Type widening with no runtime impact (e.g. `boolean | null` vs
+            `boolean`) unless it actually causes a bug.
+          - Test structure / refactoring preferences (helper extraction, naming,
+            what to assert in which `it` block) when the existing tests pass and
+            cover the behavior.
+          - Code outside the diff. If a file is unchanged, do not review it.
+          - Naming, comment wording, JSDoc presence, file organization preferences.
+          - Vague "consider X" suggestions with no concrete bug behind them.
+          - Style nits already enforced by ESLint / Prettier / Tailwind.
+
+          ## Output format (exact)
+
+          Your final message MUST start with this header on its own line,
+          followed by a blank line:
+
+          ```
+          **🤖 Codex Review**
+          ```
+
+          Then the sections:
+
+          - **Summary** — 1–2 sentences on what the PR does.
+          - **Strengths** — 1–3 bullets, only if genuinely notable. Skip if routine.
+          - **Critical** — must fix before merge. Each entry needs the
+            falsifiability evidence above. Most PRs have ZERO. Empty section
+            is normal and good.
+          - **Important** — should fix. Each entry needs the falsifiability
+            evidence above. A great review has **0–2** Important issues, not 5.
+            If your draft has more than 3, cut the weakest ones. Padding hurts
+            signal.
+          - **Suggestions** — optional polish. Cap at 3. These are takes, not asks.
+          - **Testing** — 1–3 things a reviewer should manually verify.
+
+          If after honest analysis you have nothing to flag, output exactly:
+
+          ```
+          **🤖 Codex Review**
+
+          **Summary** — <one sentence on what the PR does>
+
+          No Critical, Important, or Suggestions to flag. Diff looks clean.
+
+          **Testing** — <1–2 things to manually verify>
+          ```
+
+          ## Style
+
+          - Specific: cite `file.tsx:123` line numbers.
+          - Explain WHY (the user-visible or runtime impact), not just WHAT.
+          - Terse. No preamble, no fluff, no restating the diff.
+          - It is correct and good to post a short review. Length is not signal.
+          PROMPT_EOF
+          echo "Prompt bytes: $(wc -c < /tmp/codex-prompt.md)"
+
+      - name: Run Codex Review
+        run: |
+          {
+            cat /tmp/codex-prompt.md
+            printf '\n\n---PR_DIFF---\n'
+            cat /tmp/pr.diff
+            printf '\n\n---PRIOR_PR_COMMENTS---\n'
+            cat /tmp/pr.comments
+          } > /tmp/codex-input.txt
+
+          # Pipe the prompt via stdin (`-`) instead of as an argv argument.
+          # On Linux the per-arg ARG_MAX is ~128 KB and the total argv+env
+          # budget is ~2 MB; a fat PR diff would silently fail process launch
+          # with E2BIG. Stdin sidesteps the limit entirely.
+          codex exec \
+            --output-last-message /tmp/codex-review.md \
+            -c 'model_reasoning_effort="medium"' \
+            - \
+            < /tmp/codex-input.txt \
+            > /tmp/codex.stdout 2> /tmp/codex.stderr
+          echo "Review bytes: $(wc -c < /tmp/codex-review.md 2>/dev/null || echo 0)"
+
+      - name: Post Codex review comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -s /tmp/codex-review.md ]; then
+            echo "::error::Codex did not produce a review (--output-last-message file missing or empty)"
+            echo "--- codex stderr (last 50 lines) ---"
+            tail -50 /tmp/codex.stderr 2>/dev/null || true
+            exit 1
+          fi
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body-file /tmp/codex-review.md
