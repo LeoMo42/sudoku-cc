@@ -18,10 +18,6 @@ jobs:
       github.event.pull_request.user.login == 'LeoMo42'
     runs-on: ubuntu-latest
     name: Claude Code Review
-    # Hard cap: a typical Claude review on a PR runs in ~30s–5min. 15 minutes
-    # is cheap insurance against a hung action burning Actions minutes up to
-    # GitHub's 6-hour default. Same rationale as codex-pr-review.yml.
-    timeout-minutes: 15
 
     steps:
     - name: Checkout repository
