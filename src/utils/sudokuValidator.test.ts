@@ -434,15 +434,10 @@ describe('Sudoku Validator', () => {
     });
 
     it('rejects placement that makes minimum completion still overshoot', () => {
-      // Cage target 10, three cells already have 8 + 9 = 17 wait that
-      // duplicates... Use a 4-cell cage with target 10 and place 9 at
-      // cell 0. Remaining 3 cells need sum 1 with three distinct
-      // digits not in {9} — impossible (smallest 1+2+3 = 6 > 1, AND
-      // largest = 6+7+8 = 21 ≥ 1 — so we need sum=1 from 3 distinct
-      // unused digits, which is impossible).
+      // 4-cell cage, target 10. Place 9 at first cell. Remaining 3
+      // distinct digits from {1..8} must sum to 10 - 9 = 1 — but the
+      // smallest 3-subset is 1+2+3 = 6, so no completion is possible.
       const board = emptyBoard();
-      // Cage is 4 cells; place 9 at first. Required from remaining 3
-      // cells: 10 - 9 = 1. Min is 1+2+3 = 6. So undershoot impossible.
       expect(isValidMove(board, 0, 0, 9, 'KILLER', null, null, [cage])).toBe(false);
     });
 
@@ -484,6 +479,45 @@ describe('Sudoku Validator', () => {
       board[0]![1] = 2;
       board[0]![2] = 3;
       expect(isValidMove(board, 1, 0, 4, 'KILLER', null, null, [cage])).toBe(true);
+    });
+
+    // Distinct-digit subset sums aren't contiguous over [min, max] — the
+    // earlier interval-only guard was an over-approximation (Codex PR
+    // #239 review). Repro below: 6-cell cage target 22, placed {9,2,3,1}
+    // sum 15, available {4,5,6,7,8}, k=2 needed 7. Interval [9,15] would
+    // accept; no 2-subset of {4,5,6,7,8} sums to 7, so existence check
+    // rejects.
+    it('rejects when subset-sum is unreachable inside the interval', () => {
+      const cage: KillerCage = {
+        sum: 22,
+        cells: [
+          { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 },
+          { row: 1, col: 3 }, { row: 1, col: 4 }, { row: 1, col: 5 },
+        ],
+      };
+      const board = emptyBoard();
+      board[1]![0] = 9;
+      board[1]![1] = 2;
+      board[1]![2] = 3;
+      expect(isValidMove(board, 1, 3, 1, 'KILLER', null, null, [cage])).toBe(false);
+    });
+
+    it('accepts when subset-sum IS reachable (boundary case for the new check)', () => {
+      // 6-cell cage, target 28. Three cells placed {9,4,1} sum 14;
+      // candidate=3 at cell 3 makes placed={9,4,1,3} sum 17, leaving
+      // 2 cells that must sum to 11 from {2,5,6,7,8}. 5+6=11 → reachable.
+      const cage6: KillerCage = {
+        sum: 28,
+        cells: [
+          { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 },
+          { row: 1, col: 3 }, { row: 1, col: 4 }, { row: 1, col: 5 },
+        ],
+      };
+      const board = emptyBoard();
+      board[1]![0] = 9;
+      board[1]![1] = 4;
+      board[1]![2] = 1;
+      expect(isValidMove(board, 1, 3, 3, 'KILLER', null, null, [cage6])).toBe(true);
     });
   });
 

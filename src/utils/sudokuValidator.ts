@@ -46,6 +46,43 @@ function checkSandwichLine(line: CellValue[], clue: number): boolean {
   return true;
 }
 
+/**
+ * True iff some k-element subset of `available` sums to exactly `target`.
+ * `available` MUST be sorted ascending (caller's responsibility — the
+ * Killer call site builds it via 1..9 iteration).
+ *
+ * Used by the Killer cage partial-state check: the earlier draft used a
+ * [minSum, maxSum] interval as the guard, but distinct-digit subset
+ * sums aren't contiguous over that interval (e.g. available={1,4,5},
+ * k=2 covers only {5,6,9} — 7 falls in the interval but no 2-subset
+ * achieves it). For the Killer call site k <= 5 (max cage size) and
+ * available.length <= 9, so naive recursion with min/max pruning is
+ * trivially fast.
+ */
+function subsetSumExists(available: number[], k: number, target: number): boolean {
+  if (k === 0) return target === 0;
+  if (target < 0) return false;
+  if (k > available.length) return false;
+
+  // Min/max pruning over the suffix we're still considering.
+  let minSuffix = 0;
+  for (let i = 0; i < k; i++) minSuffix += available[i];
+  if (target < minSuffix) return false;
+  let maxSuffix = 0;
+  for (let i = available.length - k; i < available.length; i++) {
+    maxSuffix += available[i];
+  }
+  if (target > maxSuffix) return false;
+
+  // Branch on the smallest element: include it, or skip it.
+  const head = available[0];
+  const rest = available.slice(1);
+  return (
+    subsetSumExists(rest, k - 1, target - head) ||
+    subsetSumExists(rest, k, target)
+  );
+}
+
 export function isValidMove(
   board: Board,
   row: number,
@@ -300,16 +337,15 @@ export function isValidMove(
         }
         if (available.length < emptyCount) return false;
         const needed = cage.sum - placedSum;
-        // Smallest N and largest N digits from `available` (already
-        // ascending). The interval [minRemaining, maxRemaining] is
-        // every sum reachable by some distinct N-subset of available.
-        let minRemaining = 0;
-        for (let i = 0; i < emptyCount; i++) minRemaining += available[i];
-        let maxRemaining = 0;
-        for (let i = available.length - emptyCount; i < available.length; i++) {
-          maxRemaining += available[i];
-        }
-        if (needed < minRemaining || needed > maxRemaining) return false;
+        // Subset-sum existence check. The earlier draft used the
+        // [minSum, maxSum] interval as the guard, but distinct-digit
+        // subset sums aren't contiguous over that interval. Codex
+        // PR #239 review caught a concrete miss: available={1,4,5},
+        // k=2 covers sums {5,6,9} only — needed=7 is in the [5,9]
+        // interval but no 2-subset achieves it. Real existence test
+        // is required to close the partial-state dead-end this fix
+        // claims to handle.
+        if (!subsetSumExists(available, emptyCount, needed)) return false;
       }
     }
   }
