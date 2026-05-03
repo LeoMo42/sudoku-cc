@@ -290,5 +290,52 @@ describe('Sudoku Generator', () => {
         expect(typeof foundValid).toBe('boolean');
       });
     });
+
+    // Regression #210 — cage growth must not produce duplicate digits.
+    // Before the fix, generateKillerCages grew cages by orthogonal
+    // adjacency without checking the underlying solution digits, so a
+    // single cage could legitimately catch the same digit twice (since
+    // the same digit appears 9 times in any 9×9 sudoku solution).
+    // The validator then rejects placements that match the solution,
+    // making the puzzle unsolvable.
+    describe('Killer Sudoku', () => {
+      it('cages should never contain duplicate digits (50 puzzles)', () => {
+        for (let i = 0; i < 50; i++) {
+          const { solution, killerCages } = createPuzzle('MEDIUM', 'KILLER', i);
+          expect(killerCages).not.toBeNull();
+          for (const cage of killerCages!) {
+            const digits = cage.cells.map(({ row, col }) => solution[row]![col]!);
+            const unique = new Set(digits);
+            expect(unique.size).toBe(digits.length);
+          }
+        }
+      });
+
+      it('cages cover all 81 cells exactly once', () => {
+        const { killerCages } = createPuzzle('MEDIUM', 'KILLER', 42);
+        const seen = new Set<string>();
+        let total = 0;
+        for (const cage of killerCages!) {
+          for (const { row, col } of cage.cells) {
+            const key = `${row},${col}`;
+            expect(seen.has(key)).toBe(false);
+            seen.add(key);
+            total++;
+          }
+        }
+        expect(total).toBe(GRID_SIZE * GRID_SIZE);
+      });
+
+      it('cage sums match the sum of solution digits in those cells', () => {
+        const { solution, killerCages } = createPuzzle('MEDIUM', 'KILLER', 7);
+        for (const cage of killerCages!) {
+          const expected = cage.cells.reduce(
+            (s, { row, col }) => s + solution[row]![col]!,
+            0,
+          );
+          expect(cage.sum).toBe(expected);
+        }
+      });
+    });
   });
 });
