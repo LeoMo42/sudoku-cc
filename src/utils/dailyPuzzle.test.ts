@@ -166,34 +166,88 @@ describe('recordDailyCompletion', () => {
   });
 });
 
-describe('clock-back exploit guard (#142)', () => {
-  it('does NOT inflate streak when clock rolls back', () => {
+describe('clock-skew handling (#142, D3)', () => {
+  it('does NOT inflate currentStreak when clock rolls back', () => {
     // Step 1: user "travels" to tomorrow and completes.
     recordDailyCompletion(new Date(2024, 0, 16));
     expect(loadDailyStore().currentStreak).toBe(1);
     expect(loadDailyStore().lastCompletedDayNumber).toBeGreaterThan(0);
 
     // Step 2: user rolls clock back to today and tries to complete again.
-    // The future-date guard should detect this and reset to a fresh
-    // single-day streak instead of letting the user farm increments.
+    // The future-date guard clamps lastCompletedDayNumber to today and
+    // preserves currentStreak. The user can't farm streak via clock-back
+    // alone because the streak is unchanged (still 1, not 2).
     const store = recordDailyCompletion(new Date(2024, 0, 15));
-    expect(store.currentStreak).toBe(1); // not 2
-    // The stored date is now today (post-rollback), not tomorrow.
+    expect(store.currentStreak).toBe(1); // not 2 — clock-back can't farm
     expect(store.lastCompletedDayNumber).toBe(toDayNumber(new Date(2024, 0, 15)));
   });
 
-  it('preserves bestStreak through a clock-back reset', () => {
+  it('preserves bestStreak when clock rolls back', () => {
     // Build up a real streak first.
     recordDailyCompletion(new Date(2024, 0, 10));
     recordDailyCompletion(new Date(2024, 0, 11));
     recordDailyCompletion(new Date(2024, 0, 12));
     expect(loadDailyStore().bestStreak).toBe(3);
 
-    // Future date.
+    // Skip ahead past the streak's end (drops currentStreak to 1).
     recordDailyCompletion(new Date(2024, 0, 14));
     // Clock-back attempt.
     const store = recordDailyCompletion(new Date(2024, 0, 13));
     expect(store.bestStreak).toBe(3); // not lost
+  });
+
+  // D3 — preserve a real multi-day currentStreak through a clock-skew
+  // event. The previous behavior reset the streak to 1, wiping months
+  // of legitimate play in a single NTP correction. New behavior clamps
+  // the stored day to today and keeps the streak intact.
+  it('preserves a multi-day currentStreak through clock-back (D3)', () => {
+    // Build a 3-day streak ending Jan 12.
+    recordDailyCompletion(new Date(2024, 0, 10));
+    recordDailyCompletion(new Date(2024, 0, 11));
+    recordDailyCompletion(new Date(2024, 0, 12));
+    expect(loadDailyStore().currentStreak).toBe(3);
+
+    // Clock rolls back to Jan 11 (NTP correction, dead RTC, travel).
+    // User opens the app and re-completes the daily on this earlier
+    // wall-clock day. lastCompletedDayNumber (Jan 12) > today (Jan 11)
+    // triggers the future-date branch.
+    const store = recordDailyCompletion(new Date(2024, 0, 11));
+
+    expect(store.currentStreak).toBe(3); // preserved (was reset to 1 pre-D3)
+    expect(store.lastCompletedDayNumber).toBe(toDayNumber(new Date(2024, 0, 11)));
+    expect(store.bestStreak).toBe(3);
+  });
+
+  it('extends the preserved streak on the next consecutive solve (D3)', () => {
+    // Build a 3-day streak.
+    recordDailyCompletion(new Date(2024, 0, 10));
+    recordDailyCompletion(new Date(2024, 0, 11));
+    recordDailyCompletion(new Date(2024, 0, 12));
+
+    // Clock-back skew preserves streak at 3.
+    recordDailyCompletion(new Date(2024, 0, 11));
+    expect(loadDailyStore().currentStreak).toBe(3);
+
+    // Next day after the clamp — the streak should extend to 4 because
+    // clamped lastCompleted (Jan 11) is exactly today-1 (Jan 12).
+    const store = recordDailyCompletion(new Date(2024, 0, 12));
+    expect(store.currentStreak).toBe(4);
+    expect(store.bestStreak).toBe(4);
+  });
+
+  it('idempotent on repeated future-date solves (no double-clamp drift)', () => {
+    recordDailyCompletion(new Date(2024, 0, 16));
+
+    // First clamp: Jan 16 → Jan 15. Streak preserved at 1.
+    const first = recordDailyCompletion(new Date(2024, 0, 15));
+    expect(first.lastCompletedDayNumber).toBe(toDayNumber(new Date(2024, 0, 15)));
+    expect(first.currentStreak).toBe(1);
+
+    // Second call on same Jan 15: idempotent path (lastCompleted ===
+    // today), returns store as-is. No further mutation.
+    const second = recordDailyCompletion(new Date(2024, 0, 15));
+    expect(second.lastCompletedDayNumber).toBe(first.lastCompletedDayNumber);
+    expect(second.currentStreak).toBe(first.currentStreak);
   });
 });
 

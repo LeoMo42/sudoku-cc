@@ -185,20 +185,32 @@ export function recordDailyCompletion(date = new Date()): DailyStore {
   const today = toDayNumber(date);
   const store = loadDailyStore();
 
-  // Future-date guard: if the stored "last completed" is in the future
-  // relative to the system clock, the user has rolled their clock back
-  // (either intentionally to farm streaks, or via NTP / dead RTC battery).
-  // Reset to a fresh single-day streak — neither rewarding the cheat nor
-  // punishing the honest user beyond a one-day streak loss.
+  // Future-date guard (D3 from research-round interview): if the stored
+  // "last completed" is in the future relative to the system clock, the
+  // user's wall clock skewed forward at some point — NTP correction
+  // after a long offline window, dead RTC battery, travel across the
+  // dateline, DST edge case. The previous code punished this with a
+  // full reset of currentStreak (back to 1), which can wipe a months-
+  // long streak from one honest correction.
+  //
+  // The benign cases dominate. The cheat case (intentionally setting
+  // the clock forward to farm streak days) is bounded: a cheater can
+  // farm at most 1 streak-day per actual puzzle solve, the same rate
+  // as honest play. So preserving currentStreak through clock skews
+  // trades a non-event in the cheat path for a real win in the
+  // legitimate-skew path.
+  //
+  // Clamp lastCompletedDayNumber to today; do NOT extend the streak
+  // (today's completion is implicit in the clamp). Subsequent
+  // consecutive-day solves extend normally.
   if (store.lastCompletedDayNumber !== null && store.lastCompletedDayNumber > today) {
-    const reset: DailyStore = {
+    const clamped: DailyStore = {
       ...store,
-      currentStreak: 1,
-      bestStreak: Math.max(store.bestStreak, 1),
       lastCompletedDayNumber: today,
+      // currentStreak / bestStreak preserved as-is.
     };
-    saveDailyStore(reset);
-    return reset;
+    saveDailyStore(clamped);
+    return clamped;
   }
 
   // Idempotent: re-recording the same day is a no-op (e.g. user solves the
