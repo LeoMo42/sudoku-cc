@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.2.1] - 2026-05-03
+
+### Fixed
+
+- **Web fonts now load on every page.** Manrope and JetBrains Mono shipped as 404s on the live site because Vite doesn't rewrite `url()` references inside `@import`-from-node-modules CSS — the woff2 files in `@fontsource-variable/*/files/` were never copied to the build output, and the browser fell back to system fonts on every page load. Moving the fontsource imports from `src/index.css` to `src/main.tsx` routes them through Vite's JS module pipeline, which copies the woff2 files into `dist/assets/` with content-hashed names. The site now ships ~165 kB of properly cached fonts and renders in the typography it was designed for.
+
 ## [0.0.2.0] - 2026-05-02
 
 ### Added

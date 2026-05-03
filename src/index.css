@@ -1,11 +1,7 @@
 /* Self-hosted variable fonts (#125). Manrope for UI/body, JetBrains Mono
- * for numerical surfaces (cells, timer, day-badge thousands separator).
- * `wght.css` is the variable-axis variant — single file covers all weights
- * (300–800 for Manrope, 100–800 for JetBrains Mono). font-display: swap is
- * built into @fontsource-variable, so users see fallback briefly during
- * load instead of an invisible-text flash. */
-@import '@fontsource-variable/manrope/wght.css';
-@import '@fontsource-variable/jetbrains-mono/wght.css';
+ * for numerical surfaces. Imported from main.tsx via JS so Vite's asset
+ * pipeline copies the woff2 files to dist/assets/. CSS @import from
+ * node_modules does not trigger asset URL rewriting in Vite. */
 
 /* Tailwind 4 collapses the three @tailwind directives into a single
    @import. Configuration lives natively in CSS — no tailwind.config.js
