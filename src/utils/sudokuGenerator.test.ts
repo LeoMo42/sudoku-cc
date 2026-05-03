@@ -272,10 +272,14 @@ describe('Sudoku Generator', () => {
       // permutation, producing unsolvable puzzles ~99% of the time.
       // The earlier assertion `expect(typeof foundValid).toBe('boolean')`
       // was a no-op (any value is a boolean) and silently documented the
-      // bug. We now assert every generation is rule-compliant.
+      // bug. We now assert every generation is rule-compliant AND fully
+      // populated — without isComplete the helper would still pass on a
+      // partially-filled board if no two filled-and-adjacent pairs
+      // happened to differ by 1 (Claude PR #240 review).
       it('should verify Non-Consecutive constraint in generated boards', () => {
         for (let i = 0; i < 5; i++) {
           const board = generateFullBoard('NON_CONSECUTIVE');
+          expect(isComplete(board)).toBe(true);
           assertNonConsecutive(board);
         }
       });
