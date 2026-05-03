@@ -167,6 +167,14 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       const oldValue = state.board[row]![col];
+      // No-op on same-value placement (#221). Tapping the same digit
+      // twice in a cell, or pressing Clear on an already-empty cell,
+      // would otherwise push redundant history snapshots — Undo then
+      // requires multiple presses to revert what felt like one move,
+      // and history grows unbounded under repeated input.
+      if (value === oldValue) {
+        return state;
+      }
       const newBoard = copyBoard(state.board);
       newBoard[row]![col] = value;
 
@@ -259,6 +267,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         activeHint: hintStep,
+        // Charge the hint at GET, not at APPLY (#219). Showing the
+        // target cell + technique IS the costly action — players who
+        // request a hint, read the suggestion, then dismiss without
+        // tapping Apply could otherwise see unlimited free hints by
+        // manually re-creating the move themselves.
+        hintsUsed: state.hintsUsed + 1,
         selectedCell: targetCell
           ? { row: targetCell.row, col: targetCell.col }
           : state.selectedCell,
@@ -298,7 +312,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         board: newBoard,
         notes: newNotes,
-        hintsUsed: state.hintsUsed + 1,
+        // hintsUsed is NOT incremented here — it was already charged
+        // at GET_HINT time (#219). Applying is free once the hint has
+        // been revealed.
         errors,
         gameStatus: solved ? GAME_STATUS.COMPLETED : state.gameStatus,
         activeHint: null,

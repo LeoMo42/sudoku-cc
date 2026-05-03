@@ -1,8 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// vi.mock is hoisted above imports — find/replace findHintStep with a
+// vi.fn so #219 hint-counter tests can drive both the "hint found" and
+// "hint not found" branches of GET_HINT without standing up a real
+// puzzle. No other test in this file dispatches GET_HINT or APPLY_HINT,
+// so the mock is otherwise inert.
+vi.mock('../utils/hintEngine', () => ({
+  findHintStep: vi.fn(),
+}));
+
+import { findHintStep } from '../utils/hintEngine';
 import { gameReducer, Actions, isValidSavedState, migrateSavedState, safeSetItem, safeRemoveItem } from './GameContext';
 import { GAME_STATUS, EMPTY_CELL } from '../utils/constants';
 import { copyBoard } from '../utils/sudokuValidator';
 import type { GameState } from '../types/index';
+
+const mockedFindHintStep = vi.mocked(findHintStep);
 
 function createTestState(): GameState {
   const board = Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL));
@@ -129,6 +142,35 @@ describe('gameReducer', () => {
         expect(next.board[0]![0]).toBe(EMPTY_CELL);
       },
     );
+
+    // Regression #221 — same-value placement (tapping the same digit
+    // twice, or Clear on an already-empty cell) must be a no-op so it
+    // doesn't push a redundant history snapshot.
+    it('is a no-op when value === current value (digit twice)', () => {
+      let state = createTestState();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5 },
+      });
+      const historyLengthBefore = state.history.length;
+      const next = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5 },
+      });
+      expect(next).toBe(state);
+      expect(next.history.length).toBe(historyLengthBefore);
+    });
+
+    it('is a no-op when clearing an already-empty cell', () => {
+      const state = createTestState();
+      const historyLengthBefore = state.history.length;
+      const next = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: EMPTY_CELL },
+      });
+      expect(next).toBe(state);
+      expect(next.history.length).toBe(historyLengthBefore);
+    });
   });
 
   describe('SELECT_CELL', () => {
@@ -441,6 +483,65 @@ describe('gameReducer', () => {
         payload: { row: 1, col: 1, number: 3 },
       });
       expect(next.activeHint).toBeNull();
+    });
+  });
+
+  // Regression #219 — hintsUsed must be charged on GET_HINT (when a
+  // hint is actually returned), not deferred until APPLY_HINT. Showing
+  // the target cell + technique IS the costly action; deferring made
+  // it trivial to bypass the per-difficulty hint limit by requesting,
+  // reading, and dismissing.
+  describe('hint counter charging (#219)', () => {
+    const stubHint = {
+      technique: 'NAKED_SINGLE',
+      placement: { row: 0, col: 0, value: 5 },
+      eliminations: [],
+      highlightCells: [{ row: 0, col: 0, role: 'target' as const }],
+      message: 'stub',
+    };
+
+    beforeEach(() => {
+      mockedFindHintStep.mockReset();
+    });
+
+    it('GET_HINT increments hintsUsed when a hint is returned', () => {
+      mockedFindHintStep.mockReturnValue(stubHint as never);
+      const state = createTestState();
+      expect(state.hintsUsed).toBe(0);
+      const next = gameReducer(state, { type: Actions.GET_HINT });
+      expect(next.hintsUsed).toBe(1);
+      expect(next.activeHint).not.toBeNull();
+    });
+
+    it('GET_HINT does NOT increment when no hint is found', () => {
+      mockedFindHintStep.mockReturnValue(null);
+      const state = createTestState();
+      const next = gameReducer(state, { type: Actions.GET_HINT });
+      expect(next).toBe(state);
+      expect(next.hintsUsed).toBe(0);
+    });
+
+    it('GET_HINT does NOT increment when hint limit already reached', () => {
+      mockedFindHintStep.mockReturnValue(stubHint as never);
+      // Difficulty.EASY maxHints is well under 9999; this is a hard cap.
+      const state = { ...createTestState(), hintsUsed: 9999 };
+      const next = gameReducer(state, { type: Actions.GET_HINT });
+      expect(next).toBe(state);
+      expect(next.hintsUsed).toBe(9999);
+      // findHintStep should not even be invoked when over the limit
+      expect(mockedFindHintStep).not.toHaveBeenCalled();
+    });
+
+    it('APPLY_HINT does NOT re-charge hintsUsed (already charged at GET_HINT)', () => {
+      const state: GameState = {
+        ...createTestState(),
+        hintsUsed: 1,
+        activeHint: stubHint as never,
+      };
+      const next = gameReducer(state, { type: Actions.APPLY_HINT });
+      expect(next.hintsUsed).toBe(1);
+      // Sanity: the placement was actually applied
+      expect(next.board[0]![0]).toBe(5);
     });
   });
 
