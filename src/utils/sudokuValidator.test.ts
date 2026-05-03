@@ -482,24 +482,29 @@ describe('Sudoku Validator', () => {
     });
 
     // Distinct-digit subset sums aren't contiguous over [min, max] — the
-    // earlier interval-only guard was an over-approximation (Codex PR
-    // #239 review). Repro below: 6-cell cage target 22, placed {9,2,3,1}
-    // sum 15, available {4,5,6,7,8}, k=2 needed 7. Interval [9,15] would
-    // accept; no 2-subset of {4,5,6,7,8} sums to 7, so existence check
-    // rejects.
+    // earlier interval-only guard was an over-approximation. Repro:
+    // 8-cell cage target 41, placed {2,4,6,7,8,9} sum 36, available
+    // {1,3,5}, k=2, needed 5. 2-subsets sum to {4,6,8}; needed=5 is
+    // strictly inside the interval [4,8] but unreachable, so the
+    // existence check rejects where the bound check would have accepted.
     it('rejects when subset-sum is unreachable inside the interval', () => {
       const cage: KillerCage = {
-        sum: 22,
+        sum: 41,
         cells: [
-          { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 },
-          { row: 1, col: 3 }, { row: 1, col: 4 }, { row: 1, col: 5 },
+          { row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 },
+          { row: 0, col: 3 }, { row: 0, col: 4 }, { row: 0, col: 5 },
+          { row: 0, col: 6 }, { row: 0, col: 7 },
         ],
       };
       const board = emptyBoard();
-      board[1]![0] = 9;
-      board[1]![1] = 2;
-      board[1]![2] = 3;
-      expect(isValidMove(board, 1, 3, 1, 'KILLER', null, null, [cage])).toBe(false);
+      board[0]![0] = 2;
+      board[0]![1] = 4;
+      board[0]![2] = 6;
+      board[0]![3] = 7;
+      board[0]![4] = 8;
+      // Place 9 at cell 5: placed sum = 36, 2 cells remain, needed = 5.
+      // Available = {1,3,5}; subsets {4,6,8} skip 5.
+      expect(isValidMove(board, 0, 5, 9, 'KILLER', null, null, [cage])).toBe(false);
     });
 
     it('accepts when subset-sum IS reachable (boundary case for the new check)', () => {
