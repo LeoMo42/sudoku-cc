@@ -154,12 +154,15 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         mistakeLimit?: number | null;
       };
 
-      // Can't modify initial cells, and once the game is lost or
-      // completed all writes are no-ops.
+      // Can't modify initial cells. Writes are also blocked when the
+      // game isn't actively being PLAYED — initial state (IDLE), paused
+      // state, and terminal LOST / COMPLETED states. Without the PAUSED
+      // guard a stuck-key or stale-shortcut handler can mutate the board
+      // while the user thinks the game is suspended (#216).
       if (state.initialBoard[row]![col] !== EMPTY_CELL) {
         return state;
       }
-      if (state.gameStatus === GAME_STATUS.LOST || state.gameStatus === GAME_STATUS.COMPLETED) {
+      if (state.gameStatus !== GAME_STATUS.PLAYING) {
         return state;
       }
 
@@ -380,6 +383,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case Actions.PAUSE_GAME: {
+      // Only PLAYING → PAUSED is a valid transition. Pausing IDLE,
+      // COMPLETED, or LOST is meaningless and — combined with the
+      // RESUME guard below — would resurrect terminal games (#215).
+      if (state.gameStatus !== GAME_STATUS.PLAYING) {
+        return state;
+      }
       return {
         ...state,
         gameStatus: GAME_STATUS.PAUSED,
@@ -387,6 +396,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case Actions.RESUME_GAME: {
+      // Only PAUSED → PLAYING. Without this guard, a stale shortcut /
+      // menu handler dispatched against a COMPLETED or LOST game flips
+      // it back to PLAYING and the user can keep mutating the board
+      // past the mistake limit (#215).
+      if (state.gameStatus !== GAME_STATUS.PAUSED) {
+        return state;
+      }
       return {
         ...state,
         gameStatus: GAME_STATUS.PLAYING,

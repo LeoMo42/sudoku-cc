@@ -113,6 +113,22 @@ describe('gameReducer', () => {
       });
       expect(next.errors.size).toBeGreaterThan(0);
     });
+
+    // Regression #216 — paused games should not be mutable. The UI hides
+    // the number pad while paused, but a stale keyboard handler could
+    // still dispatch SET_CELL_VALUE; the reducer must enforce the guard.
+    it.each([GAME_STATUS.PAUSED, GAME_STATUS.IDLE] as const)(
+      'is a no-op when gameStatus is %s',
+      (status) => {
+        const state = { ...createTestState(), gameStatus: status };
+        const next = gameReducer(state, {
+          type: Actions.SET_CELL_VALUE,
+          payload: { row: 0, col: 0, value: 5 },
+        });
+        expect(next).toBe(state);
+        expect(next.board[0]![0]).toBe(EMPTY_CELL);
+      },
+    );
   });
 
   describe('SELECT_CELL', () => {
@@ -227,6 +243,27 @@ describe('gameReducer', () => {
       const resumed = gameReducer(state, { type: Actions.RESUME_GAME });
       expect(resumed.gameStatus).toBe(GAME_STATUS.PLAYING);
     });
+
+    // Regression #215 — pause/resume must NOT resurrect terminal states.
+    it.each([GAME_STATUS.IDLE, GAME_STATUS.COMPLETED, GAME_STATUS.LOST] as const)(
+      'PAUSE_GAME is a no-op when status is %s',
+      (status) => {
+        const state = { ...createTestState(), gameStatus: status };
+        const result = gameReducer(state, { type: Actions.PAUSE_GAME });
+        expect(result.gameStatus).toBe(status);
+        expect(result).toBe(state);
+      },
+    );
+
+    it.each([GAME_STATUS.IDLE, GAME_STATUS.PLAYING, GAME_STATUS.COMPLETED, GAME_STATUS.LOST] as const)(
+      'RESUME_GAME is a no-op when status is %s',
+      (status) => {
+        const state = { ...createTestState(), gameStatus: status };
+        const result = gameReducer(state, { type: Actions.RESUME_GAME });
+        expect(result.gameStatus).toBe(status);
+        expect(result).toBe(state);
+      },
+    );
   });
 
   describe('UPDATE_TIME', () => {
