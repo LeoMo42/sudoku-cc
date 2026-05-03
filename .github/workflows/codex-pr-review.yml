@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Codex Code Review
     # Hard cap: a typical Codex review on a PR runs in ~30s–5min. 15 minutes
-    # is cheap insurance against a hung action burning Actions minutes and
-    # OpenAI quota up to GitHub's 6-hour default.
+    # is cheap insurance against a hung CLI burning Actions minutes up to
+    # GitHub's 6-hour default.
     timeout-minutes: 15
 
     steps:
@@ -37,6 +37,45 @@ jobs:
           gh pr view ${{ github.event.pull_request.number }} --comments \
             > /tmp/pr.comments || true
           echo "Diff bytes: $(wc -c < /tmp/pr.diff)"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install Codex CLI
+        run: |
+          npm install -g @openai/codex
+          codex --version
+
+      # Why ChatGPT auth instead of OPENAI_API_KEY:
+      # - Plus subscription quota is way more generous than Tier-1 API TPM
+      # - $0 marginal cost per review (covered by the $20/mo Plus)
+      # - The OpenAI doc covering this CI/CD recipe lives at
+      #   https://developers.openai.com/codex/auth/ci-cd-auth
+      #
+      # Sessions expire after roughly 8 days. Run scripts/codex-auth-refresh.sh
+      # from a logged-in Mac weekly to re-seed CODEX_AUTH_JSON.
+      - name: Seed Codex auth from secret
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          if [ -z "$CODEX_AUTH_JSON" ]; then
+            echo "::error::CODEX_AUTH_JSON secret is empty or not configured. See scripts/codex-auth-refresh.sh."
+            exit 1
+          fi
+          mkdir -p "$HOME/.codex"
+          chmod 700 "$HOME/.codex"
+          printf '%s' "$CODEX_AUTH_JSON" > "$HOME/.codex/auth.json"
+          chmod 600 "$HOME/.codex/auth.json"
+          # Sanity check without leaking secret content
+          if ! command -v jq >/dev/null 2>&1; then sudo apt-get install -y -q jq >/dev/null; fi
+          mode=$(jq -r '.auth_mode // "unknown"' "$HOME/.codex/auth.json")
+          if [ "$mode" != "chatgpt" ]; then
+            echo "::error::auth.json is mode='$mode', expected 'chatgpt'. Re-seed via scripts/codex-auth-refresh.sh."
+            exit 1
+          fi
+          echo "Auth mode: $mode (refresh-token: present)"
 
       - name: Build Codex prompt
         run: |
@@ -56,17 +95,17 @@ jobs:
 
           ## Inputs
 
-          - The PR diff is in `/tmp/pr.diff`. Read it.
-          - Prior PR comments are in `/tmp/pr.comments`. Read them.
+          - The PR diff and any prior PR comments are appended below this prompt
+            under `---PR_DIFF---` and `---PRIOR_PR_COMMENTS---` markers.
           - The full repo is checked out at the working directory. You may
             `Read` / `grep` files **touched by the diff** to verify a finding,
             but stay within the diff scope. Do not audit unchanged code.
 
           ## Your Task
 
-          Produce a code review of the diff. Then write the **entire review**
-          to `/tmp/codex-review.md` — that file is what gets posted to the PR.
-          Do not run any `gh` commands; the workflow handles posting.
+          Produce a code review of the diff. Your **final agent message IS the
+          review** — the workflow captures it via `--output-last-message`. Do
+          NOT run `gh` commands; the workflow handles posting.
 
           Do not re-raise issues that prior comments already raised, fixed, or
           that the author explicitly defended. Do not relitigate accepted
@@ -87,7 +126,7 @@ jobs:
             doesn't count).
           - **Tailwind 4 migration relics**: v3-only utilities like
             `bg-opacity-*`, `flex-shrink-*`, deprecated arbitrary syntax
-            that may not generate in v4. See https://tailwindcss.com/docs/upgrade-guide.
+            that may not generate in v4.
 
           ## Falsifiability rule (REQUIRED for Critical / Important)
 
@@ -116,8 +155,8 @@ jobs:
 
           ## Output format (exact)
 
-          The file `/tmp/codex-review.md` MUST start with this header on its
-          own line, followed by a blank line:
+          Your final message MUST start with this header on its own line,
+          followed by a blank line:
 
           ```
           **🤖 Codex Review**
@@ -137,7 +176,7 @@ jobs:
           - **Suggestions** — optional polish. Cap at 3. These are takes, not asks.
           - **Testing** — 1–3 things a reviewer should manually verify.
 
-          If after honest analysis you have nothing to flag, write exactly:
+          If after honest analysis you have nothing to flag, output exactly:
 
           ```
           **🤖 Codex Review**
@@ -155,29 +194,36 @@ jobs:
           - Explain WHY (the user-visible or runtime impact), not just WHAT.
           - Terse. No preamble, no fluff, no restating the diff.
           - It is correct and good to post a short review. Length is not signal.
-
-          A run that exits without writing `/tmp/codex-review.md` is a failed review.
           PROMPT_EOF
           echo "Prompt bytes: $(wc -c < /tmp/codex-prompt.md)"
 
-      # SHA-pinned (was @v1) — protects OPENAI_API_KEY from a supply-chain
-      # attack on this third-party action. Dependabot's github-actions
-      # ecosystem rule will propose SHA bumps as new tags land. Same pattern
-      # as anthropics/claude-code-action — see #120 for context.
       - name: Run Codex Review
-        uses: openai/codex-action@e0fdf01220eb9a88167c4898839d273e3f2609d1  # v1
-        with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          prompt-file: /tmp/codex-prompt.md
-          sandbox: workspace-write
-          safety-strategy: drop-sudo
+        run: |
+          {
+            cat /tmp/codex-prompt.md
+            printf '\n\n---PR_DIFF---\n'
+            cat /tmp/pr.diff
+            printf '\n\n---PRIOR_PR_COMMENTS---\n'
+            cat /tmp/pr.comments
+          } > /tmp/codex-input.txt
+
+          # codex exec reads the prompt from argv; pipe via stdin not supported
+          # cleanly across versions, so pass the file content as the prompt arg.
+          codex exec \
+            --output-last-message /tmp/codex-review.md \
+            -c 'model_reasoning_effort="medium"' \
+            "$(cat /tmp/codex-input.txt)" \
+            > /tmp/codex.stdout 2> /tmp/codex.stderr
+          echo "Review bytes: $(wc -c < /tmp/codex-review.md 2>/dev/null || echo 0)"
 
       - name: Post Codex review comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ ! -s /tmp/codex-review.md ]; then
-            echo "::error::Codex did not write /tmp/codex-review.md"
+            echo "::error::Codex did not produce a review (--output-last-message file missing or empty)"
+            echo "--- codex stderr (last 50 lines) ---"
+            tail -50 /tmp/codex.stderr 2>/dev/null || true
             exit 1
           fi
           gh pr comment ${{ github.event.pull_request.number }} \
