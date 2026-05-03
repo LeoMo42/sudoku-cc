@@ -344,20 +344,34 @@ function generateKillerCages(solution: Board): KillerCageInternal[] {
     const targetSize = 2 + Math.floor(_rng() * 4); // 2-5
     const cageCells: CellPosition[] = [{ row: r, col: c }];
     assigned[r][c] = true;
+    // Track digits already inside this cage. Killer rules forbid the
+    // same digit twice in a cage, and the validator (#210) rejects any
+    // placement that would create a duplicate. The earlier generator
+    // grew cages purely by orthogonal adjacency, so a 4-cell cage
+    // straddling box boundaries could easily catch the same digit
+    // twice from the underlying classic solution — making the cage
+    // unsolvable from the moment it shipped.
+    const cageDigits = new Set<number>([solution[r][c]]);
 
     while (cageCells.length < targetSize) {
       const candidates: CellPosition[] = [];
       for (const { row, col } of cageCells) {
         for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]] as [number, number][]) {
           const nr = row+dr, nc = col+dc;
-          if (nr>=0 && nr<9 && nc>=0 && nc<9 && !assigned[nr][nc])
+          if (
+            nr>=0 && nr<9 && nc>=0 && nc<9 &&
+            !assigned[nr][nc] &&
+            !cageDigits.has(solution[nr][nc])
+          ) {
             candidates.push({ row: nr, col: nc });
+          }
         }
       }
       if (!candidates.length) break;
       const pick = candidates[Math.floor(_rng() * candidates.length)];
       cageCells.push(pick);
       assigned[pick.row][pick.col] = true;
+      cageDigits.add(solution[pick.row][pick.col]);
     }
 
     const sum = cageCells.reduce((s, { row, col }) => s + solution[row][col], 0);
