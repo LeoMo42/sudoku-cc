@@ -189,28 +189,26 @@ export function recordDailyCompletion(date = new Date()): DailyStore {
   // "last completed" is in the future relative to the system clock, the
   // user's wall clock skewed forward at some point — NTP correction
   // after a long offline window, dead RTC battery, travel across the
-  // dateline, DST edge case. The previous code punished this with a
-  // full reset of currentStreak (back to 1), which can wipe a months-
-  // long streak from one honest correction.
+  // dateline, DST edge case.
   //
-  // The benign cases dominate. The cheat case (intentionally setting
-  // the clock forward to farm streak days) is bounded: a cheater can
-  // farm at most 1 streak-day per actual puzzle solve, the same rate
-  // as honest play. So preserving currentStreak through clock skews
-  // trades a non-event in the cheat path for a real win in the
-  // legitimate-skew path.
+  // The previous v2 code reset currentStreak to 1 on this branch, which
+  // wiped a months-long streak from one honest correction. The first
+  // D3 implementation clamped lastCompletedDayNumber to today and
+  // preserved currentStreak — but Codex caught (PR #238 review) that
+  // clamp + the consecutive-day extension path opens a bounce-farming
+  // hole: clock back → solve → clock forward (to original day) → solve
+  // bumps the streak again even though no genuinely-new calendar day
+  // was completed.
   //
-  // Clamp lastCompletedDayNumber to today; do NOT extend the streak
-  // (today's completion is implicit in the clamp). Subsequent
-  // consecutive-day solves extend normally.
+  // Final design: do not move lastCompletedDayNumber backward. Treat
+  // the call as a no-op for the store. The streak survives because
+  // getDailyStreak below also accepts last > today as "active". When
+  // the wall clock catches up to or surpasses the stored mark,
+  // recordDailyCompletion resumes normal extension semantics. The
+  // bounce-farming exploit is closed: a cheater swinging clock back
+  // then forward sees idempotent returns, no streak inflation.
   if (store.lastCompletedDayNumber !== null && store.lastCompletedDayNumber > today) {
-    const clamped: DailyStore = {
-      ...store,
-      lastCompletedDayNumber: today,
-      // currentStreak / bestStreak preserved as-is.
-    };
-    saveDailyStore(clamped);
-    return clamped;
+    return store;
   }
 
   // Idempotent: re-recording the same day is a no-op (e.g. user solves the
@@ -238,11 +236,16 @@ export function recordDailyCompletion(date = new Date()): DailyStore {
 export function getDailyStreak(): { current: number; best: number } {
   const store = loadDailyStore();
   const today = toDayNumber(new Date());
-  // A streak is "active" if the last completion was today or yesterday;
-  // otherwise we display 0 (without zeroing the stored value — bestStreak
-  // and the next consecutive completion can still pick it up).
+  // A streak is "active" if the last completion was today, yesterday,
+  // OR in the future (clock-skew episode — see recordDailyCompletion's
+  // future-date guard for full rationale, D3). Without the future-
+  // -date case, an honest NTP correction backward would silently zero
+  // out the displayed streak even though the stored streak survives
+  // — visible regression equivalent to a reset.
   const last = store.lastCompletedDayNumber;
-  const streakActive = last === today || last === today - 1;
+  const streakActive = last !== null && (
+    last === today || last === today - 1 || last > today
+  );
   return {
     current: streakActive ? store.currentStreak : 0,
     best: store.bestStreak,
