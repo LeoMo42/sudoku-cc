@@ -14,15 +14,50 @@ the `## Completed` section tracks landing velocity.
 
 ## P0 — Critical
 
-_(none — green light)_
+### Game-state corruption (research round, 2026-05-03)
+
+- [ ] **#210** Killer cages can contain duplicate digits — `generateKillerCages` grows cages by adjacency without checking digit uniqueness; validator forbids dups → puzzle unsolvable. High repro probability on a headline variant.
+- [ ] **#215** `PAUSE_GAME` / `RESUME_GAME` resurrect terminal states — no guard for COMPLETED / LOST. Player loses game, dispatches pause/resume, game becomes editable again past the mistake limit.
 
 ## P1 — Urgent
 
-_(none — green light)_
+### Variant correctness (algo, research round)
+
+- [ ] **#209** Non-Consecutive variant ships invalid solutions — digit permutation breaks the arithmetic constraint; affects 100% of Non-Consecutive games. Existing test acknowledges with `expect(typeof foundValid).toBe('boolean')` no-op.
+- [ ] **#211** Non-classic variants ship multi-solution puzzles — uniqueness check explicitly disabled for perf. Player's correct alternate solution rejected by Check. 11 variants affected.
+- [ ] **#212** Validator accepts impossible mid-game states for Killer / Thermo / Greater-than — partial-state checks bail on first empty neighbor.
+
+### State machine + storage (GameContext, research round)
+
+- [ ] **#216** `SET_CELL_VALUE` not blocked while paused — UI hides numpad but reducer doesn't enforce; keyboard shortcuts can still mutate.
+- [ ] **#217** `activeHint` not cleared on board changes — `APPLY_HINT` can overwrite fresh user input with stale hint placement.
+- [ ] **#218** `localStorage` access outside try/catch can crash provider mount — disabled storage / SecurityError white-screens the app.
+
+### UX regressions from PR #108 (post-hoc /codex review)
+
+- [ ] **#223** SEO/routing: variant→variant nav desync + `<html lang="en">` hardcoded on RU pages — board stays old variant when URL/SEO updates; all 14 RU prerendered routes ship wrong document language.
+- [ ] **#224** Tailwind 4 relics: Modal backdrop fully black + `flex-shrink-0` × 4 places — `bg-opacity-50` is a v3-only utility, every modal renders with 100% opaque backdrop.
+- [ ] **#225** `scripts/pr-watcher.sh` silent cursor advance on API failure — `poll_once || ...` disables errexit; cursor advances even on `gh api` failure → permanent silent loss of PR comments in `--watch` mode.
 
 ## P2 — Important
 
-_(none currently)_
+### Variant correctness (algo, research round)
+
+- [ ] **#213** Hint engine: bogus eliminations from Fish + Unique Rectangle — Fish accepts zero-candidate base rows; UR applied unconditionally on non-unique puzzles. Cascade from #211.
+- [ ] **#214** Classic uniqueness check runs only every 5 removals — restore only restores current cell, not the actual culprit. Same UX failure as #211, lower frequency.
+
+### State machine + scoring (GameContext)
+
+- [ ] **#219** Hint counter bypass — `GET_HINT` doesn't increment `hintsUsed`; only `APPLY_HINT` does. Player can request, see, dismiss hints to bypass per-difficulty limit.
+- [ ] **#220** Killer Sudoku ignores `difficulty` — early return at `_createPuzzle:601` before reading `DIFFICULTY_LEVELS`. Easy and Expert produce identical puzzles.
+- [ ] **#221** Undo history records redundant entries for no-op moves — same wrong digit twice creates 2 history entries, undo requires 2 presses.
+- [ ] **#222** `bestTime` keyed by difficulty alone, conflates variants with `stats` — Classic Easy time displayed for Killer Easy.
+
+### Routing edges + build pipeline (research round)
+
+- [ ] **#226** i18n localStorage key mismatch + `RootRedirect` drops query params — saved language ignored; `/?type=KILLER` deep-links broken.
+- [ ] **#227** `prerender.mjs` cleanup leak when `chromium.launch()` fails — preview server stays bound to port 4173.
+- [ ] **#228** `ci.yml` missing explicit `permissions:` block — defense-in-depth gap, add `contents: read`.
 
 ## P3 — Nice to have
 
