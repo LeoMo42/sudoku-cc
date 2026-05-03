@@ -156,12 +156,12 @@ jobs:
           PROMPT_EOF
           echo "Prompt bytes: $(wc -c < /tmp/codex-prompt.md)"
 
-      # Third-party action — Dependabot's github-actions ecosystem rule will
-      # propose SHA bumps as new tags land. SHA-pin once a version is stable
-      # to protect OPENAI_API_KEY from a supply-chain attack on the action,
-      # same pattern as anthropics/claude-code-action (see #120).
+      # SHA-pinned (was @v1) — protects OPENAI_API_KEY from a supply-chain
+      # attack on this third-party action. Dependabot's github-actions
+      # ecosystem rule will propose SHA bumps as new tags land. Same pattern
+      # as anthropics/claude-code-action — see #120 for context.
       - name: Run Codex Review
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@e0fdf01220eb9a88167c4898839d273e3f2609d1  # v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: /tmp/codex-prompt.md
