@@ -43,9 +43,13 @@ jobs:
         with:
           node-version: '20'
 
+      # Pinned to a known-good version for reproducibility. Bump manually
+      # (or via Dependabot if codex CLI ends up in package.json) when
+      # validating a new release. Latest at ship time of this workflow:
+      # https://www.npmjs.com/package/@openai/codex
       - name: Install Codex CLI
         run: |
-          npm install -g @openai/codex
+          npm install -g @openai/codex@0.128.0
           codex --version
 
       # Why ChatGPT auth instead of OPENAI_API_KEY:
@@ -207,12 +211,15 @@ jobs:
             cat /tmp/pr.comments
           } > /tmp/codex-input.txt
 
-          # codex exec reads the prompt from argv; pipe via stdin not supported
-          # cleanly across versions, so pass the file content as the prompt arg.
+          # Pipe the prompt via stdin (`-`) instead of as an argv argument.
+          # On Linux the per-arg ARG_MAX is ~128 KB and the total argv+env
+          # budget is ~2 MB; a fat PR diff would silently fail process launch
+          # with E2BIG. Stdin sidesteps the limit entirely.
           codex exec \
             --output-last-message /tmp/codex-review.md \
             -c 'model_reasoning_effort="medium"' \
-            "$(cat /tmp/codex-input.txt)" \
+            - \
+            < /tmp/codex-input.txt \
             > /tmp/codex.stdout 2> /tmp/codex.stderr
           echo "Review bytes: $(wc -c < /tmp/codex-review.md 2>/dev/null || echo 0)"
 
