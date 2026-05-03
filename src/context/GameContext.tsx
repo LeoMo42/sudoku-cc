@@ -209,6 +209,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         mistakeCount,
         gameStatus,
         notes: newNotes,
+        // Any board mutation invalidates a previously-computed hint:
+        // its target cell or candidate set may no longer match. Without
+        // this clear, APPLY_HINT could overwrite the user's fresh input
+        // with a stale placement (#217).
+        activeHint: null,
         ...pushHistory(state, newBoard, newNotes),
       };
     }
@@ -321,6 +326,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         errors,
         historyIndex: prevIndex,
         gameStatus: state.gameStatus === GAME_STATUS.COMPLETED ? GAME_STATUS.PLAYING : state.gameStatus,
+        // Stale-hint guard (#217). After undo, the activeHint's target
+        // cell may already be filled at the prior snapshot, or the
+        // candidate set the elimination was computed against differs.
+        activeHint: null,
       };
     }
 
@@ -338,6 +347,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         errors,
         historyIndex: nextIndex,
         gameStatus: solved ? GAME_STATUS.COMPLETED : state.gameStatus,
+        // Stale-hint guard (#217), same rationale as UNDO.
+        activeHint: null,
       };
     }
 
@@ -378,6 +389,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         notes: newNotes,
+        // Stale-hint guard (#217). Toggling a note mutates the candidate
+        // grid the active hint may have been computed against.
+        activeHint: null,
         ...pushHistory(state, state.board, newNotes),
       };
     }
@@ -466,13 +480,28 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
  */
 function loadInitialState(): GameState {
   if (typeof window === 'undefined') return initialState;
-  const savedState = window.localStorage?.getItem(STORAGE_KEY);
+
+  // Wrap the entire localStorage read in try/catch — getItem/setItem can
+  // throw SecurityError or QuotaExceededError in restricted environments
+  // (private browsing, third-party-cookie blocks, blocked-domain policies,
+  // disabled-storage settings). Optional chaining only handles the
+  // `localStorage === undefined` case, not throws from a present-but-
+  // -unreadable storage. Without this the provider mount crashes the
+  // whole app on hostile/restricted browsers (#218).
+  let savedState: string | null = null;
+  try {
+    savedState = window.localStorage?.getItem(STORAGE_KEY) ?? null;
+  } catch (error) {
+    console.warn('localStorage unavailable, starting fresh:', error);
+    return initialState;
+  }
   if (!savedState) return initialState;
+
   try {
     const parsed = JSON.parse(savedState);
     if (!isValidSavedState(parsed)) {
       console.warn('Saved game data is corrupted, starting fresh');
-      window.localStorage.removeItem(STORAGE_KEY);
+      safeRemoveItem(STORAGE_KEY);
       return initialState;
     }
     const migrated = migrateSavedState(parsed);
@@ -481,8 +510,28 @@ function loadInitialState(): GameState {
     return gameReducer(initialState, { type: Actions.LOAD_STATE, payload: migrated });
   } catch (error) {
     console.warn('Failed to load saved game, starting fresh:', error);
-    window.localStorage.removeItem(STORAGE_KEY);
+    safeRemoveItem(STORAGE_KEY);
     return initialState;
+  }
+}
+
+// Best-effort localStorage helpers. These swallow throws (SecurityError,
+// QuotaExceededError) so a hostile storage environment can't crash the
+// app — the user just doesn't get persistence (#218). Exported so tests
+// can assert the swallow contract directly.
+export function safeSetItem(key: string, value: string): void {
+  try {
+    window.localStorage?.setItem(key, value);
+  } catch (error) {
+    console.warn('Failed to persist to localStorage:', error);
+  }
+}
+
+export function safeRemoveItem(key: string): void {
+  try {
+    window.localStorage?.removeItem(key);
+  } catch {
+    // ignore — already in the failure path, best-effort cleanup
   }
 }
 
@@ -509,9 +558,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
         history: undefined,
         historyIndex: undefined,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      safeSetItem(STORAGE_KEY, JSON.stringify(stateToSave));
     } else if (state.gameStatus === GAME_STATUS.COMPLETED || state.gameStatus === GAME_STATUS.LOST) {
-      localStorage.removeItem(STORAGE_KEY);
+      safeRemoveItem(STORAGE_KEY);
     }
   }, [state]);
 
