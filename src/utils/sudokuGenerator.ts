@@ -193,27 +193,37 @@ function generateAntiKing(): Board {
 }
 
 /**
- * Base Non-Consecutive Sudoku template (generated via Python)
- * Adjacent cells do not differ by 1
- */
-const BASE_NON_CONSECUTIVE_SUDOKU: Board = [
-  [6, 8, 5, 2, 9, 3, 1, 7, 4],
-  [9, 3, 1, 6, 4, 7, 5, 2, 8],
-  [2, 7, 4, 1, 8, 5, 9, 6, 3],
-  [5, 2, 7, 4, 1, 8, 3, 9, 6],
-  [8, 6, 3, 9, 5, 2, 7, 4, 1],
-  [1, 4, 9, 7, 3, 6, 2, 8, 5],
-  [4, 9, 6, 3, 7, 1, 8, 5, 2],
-  [7, 1, 8, 5, 2, 4, 6, 3, 9],
-  [3, 5, 2, 8, 6, 9, 4, 1, 7],
-] as Board;
-
-/**
- * Generate Non-Consecutive Sudoku using template-based approach with digit permutations
- * @returns Valid Non-Consecutive board
+ * Generate Non-Consecutive Sudoku via backtracking.
+ *
+ * Unlike the structural variants (X/Windoku/Anti-Knight/Anti-King), the
+ * non-consecutive constraint is ARITHMETIC (|a-b| ≠ 1) and is NOT
+ * preserved under digit relabeling. The earlier template+permutation
+ * approach (#209) shipped solutions whose adjacent diffs landed on 1
+ * after the permutation, so ~99% of generated puzzles were unsolvable
+ * — every legal placement got rejected by isValidMove because the
+ * "solution" itself violated the rules. Backtracking calls
+ * isValidMove during fill, so any board it returns is guaranteed
+ * non-consecutive-valid by construction.
+ *
+ * The shared fillRemaining caps recursion at 50K steps. A bad random
+ * branch can blow that budget without converging, so we retry up to 5
+ * times before giving up. In practice the first attempt succeeds the
+ * vast majority of the time; the retry exists to make the rare
+ * unlucky branch invisible to callers.
  */
 function generateNonConsecutive(): Board {
-  return permuteTemplate(BASE_NON_CONSECUTIVE_SUDOKU);
+  // 500K-step cap per attempt. Empirically this is enough for the
+  // arithmetic constraint to converge on the vast majority of random
+  // branchings; the retry exists to cover the rare unlucky one.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const board = createEmptyBoard();
+    if (fillRemaining(board, 0, 0, 'NON_CONSECUTIVE', { count: 0 }, 500_000)) {
+      return board;
+    }
+  }
+  throw new Error(
+    'Non-Consecutive backtracking generator failed after 5 attempts',
+  );
 }
 
 /**
@@ -256,6 +266,10 @@ export function generateFullBoard(sudokuType: SudokuTypeId = 'CLASSIC'): Board {
  * @param col - Current column
  * @param sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @param counter - Recursion counter for timeout
+ * @param maxSteps - Hard cap on recursive calls (per attempt). NON_CONSECUTIVE
+ *   is much tighter than the structural variants (the arithmetic |a-b|≠1
+ *   constraint prunes the search aggressively), so the default 50K is
+ *   easily blown by an unlucky early branch. Callers can raise this cap.
  * @returns True if successfully filled
  */
 function fillRemaining(
@@ -263,15 +277,25 @@ function fillRemaining(
   row: number,
   col: number,
   sudokuType: SudokuTypeId = 'CLASSIC',
-  counter: { count: number } = { count: 0 }
+  counter: { count: number } = { count: 0 },
+  maxSteps: number = 50000,
 ): boolean {
   // Prevent infinite recursion - if we've tried too many times, give up
   counter.count++;
-  if (counter.count > 50000) {
+  if (counter.count > maxSteps) {
     return false;
   }
-  // Move to next row if we've filled current row
-  if (col >= GRID_SIZE && row < GRID_SIZE - 1) {
+  // Move to next row when we walk off the right edge. The last-row case
+  // (row = GRID_SIZE - 1, col = GRID_SIZE) used to fall through here,
+  // skip the (row >= GRID_SIZE && col >= GRID_SIZE) completion check,
+  // and recurse forever via the "already filled" branch on board[8][9]
+  // (an undefined cell that doesn't equal EMPTY_CELL). CLASSIC never
+  // tripped this because its diagonal-skip block returns true at
+  // (row=9), and the other variants used template+permutation paths.
+  // NON_CONSECUTIVE (#209) is the first variant to drive fillRemaining
+  // outside CLASSIC, which surfaced the bug.
+  if (col >= GRID_SIZE) {
+    if (row >= GRID_SIZE - 1) return true;
     row++;
     col = 0;
   }
@@ -300,7 +324,7 @@ function fillRemaining(
 
   // Skip if cell is already filled
   if (board[row][col] !== EMPTY_CELL) {
-    return fillRemaining(board, row, col + 1, sudokuType, counter);
+    return fillRemaining(board, row, col + 1, sudokuType, counter, maxSteps);
   }
 
   // Try random numbers 1-9
@@ -310,7 +334,7 @@ function fillRemaining(
     if (isValidMove(board, row, col, num, sudokuType)) {
       board[row][col] = num;
 
-      if (fillRemaining(board, row, col + 1, sudokuType, counter)) {
+      if (fillRemaining(board, row, col + 1, sudokuType, counter, maxSteps)) {
         return true;
       }
 
