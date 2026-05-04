@@ -56,10 +56,18 @@ export function isSupportedLanguage(lang: string | undefined): lang is Supported
 /**
  * Resolve the user's preferred language: localStorage > browser hint > 'en'.
  * Used by the root `/` redirect to pick which `/{lang}` to go to.
+ *
+ * The localStorage key MUST match what i18n/config.js actually writes
+ * (`localStorage.setItem('language', lng)` in the languageChanged
+ * listener). The previous code read `'i18nextLng'` — i18next's library
+ * default — but the app never writes there, so the user's saved
+ * preference was always missed and the redirect fell through to
+ * navigator.language. RU users on non-RU browsers landed on EN every
+ * visit. (#226 bug 1).
  */
 export function detectPreferredLanguage(): SupportedLanguage {
   if (typeof window === 'undefined') return 'en';
-  const stored = window.localStorage?.getItem('i18nextLng');
+  const stored = window.localStorage?.getItem('language');
   if (isSupportedLanguage(stored ?? undefined)) return stored as SupportedLanguage;
   const navLang = navigator.language?.slice(0, 2);
   if (isSupportedLanguage(navLang)) return navLang;
