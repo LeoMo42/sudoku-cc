@@ -76,57 +76,97 @@ poll_once() {
   echo "$ts" > "$LAST_POLL"
 
   # Open PRs authored by me. --json keeps the payload tiny.
+  # Bail on failure rather than masking with `|| echo '[]'` — silently
+  # treating a network/auth/rate-limit failure as "no PRs" hides the
+  # error and would let cursors advance under it (#225).
   local prs_json
-  prs_json=$(gh pr list --author @me --state open --json number,title,headRepositoryOwner,headRepository 2>/dev/null || echo '[]')
+  if ! prs_json=$(gh pr list --author @me --state open --json number,title,headRepositoryOwner,headRepository 2>/dev/null); then
+    echo "[pr-watcher] gh pr list failed; skipping this poll (cursors not advanced)" >&2
+    return 1
+  fi
 
-  echo "$prs_json" | jq -c '.[]' | while IFS= read -r pr; do
-    local pr_num pr_title cursor cursor_file
+  # Read PRs into an array. The previous code piped jq into a `while`
+  # loop, which runs in a subshell — `return` and shared state leak
+  # away from poll_once. The array form keeps the loop body in the
+  # function's own shell so per-PR failures can record an overall rc
+  # and cursor writes can be gated on success.
+  local -a prs=()
+  while IFS= read -r pr; do
+    [ -z "$pr" ] && continue
+    prs+=("$pr")
+  done < <(echo "$prs_json" | jq -c '.[]')
+
+  local rc=0
+  local pr pr_num pr_title cursor cursor_file comments reviews line author
+
+  for pr in "${prs[@]}"; do
     pr_num=$(echo "$pr" | jq -r .number)
     pr_title=$(echo "$pr" | jq -r .title)
     cursor_file="$CURSOR_DIR/pr-$pr_num.txt"
     cursor=$(cat "$cursor_file" 2>/dev/null || default_cursor)
 
     # 1. Issue comments (general PR discussion). `?since=` filters by
-    #    updated_at, which catches edits too. That's fine for our use
-    #    case — an edited review is still worth seeing.
-    #    --paginate follows Link headers across all pages so a long
-    #    outage that produces >100 events on resume can't silently drop
-    #    the tail (the cursor would otherwise advance to "now" past
-    #    events we never wrote).
-    gh api --paginate "repos/$REPO_NWO/issues/$pr_num/comments?since=$cursor&per_page=100" \
-      --jq '.[] | {pr: '"$pr_num"', kind: "comment", author: .user.login, url: .html_url, body: .body, ts: .updated_at}' 2>/dev/null \
-      | while IFS= read -r line; do
-          [ -z "$line" ] && continue
-          local author; author=$(echo "$line" | jq -r .author)
-          is_excluded "$author" && continue
-          # Trim body to 200 chars; flatten newlines so the JSONL stays
-          # one-line-per-event.
-          echo "$line" \
-            | jq -c --arg ts "$ts" --arg title "$pr_title" \
-                '{ts: $ts, pr: .pr, title: $title, kind: .kind, author: .author, url: .url, summary: (.body | gsub("\n"; " ") | .[0:200])}' \
-            >> "$INBOX_LOG"
-        done
+    #    updated_at, which catches edits too — an edited review is
+    #    still worth seeing. --paginate follows Link headers so a long
+    #    outage producing >100 events on resume can't silently drop
+    #    the tail (otherwise the cursor would advance past events we
+    #    never wrote). The output is captured into a variable so we
+    #    can detect a failed call and skip the cursor advance for this
+    #    PR — the original code piped directly to `while` which threw
+    #    the gh exit status away (#225). errexit is suppressed inside
+    #    poll_once because the watcher loop calls it as `poll_once || …`.
+    if ! comments=$(gh api --paginate "repos/$REPO_NWO/issues/$pr_num/comments?since=$cursor&per_page=100" \
+      --jq '.[] | {pr: '"$pr_num"', kind: "comment", author: .user.login, url: .html_url, body: .body, ts: .updated_at}' 2>/dev/null); then
+      echo "[pr-watcher] gh api failed (PR $pr_num issue comments); cursor not advanced" >&2
+      rc=1
+      continue
+    fi
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      author=$(echo "$line" | jq -r .author)
+      is_excluded "$author" && continue
+      # Trim body to 200 chars; flatten newlines so the JSONL stays
+      # one-line-per-event.
+      echo "$line" \
+        | jq -c --arg ts "$ts" --arg title "$pr_title" \
+            '{ts: $ts, pr: .pr, title: $title, kind: .kind, author: .author, url: .url, summary: (.body | gsub("\n"; " ") | .[0:200])}' \
+        >> "$INBOX_LOG"
+    done <<< "$comments"
 
     # 2. Formal PR reviews (the "Approve / Request changes / Comment"
     #    kind). The reviews endpoint doesn't support `?since=`, so we
-    #    filter client-side by `submitted_at`. --paginate ensures
-    #    long-tail correctness (same reasoning as comments above).
-    gh api --paginate "repos/$REPO_NWO/pulls/$pr_num/reviews?per_page=100" \
-      --jq '.[] | select(.submitted_at != null and .submitted_at > "'"$cursor"'") | {pr: '"$pr_num"', kind: "review", author: .user.login, url: .html_url, body: (.body // ""), ts: .submitted_at, state: .state}' 2>/dev/null \
-      | while IFS= read -r line; do
-          [ -z "$line" ] && continue
-          local author; author=$(echo "$line" | jq -r .author)
-          is_excluded "$author" && continue
-          echo "$line" \
-            | jq -c --arg ts "$ts" --arg title "$pr_title" \
-                '{ts: $ts, pr: .pr, title: $title, kind: (.kind + ":" + (.state // "")), author: .author, url: .url, summary: (.body | gsub("\n"; " ") | .[0:200])}' \
-            >> "$INBOX_LOG"
-        done
+    #    filter client-side by `submitted_at`. Same capture-and-bail
+    #    pattern as the comments call above.
+    #
+    # NOTE: at-least-once delivery is intentional. If this call fails
+    # AFTER the comments call already wrote events to INBOX_LOG, the
+    # cursor stays frozen — the next poll re-fetches the same comments
+    # and writes them again. We accept the duplicate over the
+    # alternative (advancing cursor and silently losing the missing
+    # reviews). Downstream consumers MUST tolerate duplicates.
+    if ! reviews=$(gh api --paginate "repos/$REPO_NWO/pulls/$pr_num/reviews?per_page=100" \
+      --jq '.[] | select(.submitted_at != null and .submitted_at > "'"$cursor"'") | {pr: '"$pr_num"', kind: "review", author: .user.login, url: .html_url, body: (.body // ""), ts: .submitted_at, state: .state}' 2>/dev/null); then
+      echo "[pr-watcher] gh api failed (PR $pr_num reviews); cursor not advanced" >&2
+      rc=1
+      continue
+    fi
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      author=$(echo "$line" | jq -r .author)
+      is_excluded "$author" && continue
+      echo "$line" \
+        | jq -c --arg ts "$ts" --arg title "$pr_title" \
+            '{ts: $ts, pr: .pr, title: $title, kind: (.kind + ":" + (.state // "")), author: .author, url: .url, summary: (.body | gsub("\n"; " ") | .[0:200])}' \
+        >> "$INBOX_LOG"
+    done <<< "$reviews"
 
-    # Update cursor unconditionally — failed pages would have errored
-    # out earlier under `set -e` before reaching here.
+    # Cursor advance only after BOTH gh api calls for this PR succeeded
+    # and we wrote any matching events. A future PR's failure won't
+    # roll this one back; we already wrote the events.
     echo "$ts" > "$cursor_file"
   done
+
+  return $rc
 }
 
 if [[ "${1:-}" == "--watch" ]]; then
