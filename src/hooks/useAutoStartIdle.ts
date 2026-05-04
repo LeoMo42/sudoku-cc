@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { GAME_STATUS, DIFFICULTY_LEVELS, SUDOKU_TYPES } from '../utils/constants';
 import { recordGameStart } from '../utils/stats';
 import type { GameState, GameActions, DifficultyLevel, SudokuTypeId } from '../types/index';
@@ -65,4 +65,31 @@ export function useAutoStartIdle(
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
+
+  // Variant-route-change effect (#223 bug 1). GameProvider stays
+  // mounted as the user navigates between /{lang}/{slug} routes, and
+  // the mount-only effect above doesn't re-fire — so the URL/<title>/
+  // landing copy update from VariantPage but the BOARD stays on the
+  // previous variant. SEO crawler sees mismatched URL+content; user
+  // sees Killer board on /thermo-sudoku page. We catch this by
+  // re-running the variant-mismatch branch whenever forcedVariant
+  // actually changes (post-mount).
+  //
+  // The hasMountedRef skips the first render so we don't double-fire
+  // with the mount effect above. We deliberately read state.sudokuType
+  // and state.difficulty from the closure but do NOT include them in
+  // the dep array — we only want to react to forcedVariant changes,
+  // not to every game-state churn.
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    if (!forcedVariant) return;
+    if (state.sudokuType === forcedVariant) return;
+    actions.newGame(state.difficulty, forcedVariant);
+    recordGameStart(forcedVariant, state.difficulty);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forcedVariant]);
 }
