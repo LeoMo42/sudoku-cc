@@ -352,11 +352,42 @@ interface KillerCageInternal {
 }
 
 /**
+ * Cage-size distribution per difficulty (#220). The earlier generator
+ * sampled targetSize uniformly from 2-5 regardless of difficulty —
+ * combined with a callsite that early-returned BEFORE reading the
+ * difficulty config, every Killer puzzle was effectively the same
+ * class regardless of selector. Now:
+ *   - EASY: small cages (2-3) plus an occasional 1-cell "free digit"
+ *     cage so the player gets a hint sum to anchor their solve.
+ *   - MEDIUM: 2-4, the historical default range with the lower end
+ *     trimmed.
+ *   - HARD: skews larger (3-5) — fewer tight pairs to crack.
+ *   - EXPERT: 4-5 only — largest search space, no naked-single hints.
+ *
+ * EASY is the only difficulty where 1-cell cages can be SEEDED. A
+ * cage can still degenerate to size 1 at any difficulty if it gets
+ * stuck with no eligible orthogonal neighbours (assigned-or-duplicate-
+ * digit), but that's a leftover-pocket case, not a deliberate hint.
+ */
+function killerCageSizeRange(difficulty: DifficultyLevel): { min: number; max: number } {
+  switch (difficulty) {
+    case 'EASY':   return { min: 2, max: 3 };
+    case 'MEDIUM': return { min: 2, max: 4 };
+    case 'HARD':   return { min: 3, max: 5 };
+    case 'EXPERT': return { min: 4, max: 5 };
+  }
+}
+
+const KILLER_EASY_SINGLE_CAGE_RATE = 0.15;
+
+/**
  * Generate Killer Sudoku cages from a completed solution
  * @param solution - The solution board
+ * @param difficulty - Difficulty level (controls cage size distribution)
  * @returns Cages
  */
-function generateKillerCages(solution: Board): KillerCageInternal[] {
+function generateKillerCages(solution: Board, difficulty: DifficultyLevel): KillerCageInternal[] {
+  const { min: minSize, max: maxSize } = killerCageSizeRange(difficulty);
   const assigned: boolean[][] = Array(9).fill(null).map(() => Array(9).fill(false));
   const cages: KillerCageInternal[] = [];
   const allCells: { r: number; c: number }[] = [];
@@ -365,7 +396,12 @@ function generateKillerCages(solution: Board): KillerCageInternal[] {
 
   for (const { r, c } of cells) {
     if (assigned[r][c]) continue;
-    const targetSize = 2 + Math.floor(_rng() * 4); // 2-5
+    // EASY occasionally gets a 1-cell cage as a "free digit" hint.
+    // Other difficulties never SEED a singleton (they can still
+    // appear as the leftover-pocket degeneracy, see while-loop below).
+    const targetSize = difficulty === 'EASY' && _rng() < KILLER_EASY_SINGLE_CAGE_RATE
+      ? 1
+      : minSize + Math.floor(_rng() * (maxSize - minSize + 1));
     const cageCells: CellPosition[] = [{ row: r, col: c }];
     assigned[r][c] = true;
     // Track digits already inside this cage. Killer rules forbid the
@@ -636,9 +672,13 @@ export function createPuzzle(difficulty: DifficultyLevel = 'MEDIUM', sudokuType:
 function _createPuzzle(difficulty: DifficultyLevel, sudokuType: SudokuTypeId): PuzzleResult {
   const solution = generateFullBoard(sudokuType);
 
-  // Killer Sudoku: empty board + cages, no cell removal needed
+  // Killer Sudoku: empty board + cages, no cell removal needed.
+  // Difficulty controls cage-size distribution (#220) — see
+  // killerCageSizeRange. Before this fix, the early return ran before
+  // any difficulty config read, so every Killer puzzle had the same
+  // 2-5-cell uniform cage distribution regardless of selector.
   if (sudokuType === 'KILLER') {
-    const killerCages = generateKillerCages(solution);
+    const killerCages = generateKillerCages(solution, difficulty);
     return { puzzle: createEmptyBoard(), solution, oddEvenMarkers: null, kropkiDots: null, killerCages, littleKillerClues: null, greaterThanSigns: null, thermos: null, sandwichClues: null };
   }
 

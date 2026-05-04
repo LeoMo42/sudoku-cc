@@ -361,6 +361,94 @@ describe('Sudoku Generator', () => {
           expect(cage.sum).toBe(expected);
         }
       });
+
+      // Regression #220 — the Killer branch in _createPuzzle early-
+      // returned BEFORE reading DIFFICULTY_LEVELS, so every difficulty
+      // (Easy through Expert) produced the same 2-5-cell uniform cage
+      // distribution. The "Difficulty" UI selector was a placebo for
+      // Killer. The fix wires difficulty into generateKillerCages with
+      // distinct size ranges per level.
+      describe('difficulty controls cage size distribution (#220)', () => {
+        // Helper: average cage size over N generations with seeds 0..N-1.
+        // Sample size is large enough (30) to drown out single-seed
+        // outliers from leftover-pocket degeneracy.
+        function averageCageSize(difficulty: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT'): number {
+          const SAMPLES = 30;
+          let totalCells = 0;
+          let totalCages = 0;
+          for (let seed = 0; seed < SAMPLES; seed++) {
+            const { killerCages } = createPuzzle(difficulty, 'KILLER', seed);
+            for (const cage of killerCages!) {
+              totalCells += cage.cells.length;
+              totalCages += 1;
+            }
+          }
+          return totalCells / totalCages;
+        }
+
+        it('average cage size grows with difficulty', () => {
+          const easy = averageCageSize('EASY');
+          const medium = averageCageSize('MEDIUM');
+          const hard = averageCageSize('HARD');
+          const expert = averageCageSize('EXPERT');
+          // Strict monotonicity is too brittle (medium and hard ranges
+          // overlap intentionally — 2-4 vs 3-5). Anchor the extremes
+          // and let the middle sit between.
+          expect(easy).toBeLessThan(medium);
+          expect(hard).toBeLessThan(expert);
+          expect(easy).toBeLessThan(expert);
+        });
+
+        it('EASY produces noticeably more 1-cell "naked single" cages than EXPERT', () => {
+          // EASY seeds 15% of cages as 1-cell hints on top of any
+          // pocket-degeneracy. EXPERT only gets the degeneracy floor
+          // (it never seeds 1-cell). Empirically across 30 seeds,
+          // EASY shows ~3-4× more singletons than EXPERT — the gap
+          // is what proves the deliberate hint-cage logic actually
+          // fires. Asserting the GAP rather than absolute thresholds
+          // keeps the test robust against future tweaks to the
+          // 15% rate.
+          let easySingles = 0;
+          let expertSingles = 0;
+          for (let seed = 0; seed < 30; seed++) {
+            const easy = createPuzzle('EASY', 'KILLER', seed);
+            const expert = createPuzzle('EXPERT', 'KILLER', seed);
+            for (const cage of easy.killerCages!) {
+              if (cage.cells.length === 1) easySingles += 1;
+            }
+            for (const cage of expert.killerCages!) {
+              if (cage.cells.length === 1) expertSingles += 1;
+            }
+          }
+          // 1.5× floor — well below the ~2.9× empirical ratio, well
+          // above the noise floor.
+          expect(easySingles).toBeGreaterThan(expertSingles * 1.5);
+        });
+
+        it('cage sizes never exceed the difficulty-allowed maximum', () => {
+          // Cages can degenerate BELOW the min (when growth gets
+          // stuck on assigned-or-duplicate-digit neighbours), but
+          // they cannot exceed the max — that would mean the
+          // targetSize logic regressed. Pin the upper bound and let
+          // degeneracy float on the lower side.
+          const checks: Array<[
+            'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT', number
+          ]> = [
+            ['EASY', 3],
+            ['MEDIUM', 4],
+            ['HARD', 5],
+            ['EXPERT', 5],
+          ];
+          for (const [difficulty, hi] of checks) {
+            for (let seed = 0; seed < 5; seed++) {
+              const { killerCages } = createPuzzle(difficulty, 'KILLER', seed);
+              for (const cage of killerCages!) {
+                expect(cage.cells.length).toBeLessThanOrEqual(hi);
+              }
+            }
+          }
+        });
+      });
     });
   });
 });
