@@ -153,7 +153,7 @@ export function GameContainer({ forcedVariant, headingTitle, landingContent }: G
     if (state.gameStatus === GAME_STATUS.COMPLETED && prevStatus !== GAME_STATUS.COMPLETED) {
       // Use the ref instead of state.elapsedTime so this effect doesn't
       // depend on the timer tick (see #143).
-      isNewBestTimeRef.current = updateBestTime(state.difficulty, elapsedTimeRef.current);
+      isNewBestTimeRef.current = updateBestTime(state.sudokuType, state.difficulty, elapsedTimeRef.current);
       recordGameComplete(state.sudokuType, state.difficulty, elapsedTimeRef.current, state.mistakeCount);
       playVictorySound();
       vibrateComplete();
