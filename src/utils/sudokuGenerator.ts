@@ -686,12 +686,21 @@ function _createPuzzle(difficulty: DifficultyLevel, sudokuType: SudokuTypeId): P
       // For special sudoku types, just remove cells without checking uniqueness
       removed++;
     } else {
-      // Check if puzzle still has unique solution
-      // For performance, only check uniqueness every few removals
-      const shouldCheckUniqueness = removed % 5 === 0 || removed >= cellsToRemove - 5;
-
-      if (shouldCheckUniqueness && !hasUniqueSolution(puzzle, sudokuType)) {
-        // Restore the cell if solution is not unique
+      // Check uniqueness on EVERY removal (#214). The earlier "check
+      // every 5th + last 5" shortcut could ship non-unique Classic
+      // puzzles: between two checks 1-4 unchecked removals could
+      // introduce a second solution; the next check then failed on
+      // an unrelated cell while the actual culprits stayed empty,
+      // so the restore was on the wrong cell and the puzzle stayed
+      // non-unique. Keeping the invariant strict (puzzle is unique
+      // after every accepted removal) eliminates the class of bug
+      // entirely. hasUniqueSolution short-circuits at 2 solutions,
+      // so the cost on Expert is a few extra cell-attempts per
+      // generation — empirically still well under the unit-test
+      // timeout.
+      if (!hasUniqueSolution(puzzle, sudokuType)) {
+        // Restore the cell — this removal would have introduced a
+        // second solution.
         puzzle[row][col] = backup;
       } else {
         removed++;

@@ -5,9 +5,10 @@ import { solveSudoku, hasUniqueSolution } from './sudokuSolver';
 import { GRID_SIZE, EMPTY_CELL, KING_MOVES } from './constants';
 import type { Board } from '../types/index';
 
-// Suppress unused import warning - these are used in commented-out or conditional tests
+// solveSudoku is imported for use in commented-out/conditional tests
+// elsewhere in this file. hasUniqueSolution is now exercised by the
+// #214 regression tests below.
 void solveSudoku;
-void hasUniqueSolution;
 
 describe('Sudoku Generator', () => {
   describe('generateFullBoard', () => {
@@ -61,6 +62,36 @@ describe('Sudoku Generator', () => {
             expect(puzzle[row]![col]).toBe(solution[row]![col]);
           }
         }
+      }
+    });
+
+    // Regression #214 — the previous generator only checked
+    // hasUniqueSolution every 5th removal (and on the last 5). Between
+    // two checks, 1-4 unchecked removals could introduce a second
+    // solution; the next check then failed on an unrelated cell, the
+    // restore put back the wrong cell, and the puzzle shipped
+    // non-unique. With every-removal checking, this can no longer
+    // happen — the invariant "puzzle is unique after every accepted
+    // removal" holds at every step. We exercise EXPERT (~50 removals,
+    // most pressure on the solver) and a sample size of 5 generations
+    // because the bug was probabilistic; a single run could pass even
+    // against the buggy code.
+    //
+    // Per-test timeout bumped to 30s: EXPERT generation runs the
+    // solver on every accepted removal, so the worst-case cost
+    // (median ~275ms / max ~1.4s per generation locally) makes 5
+    // iterations occasionally bump up against vitest's 5s default.
+    it('should produce uniquely-solvable EXPERT puzzles every time', { timeout: 30_000 }, () => {
+      for (let i = 0; i < 5; i++) {
+        const { puzzle } = createPuzzle('EXPERT');
+        expect(hasUniqueSolution(puzzle, 'CLASSIC')).toBe(true);
+      }
+    });
+
+    it('should produce uniquely-solvable HARD puzzles every time', { timeout: 30_000 }, () => {
+      for (let i = 0; i < 5; i++) {
+        const { puzzle } = createPuzzle('HARD');
+        expect(hasUniqueSolution(puzzle, 'CLASSIC')).toBe(true);
       }
     });
   });
