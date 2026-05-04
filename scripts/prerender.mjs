@@ -69,6 +69,28 @@ function hreflangAlternates(slug) {
   return LANGS.map((lang) => ({ lang, href: canonicalUrl(lang, slug) }));
 }
 
+/**
+ * Tear down the prerender preview server + Playwright browser. Exported
+ * (and split out) so the cleanup contract is unit-testable: the
+ * regression we're guarding against (#227) is "browser undefined ⇒
+ * server still closes," which is hard to exercise without mocking vite
+ * AND playwright in concert. With a helper, the test calls it directly.
+ *
+ * - `Promise.allSettled` so if one close rejects, the other still runs.
+ *   Sequential `await` would leak the preview server when
+ *   browser.close() throws first. CI shrugs (process exits), local
+ *   re-runs care (port 4173 stays bound).
+ * - `browser` may be undefined when chromium.launch() threw — skip the
+ *   close call but still tear the server down. That's exactly the
+ *   #227 leak path.
+ */
+export async function closeAll(browser, server) {
+  return Promise.allSettled([
+    browser ? browser.close() : Promise.resolve(),
+    new Promise((res) => server.httpServer.close(res)),
+  ]);
+}
+
 async function prerender() {
   // Vite preview reads `base` from vite.config.ts unless overridden.
   // We pass it explicitly so the script works regardless of how the
@@ -85,11 +107,21 @@ async function prerender() {
   const baseUrl = `${origin}${BASE.replace(/\/$/, '')}`;
   console.log(`[prerender] preview server at ${baseUrl}`);
 
-  const browser = await chromium.launch();
   const errors = [];
   const written = [];
+  // `browser` lives outside the try so the finally can close it
+  // regardless of where launch failed. The previous shape declared it
+  // INSIDE the try with `const browser = await chromium.launch();`,
+  // which meant a failed launch (chromium not installed, missing
+  // system deps, sandbox-disabled env) jumped straight out of
+  // prerender() with the preview server still bound to port 4173 —
+  // local re-runs then hit `Error: listen EADDRINUSE :::4173` until
+  // the kernel reclaimed the socket (#227).
+  let browser;
 
   try {
+    browser = await chromium.launch();
+
     for (const route of ROUTES) {
       const url = `${baseUrl}${route}`;
       const ctx = await browser.newContext();
@@ -130,13 +162,7 @@ async function prerender() {
       await ctx.close();
     }
   } finally {
-    // Promise.allSettled so if either close throws, the other still runs.
-    // Sequential `await` would leak the preview server if browser.close()
-    // failed first. CI shrugs (process exits anyway), local re-runs care.
-    await Promise.allSettled([
-      browser.close(),
-      new Promise((res) => server.httpServer.close(res)),
-    ]);
+    await closeAll(browser, server);
   }
 
   if (errors.length) {
