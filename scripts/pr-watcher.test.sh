@@ -89,13 +89,13 @@ fails=0
   if assert "[ -f '$cursor_file' ]" "cursor file should exist after happy poll"; then
     cursor_value=$(cat "$cursor_file")
     if assert "[[ '$cursor_value' =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]" "cursor should be ISO timestamp, got '$cursor_value'"; then
-      ((passes++))
+      passes=$((passes + 1))
       echo "PASS: happy path advances cursor"
     else
-      ((fails++))
+      fails=$((fails + 1))
     fi
   else
-    ((fails++))
+    fails=$((fails + 1))
   fi
   rm -rf "$sandbox"
 }
@@ -109,10 +109,10 @@ fails=0
   run_poll "$sandbox" >/dev/null 2>&1 || true  # poll_once returns 1 — that's the point
   cursor_file="$sandbox/inbox/cursors/pr-99.txt"
   if assert "[ ! -f '$cursor_file' ]" "cursor file must NOT exist after gh failure"; then
-    ((passes++))
+    passes=$((passes + 1))
     echo "PASS: gh api comments failure does not create cursor"
   else
-    ((fails++))
+    fails=$((fails + 1))
   fi
   rm -rf "$sandbox"
 }
@@ -129,10 +129,10 @@ fails=0
   run_poll "$sandbox" >/dev/null 2>&1 || true
   cursor_value=$(cat "$cursor_file")
   if assert "[ '$cursor_value' = '2020-01-01T00:00:00Z' ]" "cursor must remain frozen on gh reviews failure (got '$cursor_value')"; then
-    ((passes++))
+    passes=$((passes + 1))
     echo "PASS: gh api reviews failure does not advance cursor"
   else
-    ((fails++))
+    fails=$((fails + 1))
   fi
   rm -rf "$sandbox"
 }

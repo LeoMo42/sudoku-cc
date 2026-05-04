@@ -137,6 +137,13 @@ poll_once() {
     #    kind). The reviews endpoint doesn't support `?since=`, so we
     #    filter client-side by `submitted_at`. Same capture-and-bail
     #    pattern as the comments call above.
+    #
+    # NOTE: at-least-once delivery is intentional. If this call fails
+    # AFTER the comments call already wrote events to INBOX_LOG, the
+    # cursor stays frozen — the next poll re-fetches the same comments
+    # and writes them again. We accept the duplicate over the
+    # alternative (advancing cursor and silently losing the missing
+    # reviews). Downstream consumers MUST tolerate duplicates.
     if ! reviews=$(gh api --paginate "repos/$REPO_NWO/pulls/$pr_num/reviews?per_page=100" \
       --jq '.[] | select(.submitted_at != null and .submitted_at > "'"$cursor"'") | {pr: '"$pr_num"', kind: "review", author: .user.login, url: .html_url, body: (.body // ""), ts: .submitted_at, state: .state}' 2>/dev/null); then
       echo "[pr-watcher] gh api failed (PR $pr_num reviews); cursor not advanced" >&2
