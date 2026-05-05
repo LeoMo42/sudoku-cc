@@ -86,7 +86,12 @@ jobs:
   e2e:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Per-matrix-instance cap. Median run is ~80s across browsers; the
+    # slowest legit run on record is 566s (webkit, PR #252 — passing
+    # but on a slow GHA runner). 10 min gives ~6× headroom over that
+    # while killing genuine hangs in a third of the previous 30 min
+    # cap. Bump back up only if a real test legitimately needs >10 min.
+    timeout-minutes: 10
     strategy:
       matrix:
         browser: [chromium, firefox, webkit]
