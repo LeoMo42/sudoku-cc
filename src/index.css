@@ -50,6 +50,16 @@
     outline: 2px solid theme('colors.blue.500');
     outline-offset: 2px;
   }
+
+  /* F8 — color-scheme tells the browser to render native UI (scrollbars,
+     autofill, <details> summary, form controls) in the matching variant.
+     Without this, scrollbars stay light inside a dark page. */
+  :root {
+    color-scheme: light;
+  }
+  :root.dark {
+    color-scheme: dark;
+  }
 }
 
 @layer utilities {
