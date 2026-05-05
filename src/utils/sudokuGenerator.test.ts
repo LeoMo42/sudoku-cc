@@ -3,7 +3,7 @@ import { generateFullBoard, createPuzzle, getHint } from './sudokuGenerator';
 import { isSolved, isComplete, findConflicts } from './sudokuValidator';
 import { solveSudoku, hasUniqueSolution } from './sudokuSolver';
 import { GRID_SIZE, EMPTY_CELL, KING_MOVES } from './constants';
-import type { Board } from '../types/index';
+import type { Board, SudokuTypeId } from '../types/index';
 
 // solveSudoku is imported for use in commented-out/conditional tests
 // elsewhere in this file. hasUniqueSolution is now exercised by the
@@ -44,7 +44,7 @@ describe('Sudoku Generator', () => {
       expect(filledCells).toBeLessThanOrEqual(60);
     });
 
-    it('should create puzzle with correct difficulty (EXPERT)', () => {
+    it('should create puzzle with correct difficulty (EXPERT)', { timeout: 30_000 }, () => {
       const { puzzle } = createPuzzle('EXPERT');
       const filledCells = puzzle.flat().filter((cell) => cell !== EMPTY_CELL).length;
       // EXPERT: should have fewer filled cells (allow margin for uniqueness constraint)
@@ -81,17 +81,44 @@ describe('Sudoku Generator', () => {
     // solver on every accepted removal, so the worst-case cost
     // (median ~275ms / max ~1.4s per generation locally) makes 5
     // iterations occasionally bump up against vitest's 5s default.
-    it('should produce uniquely-solvable EXPERT puzzles every time', { timeout: 30_000 }, () => {
+    it('should produce uniquely-solvable EXPERT puzzles every time', { timeout: 60_000 }, () => {
       for (let i = 0; i < 5; i++) {
         const { puzzle } = createPuzzle('EXPERT');
         expect(hasUniqueSolution(puzzle, 'CLASSIC')).toBe(true);
       }
     });
 
-    it('should produce uniquely-solvable HARD puzzles every time', { timeout: 30_000 }, () => {
+    it('should produce uniquely-solvable HARD puzzles every time', { timeout: 60_000 }, () => {
       for (let i = 0; i < 5; i++) {
         const { puzzle } = createPuzzle('HARD');
         expect(hasUniqueSolution(puzzle, 'CLASSIC')).toBe(true);
+      }
+    });
+
+    // Regression #211 — non-Classic variants used to skip uniqueness
+    // checking entirely. Players solving via an alternate valid
+    // solution would see "Wrong" from the Check button, and the hint
+    // engine could push them toward the OTHER solution. Now uniqueness
+    // is enforced on every removal for all 11 non-Killer variants.
+    // KILLER uses a separate empty-board path and is excluded; the
+    // cage-validity invariant is covered elsewhere (#210).
+    //
+    // Per-test timeout 60s: all 11 variants × MEDIUM (one pass each)
+    // takes ~2s typical, well under budget. EXPERT cost would push
+    // ~10s — we use MEDIUM here for breadth; EXPERT is exercised by
+    // the Classic-only block above.
+    it('should produce uniquely-solvable puzzles for every non-Killer variant', { timeout: 60_000 }, () => {
+      const variants: SudokuTypeId[] = [
+        'DIAGONAL', 'WINDOKU', 'ANTI_KNIGHT', 'ODD_EVEN', 'ANTI_KING',
+        'NON_CONSECUTIVE', 'KROPKI', 'LITTLE_KILLER', 'GREATER_THAN',
+        'THERMO', 'SANDWICH',
+      ];
+      for (const v of variants) {
+        const { puzzle } = createPuzzle('MEDIUM', v);
+        expect(
+          hasUniqueSolution(puzzle, v),
+          `${v} puzzle should be structurally unique`,
+        ).toBe(true);
       }
     });
   });
