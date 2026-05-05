@@ -1,8 +1,21 @@
-import { describe, it, expect } from 'vitest';
-import { gameReducer, Actions, isValidSavedState, migrateSavedState } from './GameContext';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// vi.mock is hoisted above imports — find/replace findHintStep with a
+// vi.fn so #219 hint-counter tests can drive both the "hint found" and
+// "hint not found" branches of GET_HINT without standing up a real
+// puzzle. No other test in this file dispatches GET_HINT or APPLY_HINT,
+// so the mock is otherwise inert.
+vi.mock('../utils/hintEngine', () => ({
+  findHintStep: vi.fn(),
+}));
+
+import { findHintStep } from '../utils/hintEngine';
+import { gameReducer, Actions, isValidSavedState, migrateSavedState, safeSetItem, safeRemoveItem } from './GameContext';
 import { GAME_STATUS, EMPTY_CELL } from '../utils/constants';
 import { copyBoard } from '../utils/sudokuValidator';
 import type { GameState } from '../types/index';
+
+const mockedFindHintStep = vi.mocked(findHintStep);
 
 function createTestState(): GameState {
   const board = Array(9).fill(null).map(() => Array(9).fill(EMPTY_CELL));
@@ -18,6 +31,7 @@ function createTestState(): GameState {
     hintsUsed: 0,
     errors: new Set(),
     mistakeCount: 0,
+    wrongAttempts: new Map(),
     notesMode: false,
     notes: new Map(),
     activeHint: null,
@@ -112,6 +126,51 @@ describe('gameReducer', () => {
         payload: { row: 0, col: 5, value: 5 },
       });
       expect(next.errors.size).toBeGreaterThan(0);
+    });
+
+    // Regression #216 — paused games should not be mutable. The UI hides
+    // the number pad while paused, but a stale keyboard handler could
+    // still dispatch SET_CELL_VALUE; the reducer must enforce the guard.
+    it.each([GAME_STATUS.PAUSED, GAME_STATUS.IDLE] as const)(
+      'is a no-op when gameStatus is %s',
+      (status) => {
+        const state = { ...createTestState(), gameStatus: status };
+        const next = gameReducer(state, {
+          type: Actions.SET_CELL_VALUE,
+          payload: { row: 0, col: 0, value: 5 },
+        });
+        expect(next).toBe(state);
+        expect(next.board[0]![0]).toBe(EMPTY_CELL);
+      },
+    );
+
+    // Regression #221 — same-value placement (tapping the same digit
+    // twice, or Clear on an already-empty cell) must be a no-op so it
+    // doesn't push a redundant history snapshot.
+    it('is a no-op when value === current value (digit twice)', () => {
+      let state = createTestState();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5 },
+      });
+      const historyLengthBefore = state.history.length;
+      const next = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5 },
+      });
+      expect(next).toBe(state);
+      expect(next.history.length).toBe(historyLengthBefore);
+    });
+
+    it('is a no-op when clearing an already-empty cell', () => {
+      const state = createTestState();
+      const historyLengthBefore = state.history.length;
+      const next = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: EMPTY_CELL },
+      });
+      expect(next).toBe(state);
+      expect(next.history.length).toBe(historyLengthBefore);
     });
   });
 
@@ -227,6 +286,27 @@ describe('gameReducer', () => {
       const resumed = gameReducer(state, { type: Actions.RESUME_GAME });
       expect(resumed.gameStatus).toBe(GAME_STATUS.PLAYING);
     });
+
+    // Regression #215 — pause/resume must NOT resurrect terminal states.
+    it.each([GAME_STATUS.IDLE, GAME_STATUS.COMPLETED, GAME_STATUS.LOST] as const)(
+      'PAUSE_GAME is a no-op when status is %s',
+      (status) => {
+        const state = { ...createTestState(), gameStatus: status };
+        const result = gameReducer(state, { type: Actions.PAUSE_GAME });
+        expect(result.gameStatus).toBe(status);
+        expect(result).toBe(state);
+      },
+    );
+
+    it.each([GAME_STATUS.IDLE, GAME_STATUS.PLAYING, GAME_STATUS.COMPLETED, GAME_STATUS.LOST] as const)(
+      'RESUME_GAME is a no-op when status is %s',
+      (status) => {
+        const state = { ...createTestState(), gameStatus: status };
+        const result = gameReducer(state, { type: Actions.RESUME_GAME });
+        expect(result.gameStatus).toBe(status);
+        expect(result).toBe(state);
+      },
+    );
   });
 
   describe('UPDATE_TIME', () => {
@@ -341,6 +421,128 @@ describe('gameReducer', () => {
       const undone = gameReducer(after, { type: Actions.UNDO });
       expect(undone.notes.get('0,0')?.has(1)).toBe(true);
       expect(undone.notes.get('0,0')?.has(3)).toBe(true);
+    });
+  });
+
+  // Regression #217 — every reducer that mutates the board (or the
+  // candidate grid via notes) must clear activeHint, so a stale hint
+  // can't be applied against a state it was no longer computed against.
+  describe('activeHint clearing on board mutation (#217)', () => {
+    function withActiveHint(): GameState {
+      return {
+        ...createTestState(),
+        // Minimal placement-shaped activeHint. The reducer doesn't
+        // inspect its fields here — it just needs to be non-null so
+        // the assertion has something to clear.
+        activeHint: {
+          technique: 'NAKED_SINGLE',
+          placement: { row: 0, col: 0, value: 5 },
+          eliminations: [],
+          highlightCells: [],
+          message: 'stub',
+        } as never,
+      };
+    }
+
+    it('SET_CELL_VALUE clears activeHint', () => {
+      const state = withActiveHint();
+      const next = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 1, col: 1, value: 3 },
+      });
+      expect(next.activeHint).toBeNull();
+    });
+
+    it('UNDO clears activeHint', () => {
+      let state = createTestState();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5 },
+      });
+      // Inject a stale hint AFTER a move was made (so history exists)
+      state = { ...state, activeHint: { technique: 'NAKED_SINGLE', placement: { row: 0, col: 0, value: 5 }, eliminations: [], highlightCells: [], message: 'stub' } as never };
+      const undone = gameReducer(state, { type: Actions.UNDO });
+      expect(undone.activeHint).toBeNull();
+    });
+
+    it('REDO clears activeHint', () => {
+      let state = createTestState();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5 },
+      });
+      state = gameReducer(state, { type: Actions.UNDO });
+      state = { ...state, activeHint: { technique: 'NAKED_SINGLE', placement: { row: 0, col: 0, value: 5 }, eliminations: [], highlightCells: [], message: 'stub' } as never };
+      const redone = gameReducer(state, { type: Actions.REDO });
+      expect(redone.activeHint).toBeNull();
+    });
+
+    it('SET_NOTE clears activeHint', () => {
+      const state = withActiveHint();
+      const next = gameReducer(state, {
+        type: Actions.SET_NOTE,
+        payload: { row: 1, col: 1, number: 3 },
+      });
+      expect(next.activeHint).toBeNull();
+    });
+  });
+
+  // Regression #219 — hintsUsed must be charged on GET_HINT (when a
+  // hint is actually returned), not deferred until APPLY_HINT. Showing
+  // the target cell + technique IS the costly action; deferring made
+  // it trivial to bypass the per-difficulty hint limit by requesting,
+  // reading, and dismissing.
+  describe('hint counter charging (#219)', () => {
+    const stubHint = {
+      technique: 'NAKED_SINGLE',
+      placement: { row: 0, col: 0, value: 5 },
+      eliminations: [],
+      highlightCells: [{ row: 0, col: 0, role: 'target' as const }],
+      message: 'stub',
+    };
+
+    beforeEach(() => {
+      mockedFindHintStep.mockReset();
+    });
+
+    it('GET_HINT increments hintsUsed when a hint is returned', () => {
+      mockedFindHintStep.mockReturnValue(stubHint as never);
+      const state = createTestState();
+      expect(state.hintsUsed).toBe(0);
+      const next = gameReducer(state, { type: Actions.GET_HINT });
+      expect(next.hintsUsed).toBe(1);
+      expect(next.activeHint).not.toBeNull();
+    });
+
+    it('GET_HINT does NOT increment when no hint is found', () => {
+      mockedFindHintStep.mockReturnValue(null);
+      const state = createTestState();
+      const next = gameReducer(state, { type: Actions.GET_HINT });
+      expect(next).toBe(state);
+      expect(next.hintsUsed).toBe(0);
+    });
+
+    it('GET_HINT does NOT increment when hint limit already reached', () => {
+      mockedFindHintStep.mockReturnValue(stubHint as never);
+      // Difficulty.EASY maxHints is well under 9999; this is a hard cap.
+      const state = { ...createTestState(), hintsUsed: 9999 };
+      const next = gameReducer(state, { type: Actions.GET_HINT });
+      expect(next).toBe(state);
+      expect(next.hintsUsed).toBe(9999);
+      // findHintStep should not even be invoked when over the limit
+      expect(mockedFindHintStep).not.toHaveBeenCalled();
+    });
+
+    it('APPLY_HINT does NOT re-charge hintsUsed (already charged at GET_HINT)', () => {
+      const state: GameState = {
+        ...createTestState(),
+        hintsUsed: 1,
+        activeHint: stubHint as never,
+      };
+      const next = gameReducer(state, { type: Actions.APPLY_HINT });
+      expect(next.hintsUsed).toBe(1);
+      // Sanity: the placement was actually applied
+      expect(next.board[0]![0]).toBe(5);
     });
   });
 
@@ -663,7 +865,10 @@ describe('mistake counter', () => {
     expect(state.mistakeCount).toBe(1);
   });
 
-  it('counts wrong-clear-wrong as two mistakes', () => {
+  // D2 (research-round interview): same wrong digit at the same cell
+  // counts ONE mistake total, even if the player clears between attempts.
+  // Previously this counted as two — punitive on muscle-memory typos.
+  it('does NOT double-count wrong-clear-same-wrong (D2 #219 logic)', () => {
     let state = withSolution();
     state = gameReducer(state, {
       type: Actions.SET_CELL_VALUE,
@@ -677,7 +882,7 @@ describe('mistake counter', () => {
       type: Actions.SET_CELL_VALUE,
       payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
     });
-    expect(state.mistakeCount).toBe(2);
+    expect(state.mistakeCount).toBe(1);
   });
 
   it('does not decrement on undo', () => {
@@ -776,6 +981,122 @@ describe('mistake counter', () => {
     });
     expect(next.mistakeCount).toBe(0);
   });
+
+  // Per-cell wrongAttempts tracking (D2). Each unique wrong digit at a
+  // given cell counts exactly once across the lifetime of the game.
+  describe('per-cell wrongAttempts (D2)', () => {
+    it('records the wrong digit in wrongAttempts on first attempt', () => {
+      const state = withSolution();
+      const next = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      expect(next.wrongAttempts.get('0,0')?.has(9)).toBe(true);
+      expect(next.mistakeCount).toBe(1);
+    });
+
+    it('does not record correct placements in wrongAttempts', () => {
+      const state = withSolution();
+      const next = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 5, mistakeLimit: null },
+      });
+      expect(next.wrongAttempts.has('0,0')).toBe(false);
+    });
+
+    it('keeps wrongAttempts across clear (digit history is sticky)', () => {
+      let state = withSolution();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: EMPTY_CELL, mistakeLimit: null },
+      });
+      expect(state.wrongAttempts.get('0,0')?.has(9)).toBe(true);
+    });
+
+    it('counts two distinct wrong digits at same cell as two mistakes', () => {
+      let state = withSolution();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 8, mistakeLimit: null },
+      });
+      expect(state.mistakeCount).toBe(2);
+      expect(state.wrongAttempts.get('0,0')?.has(9)).toBe(true);
+      expect(state.wrongAttempts.get('0,0')?.has(8)).toBe(true);
+    });
+
+    it('does NOT re-count a digit already in wrongAttempts (third repeat)', () => {
+      let state = withSolution();
+      // 9 wrong, 8 wrong, 9 wrong again — third placement should not
+      // bump the counter.
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 8, mistakeLimit: null },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      expect(state.mistakeCount).toBe(2);
+    });
+
+    it('tracks per-cell independently (same digit at different cells = 2 mistakes)', () => {
+      let state = withSolution();
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 0, value: 9, mistakeLimit: null },
+      });
+      state = gameReducer(state, {
+        type: Actions.SET_CELL_VALUE,
+        payload: { row: 0, col: 1, value: 9, mistakeLimit: null },
+      });
+      expect(state.mistakeCount).toBe(2);
+      expect(state.wrongAttempts.get('0,0')?.has(9)).toBe(true);
+      expect(state.wrongAttempts.get('0,1')?.has(9)).toBe(true);
+    });
+
+    it('NEW_GAME resets wrongAttempts to empty Map', () => {
+      const state = withSolution();
+      state.wrongAttempts.set('5,5', new Set([3, 7]));
+      const next = gameReducer(state, {
+        type: Actions.NEW_GAME,
+        payload: { difficulty: 'EASY', sudokuType: 'CLASSIC' },
+      });
+      expect(next.wrongAttempts.size).toBe(0);
+    });
+
+    it('LOAD_STATE deserializes wrongAttempts from saved entries', () => {
+      const state = createTestState();
+      const next = gameReducer(state, {
+        type: Actions.LOAD_STATE,
+        payload: { wrongAttempts: [['0,0', [9, 8]], ['1,1', [3]]] } as never,
+      });
+      expect(next.wrongAttempts.get('0,0')?.has(9)).toBe(true);
+      expect(next.wrongAttempts.get('0,0')?.has(8)).toBe(true);
+      expect(next.wrongAttempts.get('1,1')?.has(3)).toBe(true);
+    });
+
+    it('LOAD_STATE defaults to empty Map for old saves without wrongAttempts', () => {
+      const state = createTestState();
+      state.wrongAttempts.set('5,5', new Set([7]));
+      const next = gameReducer(state, {
+        type: Actions.LOAD_STATE,
+        payload: {},
+      });
+      expect(next.wrongAttempts.size).toBe(0);
+    });
+  });
 });
 
 describe('migrateSavedState', () => {
@@ -803,5 +1124,61 @@ describe('migrateSavedState', () => {
     const result = migrateSavedState(data);
     expect(data.version).toBeUndefined();
     expect(result).not.toBe(data);
+  });
+});
+
+// Regression #218 — localStorage helpers must not propagate throws from
+// SecurityError / QuotaExceededError environments (private browsing,
+// blocked-domain policies, full quota). The previous code called
+// localStorage.setItem/getItem/removeItem directly and crashed the
+// provider mount on hostile storage.
+describe('safe localStorage helpers (#218)', () => {
+  function mockThrowingStorage(): Storage {
+    const storage = {
+      length: 0,
+      clear: () => { throw new Error('SecurityError'); },
+      getItem: () => { throw new Error('SecurityError'); },
+      key: () => { throw new Error('SecurityError'); },
+      removeItem: () => { throw new Error('SecurityError'); },
+      setItem: () => { throw new Error('SecurityError'); },
+    } satisfies Storage;
+    return storage;
+  }
+
+  let originalStorage: Storage;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    originalStorage = window.localStorage;
+    Object.defineProperty(window, 'localStorage', {
+      value: mockThrowingStorage(),
+      configurable: true,
+      writable: true,
+    });
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'localStorage', {
+      value: originalStorage,
+      configurable: true,
+      writable: true,
+    });
+    warnSpy.mockRestore();
+  });
+
+  it('safeSetItem swallows SecurityError instead of crashing the caller', () => {
+    expect(() => safeSetItem('any-key', 'any-value')).not.toThrow();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Failed to persist to localStorage:',
+      expect.any(Error),
+    );
+  });
+
+  it('safeRemoveItem swallows SecurityError silently (cleanup path)', () => {
+    expect(() => safeRemoveItem('any-key')).not.toThrow();
+    // safeRemoveItem deliberately does NOT log — it's only called from
+    // already-failing paths where adding more noise hurts signal.
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 });

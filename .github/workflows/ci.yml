@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [dev, main]
 
+# Least-privilege token (#228). CI only checks out the repo and runs
+# build/lint/test/e2e — none of which need to write to GitHub. The
+# default GITHUB_TOKEN scope depends on the repo setting, which can
+# silently widen if anyone flips the org/repo default to write. Pin
+# this workflow to read-only so the blast radius can't grow under us.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

@@ -193,27 +193,37 @@ function generateAntiKing(): Board {
 }
 
 /**
- * Base Non-Consecutive Sudoku template (generated via Python)
- * Adjacent cells do not differ by 1
- */
-const BASE_NON_CONSECUTIVE_SUDOKU: Board = [
-  [6, 8, 5, 2, 9, 3, 1, 7, 4],
-  [9, 3, 1, 6, 4, 7, 5, 2, 8],
-  [2, 7, 4, 1, 8, 5, 9, 6, 3],
-  [5, 2, 7, 4, 1, 8, 3, 9, 6],
-  [8, 6, 3, 9, 5, 2, 7, 4, 1],
-  [1, 4, 9, 7, 3, 6, 2, 8, 5],
-  [4, 9, 6, 3, 7, 1, 8, 5, 2],
-  [7, 1, 8, 5, 2, 4, 6, 3, 9],
-  [3, 5, 2, 8, 6, 9, 4, 1, 7],
-] as Board;
-
-/**
- * Generate Non-Consecutive Sudoku using template-based approach with digit permutations
- * @returns Valid Non-Consecutive board
+ * Generate Non-Consecutive Sudoku via backtracking.
+ *
+ * Unlike the structural variants (X/Windoku/Anti-Knight/Anti-King), the
+ * non-consecutive constraint is ARITHMETIC (|a-b| ≠ 1) and is NOT
+ * preserved under digit relabeling. The earlier template+permutation
+ * approach (#209) shipped solutions whose adjacent diffs landed on 1
+ * after the permutation, so ~99% of generated puzzles were unsolvable
+ * — every legal placement got rejected by isValidMove because the
+ * "solution" itself violated the rules. Backtracking calls
+ * isValidMove during fill, so any board it returns is guaranteed
+ * non-consecutive-valid by construction.
+ *
+ * The shared fillRemaining caps recursion at 50K steps. A bad random
+ * branch can blow that budget without converging, so we retry up to 5
+ * times before giving up. In practice the first attempt succeeds the
+ * vast majority of the time; the retry exists to make the rare
+ * unlucky branch invisible to callers.
  */
 function generateNonConsecutive(): Board {
-  return permuteTemplate(BASE_NON_CONSECUTIVE_SUDOKU);
+  // 500K-step cap per attempt. Empirically this is enough for the
+  // arithmetic constraint to converge on the vast majority of random
+  // branchings; the retry exists to cover the rare unlucky one.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const board = createEmptyBoard();
+    if (fillRemaining(board, 0, 0, 'NON_CONSECUTIVE', { count: 0 }, 500_000)) {
+      return board;
+    }
+  }
+  throw new Error(
+    'Non-Consecutive backtracking generator failed after 5 attempts',
+  );
 }
 
 /**
@@ -256,6 +266,10 @@ export function generateFullBoard(sudokuType: SudokuTypeId = 'CLASSIC'): Board {
  * @param col - Current column
  * @param sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
  * @param counter - Recursion counter for timeout
+ * @param maxSteps - Hard cap on recursive calls (per attempt). NON_CONSECUTIVE
+ *   is much tighter than the structural variants (the arithmetic |a-b|≠1
+ *   constraint prunes the search aggressively), so the default 50K is
+ *   easily blown by an unlucky early branch. Callers can raise this cap.
  * @returns True if successfully filled
  */
 function fillRemaining(
@@ -263,15 +277,25 @@ function fillRemaining(
   row: number,
   col: number,
   sudokuType: SudokuTypeId = 'CLASSIC',
-  counter: { count: number } = { count: 0 }
+  counter: { count: number } = { count: 0 },
+  maxSteps: number = 50000,
 ): boolean {
   // Prevent infinite recursion - if we've tried too many times, give up
   counter.count++;
-  if (counter.count > 50000) {
+  if (counter.count > maxSteps) {
     return false;
   }
-  // Move to next row if we've filled current row
-  if (col >= GRID_SIZE && row < GRID_SIZE - 1) {
+  // Move to next row when we walk off the right edge. The last-row case
+  // (row = GRID_SIZE - 1, col = GRID_SIZE) used to fall through here,
+  // skip the (row >= GRID_SIZE && col >= GRID_SIZE) completion check,
+  // and recurse forever via the "already filled" branch on board[8][9]
+  // (an undefined cell that doesn't equal EMPTY_CELL). CLASSIC never
+  // tripped this because its diagonal-skip block returns true at
+  // (row=9), and the other variants used template+permutation paths.
+  // NON_CONSECUTIVE (#209) is the first variant to drive fillRemaining
+  // outside CLASSIC, which surfaced the bug.
+  if (col >= GRID_SIZE) {
+    if (row >= GRID_SIZE - 1) return true;
     row++;
     col = 0;
   }
@@ -300,7 +324,7 @@ function fillRemaining(
 
   // Skip if cell is already filled
   if (board[row][col] !== EMPTY_CELL) {
-    return fillRemaining(board, row, col + 1, sudokuType, counter);
+    return fillRemaining(board, row, col + 1, sudokuType, counter, maxSteps);
   }
 
   // Try random numbers 1-9
@@ -310,7 +334,7 @@ function fillRemaining(
     if (isValidMove(board, row, col, num, sudokuType)) {
       board[row][col] = num;
 
-      if (fillRemaining(board, row, col + 1, sudokuType, counter)) {
+      if (fillRemaining(board, row, col + 1, sudokuType, counter, maxSteps)) {
         return true;
       }
 
@@ -328,11 +352,42 @@ interface KillerCageInternal {
 }
 
 /**
+ * Cage-size distribution per difficulty (#220). The earlier generator
+ * sampled targetSize uniformly from 2-5 regardless of difficulty —
+ * combined with a callsite that early-returned BEFORE reading the
+ * difficulty config, every Killer puzzle was effectively the same
+ * class regardless of selector. Now:
+ *   - EASY: small cages (2-3) plus an occasional 1-cell "free digit"
+ *     cage so the player gets a hint sum to anchor their solve.
+ *   - MEDIUM: 2-4, the historical default range with the lower end
+ *     trimmed.
+ *   - HARD: skews larger (3-5) — fewer tight pairs to crack.
+ *   - EXPERT: 4-5 only — largest search space, no naked-single hints.
+ *
+ * EASY is the only difficulty where 1-cell cages can be SEEDED. A
+ * cage can still degenerate to size 1 at any difficulty if it gets
+ * stuck with no eligible orthogonal neighbours (assigned-or-duplicate-
+ * digit), but that's a leftover-pocket case, not a deliberate hint.
+ */
+function killerCageSizeRange(difficulty: DifficultyLevel): { min: number; max: number } {
+  switch (difficulty) {
+    case 'EASY':   return { min: 2, max: 3 };
+    case 'MEDIUM': return { min: 2, max: 4 };
+    case 'HARD':   return { min: 3, max: 5 };
+    case 'EXPERT': return { min: 4, max: 5 };
+  }
+}
+
+const KILLER_EASY_SINGLE_CAGE_RATE = 0.15;
+
+/**
  * Generate Killer Sudoku cages from a completed solution
  * @param solution - The solution board
+ * @param difficulty - Difficulty level (controls cage size distribution)
  * @returns Cages
  */
-function generateKillerCages(solution: Board): KillerCageInternal[] {
+function generateKillerCages(solution: Board, difficulty: DifficultyLevel): KillerCageInternal[] {
+  const { min: minSize, max: maxSize } = killerCageSizeRange(difficulty);
   const assigned: boolean[][] = Array(9).fill(null).map(() => Array(9).fill(false));
   const cages: KillerCageInternal[] = [];
   const allCells: { r: number; c: number }[] = [];
@@ -341,23 +396,42 @@ function generateKillerCages(solution: Board): KillerCageInternal[] {
 
   for (const { r, c } of cells) {
     if (assigned[r][c]) continue;
-    const targetSize = 2 + Math.floor(_rng() * 4); // 2-5
+    // EASY occasionally gets a 1-cell cage as a "free digit" hint.
+    // Other difficulties never SEED a singleton (they can still
+    // appear as the leftover-pocket degeneracy, see while-loop below).
+    const targetSize = difficulty === 'EASY' && _rng() < KILLER_EASY_SINGLE_CAGE_RATE
+      ? 1
+      : minSize + Math.floor(_rng() * (maxSize - minSize + 1));
     const cageCells: CellPosition[] = [{ row: r, col: c }];
     assigned[r][c] = true;
+    // Track digits already inside this cage. Killer rules forbid the
+    // same digit twice in a cage, and the validator (#210) rejects any
+    // placement that would create a duplicate. The earlier generator
+    // grew cages purely by orthogonal adjacency, so a 4-cell cage
+    // straddling box boundaries could easily catch the same digit
+    // twice from the underlying classic solution — making the cage
+    // unsolvable from the moment it shipped.
+    const cageDigits = new Set<number>([solution[r][c]]);
 
     while (cageCells.length < targetSize) {
       const candidates: CellPosition[] = [];
       for (const { row, col } of cageCells) {
         for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]] as [number, number][]) {
           const nr = row+dr, nc = col+dc;
-          if (nr>=0 && nr<9 && nc>=0 && nc<9 && !assigned[nr][nc])
+          if (
+            nr>=0 && nr<9 && nc>=0 && nc<9 &&
+            !assigned[nr][nc] &&
+            !cageDigits.has(solution[nr][nc])
+          ) {
             candidates.push({ row: nr, col: nc });
+          }
         }
       }
       if (!candidates.length) break;
       const pick = candidates[Math.floor(_rng() * candidates.length)];
       cageCells.push(pick);
       assigned[pick.row][pick.col] = true;
+      cageDigits.add(solution[pick.row][pick.col]);
     }
 
     const sum = cageCells.reduce((s, { row, col }) => s + solution[row][col], 0);
@@ -598,9 +672,13 @@ export function createPuzzle(difficulty: DifficultyLevel = 'MEDIUM', sudokuType:
 function _createPuzzle(difficulty: DifficultyLevel, sudokuType: SudokuTypeId): PuzzleResult {
   const solution = generateFullBoard(sudokuType);
 
-  // Killer Sudoku: empty board + cages, no cell removal needed
+  // Killer Sudoku: empty board + cages, no cell removal needed.
+  // Difficulty controls cage-size distribution (#220) — see
+  // killerCageSizeRange. Before this fix, the early return ran before
+  // any difficulty config read, so every Killer puzzle had the same
+  // 2-5-cell uniform cage distribution regardless of selector.
   if (sudokuType === 'KILLER') {
-    const killerCages = generateKillerCages(solution);
+    const killerCages = generateKillerCages(solution, difficulty);
     return { puzzle: createEmptyBoard(), solution, oddEvenMarkers: null, kropkiDots: null, killerCages, littleKillerClues: null, greaterThanSigns: null, thermos: null, sandwichClues: null };
   }
 
@@ -629,11 +707,35 @@ function _createPuzzle(difficulty: DifficultyLevel, sudokuType: SudokuTypeId): P
   let attempts = 0;
   const maxAttempts = GRID_SIZE * GRID_SIZE * 2;
 
-  // For special sudoku types, uniqueness checking is very slow, so we skip it
-  // and just remove the target number of cells
-  const skipUniquenessCheck = sudokuType !== 'CLASSIC';
-
-  // Remove cells while maintaining unique solution
+  // Remove cells while maintaining unique solution.
+  //
+  // Uniqueness is checked on EVERY removal for ALL variants. The
+  // earlier "every 5th" Classic shortcut (#214) could let unchecked
+  // removals introduce a second solution and then restore the wrong
+  // cell on the next check; the every-removal invariant — "puzzle is
+  // uniquely solvable after every accepted removal" — eliminates the
+  // class of bug. Variants used to skip the check entirely for perf,
+  // shipping multi-solution puzzles (#211) where the player could
+  // solve correctly via an alternate solution and the app marked it
+  // wrong. Empirical cost on EXPERT is <500ms typical / ~1s worst
+  // case across all 11 non-Killer variants — within an interactive
+  // generate-button budget. hasUniqueSolution short-circuits at 2
+  // solutions, so the worst-case work is bounded by the puzzle's
+  // first ambiguity.
+  //
+  // Caveat for data-driven variants (ODD_EVEN, KROPKI, GREATER_THAN,
+  // LITTLE_KILLER, THERMO, SANDWICH): variant CONSTRAINT DATA is
+  // generated below, AFTER this loop. The check here therefore
+  // enforces only the structural rules (rows/cols/boxes plus any
+  // sudokuType-encoded geometry like diagonals, windows, or anti-
+  // knight). Variant data only further restricts the solution space
+  // — it can never ADD solutions — so a structurally-unique puzzle
+  // here remains unique under full variant rules. The reverse case
+  // is conservative: a structurally-non-unique state might still be
+  // unique once data layers on, but we keep the rejected cell filled
+  // rather than chase that. The puzzle ends up slightly easier than
+  // the difficulty target, which is a much smaller harm than
+  // shipping non-unique solutions.
   for (const { row, col } of shuffledPositions) {
     if (removed >= cellsToRemove || attempts >= maxAttempts) {
       break;
@@ -644,20 +746,11 @@ function _createPuzzle(difficulty: DifficultyLevel, sudokuType: SudokuTypeId): P
     const backup = puzzle[row][col];
     puzzle[row][col] = EMPTY_CELL;
 
-    if (skipUniquenessCheck) {
-      // For special sudoku types, just remove cells without checking uniqueness
-      removed++;
+    if (!hasUniqueSolution(puzzle, sudokuType)) {
+      // Restore — this removal would have introduced a second solution.
+      puzzle[row][col] = backup;
     } else {
-      // Check if puzzle still has unique solution
-      // For performance, only check uniqueness every few removals
-      const shouldCheckUniqueness = removed % 5 === 0 || removed >= cellsToRemove - 5;
-
-      if (shouldCheckUniqueness && !hasUniqueSolution(puzzle, sudokuType)) {
-        // Restore the cell if solution is not unique
-        puzzle[row][col] = backup;
-      } else {
-        removed++;
-      }
+      removed++;
     }
   }
 

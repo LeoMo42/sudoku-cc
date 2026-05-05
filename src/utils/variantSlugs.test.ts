@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   VARIANT_SLUGS,
   variantFromSlug,
   slugFromVariant,
   isSupportedLanguage,
   SUPPORTED_LANGUAGES,
+  detectPreferredLanguage,
 } from './variantSlugs';
 import { SUDOKU_TYPES } from './constants';
 import type { SudokuTypeId } from '../types/index';
@@ -56,6 +57,57 @@ describe('isSupportedLanguage', () => {
     expect(isSupportedLanguage('en-US')).toBe(false);
     expect(isSupportedLanguage('')).toBe(false);
     expect(isSupportedLanguage(undefined)).toBe(false);
+  });
+});
+
+// Regression #226 bug 1 — detectPreferredLanguage was reading
+// `i18nextLng` (the i18next library default), but src/i18n/config.js
+// writes the user's saved preference to `language`. The two never
+// agreed, so RU users on EN-default browsers landed on /en every
+// visit. This test pins the storage key to the one i18n actually
+// writes.
+describe('detectPreferredLanguage', () => {
+  const origNavigator = window.navigator;
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'navigator', {
+      value: origNavigator,
+      configurable: true,
+    });
+  });
+
+  function setNavigatorLanguage(lang: string) {
+    Object.defineProperty(window, 'navigator', {
+      value: { language: lang },
+      configurable: true,
+    });
+  }
+
+  it('reads localStorage["language"] (NOT "i18nextLng")', () => {
+    localStorage.setItem('language', 'ru');
+    localStorage.setItem('i18nextLng', 'en'); // stale value from a prior reader
+    setNavigatorLanguage('en-US');
+    expect(detectPreferredLanguage()).toBe('ru');
+  });
+
+  it('falls back to navigator.language when localStorage["language"] is unset', () => {
+    setNavigatorLanguage('ru-RU');
+    expect(detectPreferredLanguage()).toBe('ru');
+  });
+
+  it('returns "en" when neither storage nor navigator yields a supported language', () => {
+    setNavigatorLanguage('de-DE');
+    expect(detectPreferredLanguage()).toBe('en');
+  });
+
+  it('rejects unsupported localStorage values and falls through to navigator', () => {
+    localStorage.setItem('language', 'zz');
+    setNavigatorLanguage('ru-RU');
+    expect(detectPreferredLanguage()).toBe('ru');
   });
 });
 

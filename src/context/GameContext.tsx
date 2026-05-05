@@ -56,6 +56,7 @@ const initialState: GameState = {
   hintsUsed: 0,
   errors: new Set(),
   mistakeCount: 0,
+  wrongAttempts: new Map(),
   notesMode: false,
   notes: new Map(),
   activeHint: null,
@@ -154,33 +155,67 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         mistakeLimit?: number | null;
       };
 
-      // Can't modify initial cells, and once the game is lost or
-      // completed all writes are no-ops.
+      // Can't modify initial cells. Writes are also blocked when the
+      // game isn't actively being PLAYED — initial state (IDLE), paused
+      // state, and terminal LOST / COMPLETED states. Without the PAUSED
+      // guard a stuck-key or stale-shortcut handler can mutate the board
+      // while the user thinks the game is suspended (#216).
       if (state.initialBoard[row]![col] !== EMPTY_CELL) {
         return state;
       }
-      if (state.gameStatus === GAME_STATUS.LOST || state.gameStatus === GAME_STATUS.COMPLETED) {
+      if (state.gameStatus !== GAME_STATUS.PLAYING) {
         return state;
       }
 
       const oldValue = state.board[row]![col];
+      // No-op on same-value placement (#221). Tapping the same digit
+      // twice in a cell, or pressing Clear on an already-empty cell,
+      // would otherwise push redundant history snapshots — Undo then
+      // requires multiple presses to revert what felt like one move,
+      // and history grows unbounded under repeated input.
+      if (value === oldValue) {
+        return state;
+      }
       const newBoard = copyBoard(state.board);
       newBoard[row]![col] = value;
 
       // Check for errors
       const errors = findConflicts(newBoard, state.sudokuType, state.oddEvenMarkers, state.kropkiDots, state.killerCages, state.littleKillerClues, state.greaterThanSigns, state.thermos, state.sandwichClues);
 
-      // Mistake counter: a placement is a mistake when it's a non-empty
-      // value that disagrees with the unique solution AND it's a *new*
-      // placement (not re-confirming the same wrong digit). Replacing a
-      // wrong digit with the correct one does NOT count, replacing wrong
-      // with another wrong DOES count, clearing never counts.
+      // Mistake counter (D2 from research-round interview).
+      //
+      // A placement is a mistake when it's a non-empty value that
+      // disagrees with the unique solution AND the player has not
+      // already tried that exact wrong digit at this cell. The previous
+      // implementation used `value !== oldValue` as the "new" check,
+      // which double-counted typo→clear→same-typo and let mistake-limit
+      // bombs trigger from one wrong button tapped three times in a row.
+      //
+      // Tracking wrongAttempts as Map<cellKey, Set<digit>> means each
+      // unique wrong guess for a cell counts exactly once. Clearing the
+      // cell does NOT clear wrongAttempts — the player still already
+      // learned that digit was wrong.
+      //
+      // Memory ceiling: 81 cells × 9 distinct wrong digits each = 729
+      // entries, well under 6 KB worst case.
       const solutionValue = state.solution[row]![col];
-      const isNewWrongPlacement =
-        value !== EMPTY_CELL &&
-        value !== solutionValue &&
-        value !== oldValue;
+      const cellKey = `${row},${col}`;
+      const isWrongPlacement =
+        value !== EMPTY_CELL && value !== solutionValue;
+      const alreadyTried = state.wrongAttempts.get(cellKey)?.has(value) ?? false;
+      const isNewWrongPlacement = isWrongPlacement && !alreadyTried;
       const mistakeCount = isNewWrongPlacement ? state.mistakeCount + 1 : state.mistakeCount;
+
+      // Append this wrong digit to the per-cell history so the next
+      // re-tap of the same digit doesn't re-count. Correct placements
+      // and clears don't update wrongAttempts.
+      let newWrongAttempts = state.wrongAttempts;
+      if (isNewWrongPlacement) {
+        newWrongAttempts = new Map(state.wrongAttempts);
+        const cellSet = new Set(newWrongAttempts.get(cellKey) ?? []);
+        cellSet.add(value);
+        newWrongAttempts.set(cellKey, cellSet);
+      }
 
       // Check if puzzle is solved. Annotate the type explicitly so the
       // narrowing from the early-return guard above (which excludes LOST
@@ -204,8 +239,14 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         board: newBoard,
         errors,
         mistakeCount,
+        wrongAttempts: newWrongAttempts,
         gameStatus,
         notes: newNotes,
+        // Any board mutation invalidates a previously-computed hint:
+        // its target cell or candidate set may no longer match. Without
+        // this clear, APPLY_HINT could overwrite the user's fresh input
+        // with a stale placement (#217).
+        activeHint: null,
         ...pushHistory(state, newBoard, newNotes),
       };
     }
@@ -251,6 +292,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         activeHint: hintStep,
+        // Charge the hint at GET, not at APPLY (#219). Showing the
+        // target cell + technique IS the costly action — players who
+        // request a hint, read the suggestion, then dismiss without
+        // tapping Apply could otherwise see unlimited free hints by
+        // manually re-creating the move themselves.
+        hintsUsed: state.hintsUsed + 1,
         selectedCell: targetCell
           ? { row: targetCell.row, col: targetCell.col }
           : state.selectedCell,
@@ -290,7 +337,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         board: newBoard,
         notes: newNotes,
-        hintsUsed: state.hintsUsed + 1,
+        // hintsUsed is NOT incremented here — it was already charged
+        // at GET_HINT time (#219). Applying is free once the hint has
+        // been revealed.
         errors,
         gameStatus: solved ? GAME_STATUS.COMPLETED : state.gameStatus,
         activeHint: null,
@@ -318,6 +367,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         errors,
         historyIndex: prevIndex,
         gameStatus: state.gameStatus === GAME_STATUS.COMPLETED ? GAME_STATUS.PLAYING : state.gameStatus,
+        // Stale-hint guard (#217). After undo, the activeHint's target
+        // cell may already be filled at the prior snapshot, or the
+        // candidate set the elimination was computed against differs.
+        activeHint: null,
       };
     }
 
@@ -335,6 +388,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         errors,
         historyIndex: nextIndex,
         gameStatus: solved ? GAME_STATUS.COMPLETED : state.gameStatus,
+        // Stale-hint guard (#217), same rationale as UNDO.
+        activeHint: null,
       };
     }
 
@@ -375,11 +430,20 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         notes: newNotes,
+        // Stale-hint guard (#217). Toggling a note mutates the candidate
+        // grid the active hint may have been computed against.
+        activeHint: null,
         ...pushHistory(state, state.board, newNotes),
       };
     }
 
     case Actions.PAUSE_GAME: {
+      // Only PLAYING → PAUSED is a valid transition. Pausing IDLE,
+      // COMPLETED, or LOST is meaningless and — combined with the
+      // RESUME guard below — would resurrect terminal games (#215).
+      if (state.gameStatus !== GAME_STATUS.PLAYING) {
+        return state;
+      }
       return {
         ...state,
         gameStatus: GAME_STATUS.PAUSED,
@@ -387,6 +451,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case Actions.RESUME_GAME: {
+      // Only PAUSED → PLAYING. Without this guard, a stale shortcut /
+      // menu handler dispatched against a COMPLETED or LOST game flips
+      // it back to PLAYING and the user can keep mutating the board
+      // past the mistake limit (#215).
+      if (state.gameStatus !== GAME_STATUS.PAUSED) {
+        return state;
+      }
       return {
         ...state,
         gameStatus: GAME_STATUS.PLAYING,
@@ -404,11 +475,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const payload = action.payload as Partial<GameState> & {
         errors?: string[];
         notes?: [string, number[]][];
+        wrongAttempts?: [string, number[]][];
         oddEvenMarkers?: [string, string][] | null;
         kropkiDots?: [string, string][] | null;
         greaterThanSigns?: [string, string][] | null;
       };
       const loadedNotes = new Map((payload.notes || []).map(([k, v]) => [k, new Set(v)]));
+      // Old saves predate wrongAttempts; default to empty Map so a
+      // player loading an in-flight game from before D2 shipped doesn't
+      // get NaN/undefined when the reducer reads it on next placement.
+      const loadedWrongAttempts = new Map(
+        (payload.wrongAttempts || []).map(([k, v]) => [k, new Set(v)] as [string, Set<number>]),
+      );
       const loadedBoard = payload.board ?? state.board;
       return {
         ...state,
@@ -419,6 +497,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         mistakeCount: typeof payload.mistakeCount === 'number' ? payload.mistakeCount : 0,
         errors: new Set(payload.errors || []),
         notes: loadedNotes,
+        wrongAttempts: loadedWrongAttempts,
         activeHint: null,
         history: [{ board: copyBoard(loadedBoard as number[][]), notes: cloneNotes(loadedNotes) }],
         historyIndex: 0,
@@ -450,13 +529,28 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
  */
 function loadInitialState(): GameState {
   if (typeof window === 'undefined') return initialState;
-  const savedState = window.localStorage?.getItem(STORAGE_KEY);
+
+  // Wrap the entire localStorage read in try/catch — getItem/setItem can
+  // throw SecurityError or QuotaExceededError in restricted environments
+  // (private browsing, third-party-cookie blocks, blocked-domain policies,
+  // disabled-storage settings). Optional chaining only handles the
+  // `localStorage === undefined` case, not throws from a present-but-
+  // -unreadable storage. Without this the provider mount crashes the
+  // whole app on hostile/restricted browsers (#218).
+  let savedState: string | null = null;
+  try {
+    savedState = window.localStorage?.getItem(STORAGE_KEY) ?? null;
+  } catch (error) {
+    console.warn('localStorage unavailable, starting fresh:', error);
+    return initialState;
+  }
   if (!savedState) return initialState;
+
   try {
     const parsed = JSON.parse(savedState);
     if (!isValidSavedState(parsed)) {
       console.warn('Saved game data is corrupted, starting fresh');
-      window.localStorage.removeItem(STORAGE_KEY);
+      safeRemoveItem(STORAGE_KEY);
       return initialState;
     }
     const migrated = migrateSavedState(parsed);
@@ -465,8 +559,28 @@ function loadInitialState(): GameState {
     return gameReducer(initialState, { type: Actions.LOAD_STATE, payload: migrated });
   } catch (error) {
     console.warn('Failed to load saved game, starting fresh:', error);
-    window.localStorage.removeItem(STORAGE_KEY);
+    safeRemoveItem(STORAGE_KEY);
     return initialState;
+  }
+}
+
+// Best-effort localStorage helpers. These swallow throws (SecurityError,
+// QuotaExceededError) so a hostile storage environment can't crash the
+// app — the user just doesn't get persistence (#218). Exported so tests
+// can assert the swallow contract directly.
+export function safeSetItem(key: string, value: string): void {
+  try {
+    window.localStorage?.setItem(key, value);
+  } catch (error) {
+    console.warn('Failed to persist to localStorage:', error);
+  }
+}
+
+export function safeRemoveItem(key: string): void {
+  try {
+    window.localStorage?.removeItem(key);
+  } catch {
+    // ignore — already in the failure path, best-effort cleanup
   }
 }
 
@@ -482,6 +596,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         version: SAVE_VERSION,
         errors: Array.from(state.errors),
         notes: Array.from(state.notes.entries()).map(([k, v]) => [k, Array.from(v)]),
+        wrongAttempts: Array.from(state.wrongAttempts.entries()).map(([k, v]) => [k, Array.from(v)]),
         activeHint: null,
         oddEvenMarkers: state.oddEvenMarkers ? Array.from(state.oddEvenMarkers.entries()) : null,
         kropkiDots: state.kropkiDots ? Array.from(state.kropkiDots.entries()) : null,
@@ -493,9 +608,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
         history: undefined,
         historyIndex: undefined,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      safeSetItem(STORAGE_KEY, JSON.stringify(stateToSave));
     } else if (state.gameStatus === GAME_STATUS.COMPLETED || state.gameStatus === GAME_STATUS.LOST) {
-      localStorage.removeItem(STORAGE_KEY);
+      safeRemoveItem(STORAGE_KEY);
     }
   }, [state]);
 

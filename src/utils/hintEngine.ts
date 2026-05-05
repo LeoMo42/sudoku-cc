@@ -368,6 +368,19 @@ function _basicFish(cg: CandidateGrid, size: number): HintStep | null {
 
     for (const baseRows of combinations(Array.from({ length: 9 }, (_, i) => [i]), size)) {
       const baseRowNums = baseRows.map(([r]) => r);
+      // Each base row must actually contribute ≥2 candidate columns.
+      // A row with 0 candidates (digit already placed) or 1 candidate
+      // (a hidden single in that row) cannot anchor a fish — its
+      // placement isn't constrained to the union of baseCols, so the
+      // fish elimination is unsound (#213). The previous code only
+      // checked the union size, so e.g. R1={3,7} + R2={} (digit
+      // placed elsewhere) still passed `baseCols.size === 2 === size`
+      // and falsely eliminated the digit from cols 3,7 in non-base rows.
+      // Note: the upper bound (each row contributes ≤size cols) is
+      // enforced indirectly by the `baseCols.size !== size` check
+      // below — if any row contributes >size cols, the union exceeds
+      // size and the combination is rejected.
+      if (baseRowNums.some(r => rowCols[r].size < 2)) continue;
       const baseCols = new Set<number>();
       for (const r of baseRowNums) for (const c of rowCols[r]) baseCols.add(c);
       if (baseCols.size !== size) continue;
@@ -394,6 +407,8 @@ function _basicFish(cg: CandidateGrid, size: number): HintStep | null {
 
     for (const baseCols of combinations(Array.from({ length: 9 }, (_, i) => [i]), size)) {
       const baseColNums = baseCols.map(([c]) => c);
+      // Same min-2-contribution guard as the row branch above (#213).
+      if (baseColNums.some(c => colRows[c].size < 2)) continue;
       const baseRowsSet = new Set<number>();
       for (const c of baseColNums) for (const r of colRows[c]) baseRowsSet.add(r);
       if (baseRowsSet.size !== size) continue;
@@ -841,6 +856,18 @@ export function findHintStep(
   if (cg.isSolved() || cg.hasContradiction()) return null;
 
   for (const technique of TECHNIQUES) {
+    // Unique Rectangle assumes the puzzle has exactly one solution —
+    // its eliminations are derived from "this candidate would create
+    // an ambiguous quartet, therefore it can't be right." That
+    // assumption holds for CLASSIC (whose generator runs uniqueness
+    // checks on every removal, fixed in #214) but NOT for the variant
+    // generators, which still skip uniqueness checking for perf
+    // reasons (#211). Running UR on a non-unique puzzle eliminates
+    // candidates that legitimately belong to one of the alternate
+    // solutions, then the hint engine pushes the player toward the
+    // OTHER solution which fails Check. Skip UR on variants until
+    // #211 is closed.
+    if (technique === uniqueRectangle && sudokuType !== 'CLASSIC') continue;
     const step = technique(cg);
     if (step !== null) return step;
   }

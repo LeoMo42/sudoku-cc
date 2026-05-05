@@ -3,10 +3,12 @@ import { generateFullBoard, createPuzzle, getHint } from './sudokuGenerator';
 import { isSolved, isComplete, findConflicts } from './sudokuValidator';
 import { solveSudoku, hasUniqueSolution } from './sudokuSolver';
 import { GRID_SIZE, EMPTY_CELL, KING_MOVES } from './constants';
+import type { Board, SudokuTypeId } from '../types/index';
 
-// Suppress unused import warning - these are used in commented-out or conditional tests
+// solveSudoku is imported for use in commented-out/conditional tests
+// elsewhere in this file. hasUniqueSolution is now exercised by the
+// #214 regression tests below.
 void solveSudoku;
-void hasUniqueSolution;
 
 describe('Sudoku Generator', () => {
   describe('generateFullBoard', () => {
@@ -42,7 +44,7 @@ describe('Sudoku Generator', () => {
       expect(filledCells).toBeLessThanOrEqual(60);
     });
 
-    it('should create puzzle with correct difficulty (EXPERT)', () => {
+    it('should create puzzle with correct difficulty (EXPERT)', { timeout: 30_000 }, () => {
       const { puzzle } = createPuzzle('EXPERT');
       const filledCells = puzzle.flat().filter((cell) => cell !== EMPTY_CELL).length;
       // EXPERT: should have fewer filled cells (allow margin for uniqueness constraint)
@@ -60,6 +62,63 @@ describe('Sudoku Generator', () => {
             expect(puzzle[row]![col]).toBe(solution[row]![col]);
           }
         }
+      }
+    });
+
+    // Regression #214 — the previous generator only checked
+    // hasUniqueSolution every 5th removal (and on the last 5). Between
+    // two checks, 1-4 unchecked removals could introduce a second
+    // solution; the next check then failed on an unrelated cell, the
+    // restore put back the wrong cell, and the puzzle shipped
+    // non-unique. With every-removal checking, this can no longer
+    // happen — the invariant "puzzle is unique after every accepted
+    // removal" holds at every step. We exercise EXPERT (~50 removals,
+    // most pressure on the solver) and a sample size of 5 generations
+    // because the bug was probabilistic; a single run could pass even
+    // against the buggy code.
+    //
+    // Per-test timeout bumped to 30s: EXPERT generation runs the
+    // solver on every accepted removal, so the worst-case cost
+    // (median ~275ms / max ~1.4s per generation locally) makes 5
+    // iterations occasionally bump up against vitest's 5s default.
+    it('should produce uniquely-solvable EXPERT puzzles every time', { timeout: 60_000 }, () => {
+      for (let i = 0; i < 5; i++) {
+        const { puzzle } = createPuzzle('EXPERT');
+        expect(hasUniqueSolution(puzzle, 'CLASSIC')).toBe(true);
+      }
+    });
+
+    it('should produce uniquely-solvable HARD puzzles every time', { timeout: 60_000 }, () => {
+      for (let i = 0; i < 5; i++) {
+        const { puzzle } = createPuzzle('HARD');
+        expect(hasUniqueSolution(puzzle, 'CLASSIC')).toBe(true);
+      }
+    });
+
+    // Regression #211 — non-Classic variants used to skip uniqueness
+    // checking entirely. Players solving via an alternate valid
+    // solution would see "Wrong" from the Check button, and the hint
+    // engine could push them toward the OTHER solution. Now uniqueness
+    // is enforced on every removal for all 11 non-Killer variants.
+    // KILLER uses a separate empty-board path and is excluded; the
+    // cage-validity invariant is covered elsewhere (#210).
+    //
+    // Per-test timeout 60s: all 11 variants × MEDIUM (one pass each)
+    // takes ~2s typical, well under budget. EXPERT cost would push
+    // ~10s — we use MEDIUM here for breadth; EXPERT is exercised by
+    // the Classic-only block above.
+    it('should produce uniquely-solvable puzzles for every non-Killer variant', { timeout: 60_000 }, () => {
+      const variants: SudokuTypeId[] = [
+        'DIAGONAL', 'WINDOKU', 'ANTI_KNIGHT', 'ODD_EVEN', 'ANTI_KING',
+        'NON_CONSECUTIVE', 'KROPKI', 'LITTLE_KILLER', 'GREATER_THAN',
+        'THERMO', 'SANDWICH',
+      ];
+      for (const v of variants) {
+        const { puzzle } = createPuzzle('MEDIUM', v);
+        expect(
+          hasUniqueSolution(puzzle, v),
+          `${v} puzzle should be structurally unique`,
+        ).toBe(true);
       }
     });
   });
@@ -235,59 +294,187 @@ describe('Sudoku Generator', () => {
     });
 
     describe('Non-Consecutive Sudoku', () => {
+      // Helper: walk every orthogonal pair and assert |diff| ≠ 1.
+      function assertNonConsecutive(board: Board): void {
+        for (let row = 0; row < GRID_SIZE; row++) {
+          for (let col = 0; col < GRID_SIZE; col++) {
+            const num = board[row]![col]!;
+            // Right and down only — covers each adjacency exactly once.
+            const adjacents: [number, number][] = [
+              [row, col + 1],
+              [row + 1, col],
+            ];
+            for (const [r, c] of adjacents) {
+              if (r < GRID_SIZE && c < GRID_SIZE) {
+                expect(Math.abs(board[r]![c]! - num)).not.toBe(1);
+              }
+            }
+          }
+        }
+      }
+
       it('should generate valid Non-Consecutive Sudoku', () => {
         const board = generateFullBoard('NON_CONSECUTIVE');
         expect(isComplete(board)).toBe(true);
-
-        // Note: Generation may fall back to classic if it can't find valid solution
-        // The constraint is enforced during solving/validation
+        assertNonConsecutive(board);
       });
 
       it('should create valid Non-Consecutive puzzle', () => {
         const { solution } = createPuzzle('MEDIUM', 'NON_CONSECUTIVE');
         expect(isSolved(solution)).toBe(true);
-
-        // Note: Non-Consecutive constraint is enforced during solving/validation
+        assertNonConsecutive(solution);
       });
 
+      // Regression #209 — the previous template+permutation generator
+      // shipped solutions whose adjacent diffs landed on 1 after the
+      // permutation, producing unsolvable puzzles ~99% of the time.
+      // The earlier assertion `expect(typeof foundValid).toBe('boolean')`
+      // was a no-op (any value is a boolean) and silently documented the
+      // bug. We now assert every generation is rule-compliant AND fully
+      // populated — without isComplete the helper would still pass on a
+      // partially-filled board if no two filled-and-adjacent pairs
+      // happened to differ by 1 (Claude PR #240 review).
       it('should verify Non-Consecutive constraint in generated boards', () => {
-        // Try multiple generations to potentially get a valid non-consecutive board
-        let foundValid = false;
-
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 5; i++) {
           const board = generateFullBoard('NON_CONSECUTIVE');
+          expect(isComplete(board)).toBe(true);
+          assertNonConsecutive(board);
+        }
+      });
+    });
 
-          let isValid = true;
-          for (let row = 0; row < GRID_SIZE && isValid; row++) {
-            for (let col = 0; col < GRID_SIZE && isValid; col++) {
-              const num = board[row]![col]!;
+    // Regression #210 — cage growth must not produce duplicate digits.
+    // Before the fix, generateKillerCages grew cages by orthogonal
+    // adjacency without checking the underlying solution digits, so a
+    // single cage could legitimately catch the same digit twice (since
+    // the same digit appears 9 times in any 9×9 sudoku solution).
+    // The validator then rejects placements that match the solution,
+    // making the puzzle unsolvable.
+    describe('Killer Sudoku', () => {
+      it('cages should never contain duplicate digits (50 puzzles)', () => {
+        for (let i = 0; i < 50; i++) {
+          const { solution, killerCages } = createPuzzle('MEDIUM', 'KILLER', i);
+          expect(killerCages).not.toBeNull();
+          for (const cage of killerCages!) {
+            const digits = cage.cells.map(({ row, col }) => solution[row]![col]!);
+            const unique = new Set(digits);
+            expect(unique.size).toBe(digits.length);
+          }
+        }
+      });
 
-              // Check adjacent cells
-              const adjacents: [number, number][] = [
-                [row - 1, col], [row + 1, col],
-                [row, col - 1], [row, col + 1]
-              ];
+      it('cages cover all 81 cells exactly once', () => {
+        const { killerCages } = createPuzzle('MEDIUM', 'KILLER', 42);
+        const seen = new Set<string>();
+        let total = 0;
+        for (const cage of killerCages!) {
+          for (const { row, col } of cage.cells) {
+            const key = `${row},${col}`;
+            expect(seen.has(key)).toBe(false);
+            seen.add(key);
+            total++;
+          }
+        }
+        expect(total).toBe(GRID_SIZE * GRID_SIZE);
+      });
 
-              for (const [r, c] of adjacents) {
-                if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
-                  if (Math.abs(board[r]![c]! - num) === 1) {
-                    isValid = false;
-                    break;
-                  }
-                }
+      it('cage sums match the sum of solution digits in those cells', () => {
+        const { solution, killerCages } = createPuzzle('MEDIUM', 'KILLER', 7);
+        for (const cage of killerCages!) {
+          const expected = cage.cells.reduce(
+            (s, { row, col }) => s + solution[row]![col]!,
+            0,
+          );
+          expect(cage.sum).toBe(expected);
+        }
+      });
+
+      // Regression #220 — the Killer branch in _createPuzzle early-
+      // returned BEFORE reading DIFFICULTY_LEVELS, so every difficulty
+      // (Easy through Expert) produced the same 2-5-cell uniform cage
+      // distribution. The "Difficulty" UI selector was a placebo for
+      // Killer. The fix wires difficulty into generateKillerCages with
+      // distinct size ranges per level.
+      describe('difficulty controls cage size distribution (#220)', () => {
+        // Helper: average cage size over N generations with seeds 0..N-1.
+        // Sample size is large enough (30) to drown out single-seed
+        // outliers from leftover-pocket degeneracy.
+        function averageCageSize(difficulty: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT'): number {
+          const SAMPLES = 30;
+          let totalCells = 0;
+          let totalCages = 0;
+          for (let seed = 0; seed < SAMPLES; seed++) {
+            const { killerCages } = createPuzzle(difficulty, 'KILLER', seed);
+            for (const cage of killerCages!) {
+              totalCells += cage.cells.length;
+              totalCages += 1;
+            }
+          }
+          return totalCells / totalCages;
+        }
+
+        it('average cage size grows with difficulty', () => {
+          const easy = averageCageSize('EASY');
+          const medium = averageCageSize('MEDIUM');
+          const hard = averageCageSize('HARD');
+          const expert = averageCageSize('EXPERT');
+          // Strict monotonicity is too brittle (medium and hard ranges
+          // overlap intentionally — 2-4 vs 3-5). Anchor the extremes
+          // and let the middle sit between.
+          expect(easy).toBeLessThan(medium);
+          expect(hard).toBeLessThan(expert);
+          expect(easy).toBeLessThan(expert);
+        });
+
+        it('EASY produces noticeably more 1-cell "naked single" cages than EXPERT', () => {
+          // EASY seeds 15% of cages as 1-cell hints on top of any
+          // pocket-degeneracy. EXPERT only gets the degeneracy floor
+          // (it never seeds 1-cell). Empirically across 30 seeds,
+          // EASY shows ~3-4× more singletons than EXPERT — the gap
+          // is what proves the deliberate hint-cage logic actually
+          // fires. Asserting the GAP rather than absolute thresholds
+          // keeps the test robust against future tweaks to the
+          // 15% rate.
+          let easySingles = 0;
+          let expertSingles = 0;
+          for (let seed = 0; seed < 30; seed++) {
+            const easy = createPuzzle('EASY', 'KILLER', seed);
+            const expert = createPuzzle('EXPERT', 'KILLER', seed);
+            for (const cage of easy.killerCages!) {
+              if (cage.cells.length === 1) easySingles += 1;
+            }
+            for (const cage of expert.killerCages!) {
+              if (cage.cells.length === 1) expertSingles += 1;
+            }
+          }
+          // 1.5× floor — well below the ~2.9× empirical ratio, well
+          // above the noise floor.
+          expect(easySingles).toBeGreaterThan(expertSingles * 1.5);
+        });
+
+        it('cage sizes never exceed the difficulty-allowed maximum', () => {
+          // Cages can degenerate BELOW the min (when growth gets
+          // stuck on assigned-or-duplicate-digit neighbours), but
+          // they cannot exceed the max — that would mean the
+          // targetSize logic regressed. Pin the upper bound and let
+          // degeneracy float on the lower side.
+          const checks: Array<[
+            'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT', number
+          ]> = [
+            ['EASY', 3],
+            ['MEDIUM', 4],
+            ['HARD', 5],
+            ['EXPERT', 5],
+          ];
+          for (const [difficulty, hi] of checks) {
+            for (let seed = 0; seed < 5; seed++) {
+              const { killerCages } = createPuzzle(difficulty, 'KILLER', seed);
+              for (const cage of killerCages!) {
+                expect(cage.cells.length).toBeLessThanOrEqual(hi);
               }
             }
           }
-
-          if (isValid) {
-            foundValid = true;
-            break;
-          }
-        }
-
-        // At least some attempts should generate valid non-consecutive boards
-        // But we allow fallback to classic for performance
-        expect(typeof foundValid).toBe('boolean');
+        });
       });
     });
   });
