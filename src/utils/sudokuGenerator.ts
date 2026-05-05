@@ -707,11 +707,35 @@ function _createPuzzle(difficulty: DifficultyLevel, sudokuType: SudokuTypeId): P
   let attempts = 0;
   const maxAttempts = GRID_SIZE * GRID_SIZE * 2;
 
-  // For special sudoku types, uniqueness checking is very slow, so we skip it
-  // and just remove the target number of cells
-  const skipUniquenessCheck = sudokuType !== 'CLASSIC';
-
-  // Remove cells while maintaining unique solution
+  // Remove cells while maintaining unique solution.
+  //
+  // Uniqueness is checked on EVERY removal for ALL variants. The
+  // earlier "every 5th" Classic shortcut (#214) could let unchecked
+  // removals introduce a second solution and then restore the wrong
+  // cell on the next check; the every-removal invariant — "puzzle is
+  // uniquely solvable after every accepted removal" — eliminates the
+  // class of bug. Variants used to skip the check entirely for perf,
+  // shipping multi-solution puzzles (#211) where the player could
+  // solve correctly via an alternate solution and the app marked it
+  // wrong. Empirical cost on EXPERT is <500ms typical / ~1s worst
+  // case across all 11 non-Killer variants — within an interactive
+  // generate-button budget. hasUniqueSolution short-circuits at 2
+  // solutions, so the worst-case work is bounded by the puzzle's
+  // first ambiguity.
+  //
+  // Caveat for data-driven variants (ODD_EVEN, KROPKI, GREATER_THAN,
+  // LITTLE_KILLER, THERMO, SANDWICH): variant CONSTRAINT DATA is
+  // generated below, AFTER this loop. The check here therefore
+  // enforces only the structural rules (rows/cols/boxes plus any
+  // sudokuType-encoded geometry like diagonals, windows, or anti-
+  // knight). Variant data only further restricts the solution space
+  // — it can never ADD solutions — so a structurally-unique puzzle
+  // here remains unique under full variant rules. The reverse case
+  // is conservative: a structurally-non-unique state might still be
+  // unique once data layers on, but we keep the rejected cell filled
+  // rather than chase that. The puzzle ends up slightly easier than
+  // the difficulty target, which is a much smaller harm than
+  // shipping non-unique solutions.
   for (const { row, col } of shuffledPositions) {
     if (removed >= cellsToRemove || attempts >= maxAttempts) {
       break;
@@ -722,29 +746,11 @@ function _createPuzzle(difficulty: DifficultyLevel, sudokuType: SudokuTypeId): P
     const backup = puzzle[row][col];
     puzzle[row][col] = EMPTY_CELL;
 
-    if (skipUniquenessCheck) {
-      // For special sudoku types, just remove cells without checking uniqueness
-      removed++;
+    if (!hasUniqueSolution(puzzle, sudokuType)) {
+      // Restore — this removal would have introduced a second solution.
+      puzzle[row][col] = backup;
     } else {
-      // Check uniqueness on EVERY removal (#214). The earlier "check
-      // every 5th + last 5" shortcut could ship non-unique Classic
-      // puzzles: between two checks 1-4 unchecked removals could
-      // introduce a second solution; the next check then failed on
-      // an unrelated cell while the actual culprits stayed empty,
-      // so the restore was on the wrong cell and the puzzle stayed
-      // non-unique. Keeping the invariant strict (puzzle is unique
-      // after every accepted removal) eliminates the class of bug
-      // entirely. hasUniqueSolution short-circuits at 2 solutions,
-      // so the cost on Expert is a few extra cell-attempts per
-      // generation — empirically still well under the unit-test
-      // timeout.
-      if (!hasUniqueSolution(puzzle, sudokuType)) {
-        // Restore the cell — this removal would have introduced a
-        // second solution.
-        puzzle[row][col] = backup;
-      } else {
-        removed++;
-      }
+      removed++;
     }
   }
 
