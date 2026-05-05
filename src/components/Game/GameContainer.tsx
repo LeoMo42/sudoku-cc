@@ -299,9 +299,9 @@ export function GameContainer({ forcedVariant, headingTitle, landingContent }: G
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-4 px-2 sm:py-8 sm:px-4">
-      <div className="max-w-6xl mx-auto">
+      <main className="max-w-6xl mx-auto">
         {/* Header with title and language switcher */}
-        <div className="flex items-center justify-between mb-4 sm:mb-8 print:hidden">
+        <header className="flex items-center justify-between mb-4 sm:mb-8 print:hidden">
           {/*
             Wordmark with a small 3x3 grid mark (#130). The mark gives the
             "Sudoku" text some brand specificity — without it the wordmark
@@ -366,7 +366,7 @@ export function GameContainer({ forcedVariant, headingTitle, landingContent }: G
               onPrint={() => window.print()}
             />
           </div>
-        </div>
+        </header>
 
         {/* Daily streak — full-width hero above the board */}
         <StreakBanner
@@ -469,7 +469,7 @@ export function GameContainer({ forcedVariant, headingTitle, landingContent }: G
           </div>
 
           {/* Right side - Controls */}
-          <div className="flex flex-col gap-4 md:gap-6 w-full md:w-auto md:min-w-[280px] print:hidden">
+          <aside aria-label={t('game.controlsLandmarkLabel', 'Game controls')} className="flex flex-col gap-4 md:gap-6 w-full md:w-auto md:min-w-[280px] print:hidden">
             {/* Number Pad — topmost so it's adjacent to the board */}
             <div data-tour="numberpad" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
               <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 text-center">
@@ -609,9 +609,9 @@ export function GameContainer({ forcedVariant, headingTitle, landingContent }: G
             {/* Onboarding tour */}
             {tourOpen && <OnboardingTour onClose={closeTour} />}
 
-          </div>
+          </aside>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
