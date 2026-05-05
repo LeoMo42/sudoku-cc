@@ -105,30 +105,29 @@ describe('findHintStep – HIDDEN_SINGLE', () => {
 
 describe('findHintStep – LOCKED_CANDIDATES', () => {
   it('detects locked candidates (pointing)', () => {
-    // Set up a board where digit 7 in box (0,0) is confined to row 0.
-    // All other digits in row 0 cols 3-8 must have 7 as a candidate to be eliminated.
+    // Set up a board where digit 7 in box(0,0) is confined to row 0.
+    // The previous version of this test ALSO placed 7 in cols 0,1,2 at
+    // rows 3,4,5 to "block 7 from rows 1-2 of box(0,0)" — but that
+    // also eliminated 7 from row 0 cols 0-2, leaving box(0,0) with NO
+    // 7 candidates anywhere (a contradiction the engine didn't reject,
+    // and a bogus SWORDFISH then fired and made the test pass for the
+    // wrong reason — see #213). Stripped down to the minimal valid
+    // setup:
+    //   - 7 placed in row 1 outside box(0,0) → no 7 candidates in row 1.
+    //   - 7 placed in row 2 outside box(0,0) → no 7 candidates in row 2.
+    //   - Row 0 cols 0-2 keep 7 as a candidate (cols 0-2 have no 7
+    //     placed elsewhere, box(0,0) is otherwise clear).
+    // → 7 in box(0,0) must lie in row 0, locking row 0's other cells
+    //   that share a unit with the box (cols 3-8) where 7 is still a
+    //   candidate.
     const board = emptyBoard();
-    // Place 7 in rows 1-8 in positions that don't touch row 0 cols 0-2
-    // Row 1: 7 in col 3
     board[1]![3] = 7;
-    // Row 2: 7 in col 4
     board[2]![4] = 7;
-    // But we need 7 in box(0,0) confined to row 0. Let's eliminate 7 from cells
-    // (1,0),(1,1),(1,2),(2,0),(2,1),(2,2) using the board setup:
-    // Place other digits so 7 is eliminated from rows 1-2 of box(0,0).
-    // Easiest: place 7 in col 0 row 3 and col 1 row 4 and col 2 row 5.
-    board[3]![0] = 7; // eliminates 7 from col 0
-    board[4]![1] = 7; // eliminates 7 from col 1
-    board[5]![2] = 7; // eliminates 7 from col 2
-    // Now in box(0,0), 7 can only be in row 0 (cols 0-2).
-    // And row 0, cols 3-8 still have 7 as a candidate → locked candidates.
-    // BUT: since 3 cells in col 0,1,2 also have 7 already eliminated from row 0's
-    // entire col, we need to verify row 0, cols 3-8 still can have 7.
-    // Actually: row 0 cols 0-2 are the only cells in box(0,0) that can have 7.
-    // So 7 is "locked" in box(0,0) row 0. Cells (0,3)-(0,8) that have 7 should be eliminated.
     const step = findHintStep(board, 'CLASSIC');
     expect(step).not.toBeNull();
-    // Might find naked/hidden single first; we accept any valid technique
+    // The engine may reach for naked/hidden single first; we accept
+    // any valid technique. If it fires LOCKED_CANDIDATES, sanity-check
+    // the eliminations are non-empty.
     if (step!.technique === 'LOCKED_CANDIDATES') {
       expect(step!.eliminations.length).toBeGreaterThan(0);
       expect(step!.difficulty).toBe('MEDIUM');
@@ -458,5 +457,70 @@ describe('Edge cases', () => {
     // But col 8 has 9 at row 1 → (0,8) can't be 9 → contradiction!
     const step = findHintStep(board, 'CLASSIC');
     expect(step).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression #213
+// ---------------------------------------------------------------------------
+
+describe('findHintStep – regressions for #213', () => {
+  // Repro: digit 7 placed in rows 1-5 at cols 3, 4, 0, 1, 2 leaves
+  // row 0 with 7-candidates at cols {6,7,8} only and rows 1-5 with
+  // ZERO 7-candidates. The previous fish code accepted baseRows =
+  // [0, 1, 2] because the union of digit-7 candidate cols ({6,7,8} ∪
+  // {} ∪ {}) had size 3 = SWORDFISH size. It then eliminated digit 7
+  // from cols 6,7,8 in rows 6,7,8 — claiming "7 in those cols must
+  // be in rows 0/1/2". That conclusion is unsound: rows 1,2 don't
+  // constrain digit 7 to those cols at all (they have 7 placed
+  // elsewhere). The fix requires every base row to contribute ≥2
+  // candidate cols.
+  it('Fish: rejects swordfish where base rows have 0 candidates (no eliminations from rows with the digit already placed)', () => {
+    const board = emptyBoard();
+    board[1]![3] = 7;
+    board[2]![4] = 7;
+    board[3]![0] = 7;
+    board[4]![1] = 7;
+    board[5]![2] = 7;
+    const step = findHintStep(board, 'CLASSIC');
+    // The bogus swordfish would have returned 9 digit-7 eliminations
+    // here (rows 6/7/8 × cols 6/7/8). After the fix no fish technique
+    // applies to this digit. Either we get null or a totally different
+    // technique on a totally different digit; we must NOT see a fish
+    // on digit 7.
+    if (step !== null) {
+      const isBogusFish =
+        (step.technique === 'X_WING' ||
+          step.technique === 'SWORDFISH' ||
+          step.technique === 'JELLYFISH') &&
+        step.eliminations.every((e) => e.digit === 7);
+      expect(isBogusFish).toBe(false);
+    }
+  });
+
+  // Unique Rectangle assumes the puzzle has exactly one solution. The
+  // variant generators still ship multi-solution puzzles (#211), so
+  // running UR on a variant can eliminate a candidate that legitimately
+  // belongs to one of the alternate solutions. Gate UR on CLASSIC.
+  it('Unique Rectangle: never returned for non-Classic variants', () => {
+    // Build a board state that would invite a UR for Classic — four
+    // empty cells at (0,0), (0,1), (3,0), (3,1) with bivalue {1,2}
+    // candidates. We do this by filling each of those cells' row, col,
+    // and box (excluding the four corners themselves) with digits
+    // {3..9} so only {1,2} remain.
+    const board = emptyBoard();
+    // Fill row 0 cols 2..8 with 3..9.
+    for (let i = 0; i < 7; i++) board[0]![i + 2] = i + 3;
+    // Fill row 3 cols 2..8 with a permutation of 3..9 (avoid same
+    // values landing in the same column → no clash with row 0).
+    const permRow3 = [4, 5, 6, 7, 8, 9, 3];
+    for (let i = 0; i < 7; i++) board[3]![i + 2] = permRow3[i]!;
+
+    // Same board, requested under sudokuType=KILLER. UR must NOT fire.
+    const killerStep = findHintStep(board, 'KILLER');
+    if (killerStep !== null) {
+      expect(killerStep.technique).not.toBe('UNIQUE_RECTANGLE_1');
+      expect(killerStep.technique).not.toBe('UNIQUE_RECTANGLE_2');
+    }
   });
 });
