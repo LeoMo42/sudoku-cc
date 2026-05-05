@@ -196,7 +196,7 @@ export const Cell = memo(function Cell({
       {cageLeft   && <div className={`absolute top-0 left-0 bottom-0 w-0 pointer-events-none z-20 border-l-2 ${colorBlindMode ? 'border-dotted border-orange-500' : 'border-dashed border-violet-600'}`} />}
       {/* Killer Sudoku: cage sum in top-left corner */}
       {cageSum !== null && (
-        <span className={`absolute top-0.5 left-0.5 z-20 pointer-events-none font-bold leading-none select-none text-[9px] ${colorBlindMode ? 'text-orange-600 dark:text-orange-400' : 'text-violet-700 dark:text-violet-400'}`}>
+        <span className={`absolute top-0.5 left-0.5 z-20 pointer-events-none font-bold leading-none select-none text-xs ${colorBlindMode ? 'text-orange-600 dark:text-orange-400' : 'text-violet-700 dark:text-violet-400'}`}>
           {cageSum}
         </span>
       )}
