@@ -376,6 +376,10 @@ function _basicFish(cg: CandidateGrid, size: number): HintStep | null {
       // checked the union size, so e.g. R1={3,7} + R2={} (digit
       // placed elsewhere) still passed `baseCols.size === 2 === size`
       // and falsely eliminated the digit from cols 3,7 in non-base rows.
+      // Note: the upper bound (each row contributes ≤size cols) is
+      // enforced indirectly by the `baseCols.size !== size` check
+      // below — if any row contributes >size cols, the union exceeds
+      // size and the combination is rejected.
       if (baseRowNums.some(r => rowCols[r].size < 2)) continue;
       const baseCols = new Set<number>();
       for (const r of baseRowNums) for (const c of rowCols[r]) baseCols.add(c);
