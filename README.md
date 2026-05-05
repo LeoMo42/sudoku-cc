@@ -8,11 +8,11 @@
 
 ### Игровой движок
 - ✅ **13 вариантов** — Classic, Diagonal, Windoku, Killer, Thermo, Sandwich, Anti-Knight, Anti-King, Odd-Even, Kropki, Greater-Than, Non-Consecutive, Little-Killer
-- ✅ **4 уровня сложности** — от Легкого (40-50 заполненных ячеек, 5 подсказок) до Эксперта (20-25, 3 подсказки)
-- ✅ **Система подсказок** с pedagogically-graded техниками (Naked Single → X-Wing → XYZ-Wing) и читаемыми объяснениями
+- ✅ **4 уровня сложности** — от Легкого (40-50 заполненных ячеек) до Эксперта (20-25)
+- ✅ **Система подсказок** (10 на партию) с pedagogically-graded техниками и читаемыми объяснениями: Naked/Hidden Single, Locked Candidates, Naked/Hidden Pair/Triple/Quad, X-Wing/Swordfish/Jellyfish, XY-Wing, XYZ-Wing, W-Wing, Unique Rectangle (только Classic), Simple Coloring
 - ✅ **Режим заметок** для записи кандидатов
 - ✅ **Undo/Redo** через историю снимков
-- ✅ **Mistake limit** опциональный — после N ошибок игра завершается
+- ✅ **Mistake limit** опциональный (toggle) — лимит зависит от сложности (5/4/3/3), при достижении игра завершается
 
 ### Daily puzzle
 - ✅ **Ежедневная головоломка** — детерминированная по UTC date-based seed, одинаковая для всех игроков
@@ -153,7 +153,7 @@ src/
     ├── candidateGrid.ts
     ├── constants.ts              # GAME_STATUS, DIFFICULTY_LEVELS, SUDOKU_TYPES, STORAGE_KEY
     ├── dailyPuzzle.ts            # UTC dayNumber, store v1→v2 migration, future-date guard
-    ├── hintEngine.ts             # Solver chain: Naked Single → X-Wing → XYZ-Wing
+    ├── hintEngine.ts             # Solver chain: singles → locked candidates → naked/hidden subsets → fish (X-Wing/Swordfish/Jellyfish) → XY-/XYZ-/W-Wing → Unique Rectangle (Classic only) → Simple Coloring
     ├── seededRandom.ts
     ├── seoUrls.ts                # canonicalUrl, hreflangAlternates, OG_IMAGE_URL
     ├── share.ts                  # navigator.share / clipboard fallback
