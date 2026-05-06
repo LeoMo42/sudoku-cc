@@ -17,6 +17,7 @@
     "time": "Время:",
     "type": "Тип:",
     "difficulty": "Сложность:",
+    "controlsLandmarkLabel": "Управление игрой",
     "numberInput": "Ввод чисел:",
     "selectCellHint": "Выберите ячейку для ввода числа",
     "paused": "Игра на паузе",
