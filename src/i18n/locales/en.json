@@ -17,6 +17,7 @@
     "time": "Time:",
     "type": "Type:",
     "difficulty": "Difficulty:",
+    "controlsLandmarkLabel": "Game controls",
     "numberInput": "Number Input:",
     "selectCellHint": "Select a cell to enter a number",
     "paused": "Game Paused",

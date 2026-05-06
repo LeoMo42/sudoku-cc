@@ -41,6 +41,25 @@
   body {
     @apply bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
   }
+
+  /* F7 — Global focus-visible fallback. WCAG 2.4.7. The :where() wrapper
+     makes this zero-specificity, so any component-level focus-visible:ring-*
+     utility wins. Catches bare <button>/<a> elements that don't ship their
+     own focus state (settings drawer items, tour nav, modal close buttons). */
+  :where(:focus-visible) {
+    outline: 2px solid theme('colors.blue.500');
+    outline-offset: 2px;
+  }
+
+  /* F8 — color-scheme tells the browser to render native UI (scrollbars,
+     autofill, <details> summary, form controls) in the matching variant.
+     Without this, scrollbars stay light inside a dark page. */
+  :root {
+    color-scheme: light;
+  }
+  :root.dark {
+    color-scheme: dark;
+  }
 }
 
 @layer utilities {
