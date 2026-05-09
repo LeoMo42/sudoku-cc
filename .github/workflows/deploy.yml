@@ -43,7 +43,7 @@ jobs:
       # handles the canonical /{lang}/{slug} set; 404.html catches the
       # rest by booting the SPA which then redirects via react-router.
       - run: cp dist/index.html dist/404.html
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist/
 
