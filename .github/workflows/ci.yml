@@ -71,12 +71,19 @@ jobs:
           # leave room under this job's `timeout-minutes: 5`, or Actions cancels
           # the job before any of these checks run.
           set +e
-          timeout 180 npx vitest run --config vitest.unit.config.ts --reporter=verbose 2>&1 | tee vitest.log
+          NO_COLOR=1 timeout 180 npx vitest run --config vitest.unit.config.ts --reporter=verbose 2>&1 | tee vitest.log
           CODE=${PIPESTATUS[0]}
           set -e
 
-          PASSED=$(grep -cE '^[[:space:]]*✓ ' vitest.log || true)
-          FAILED=$(grep -cE '^[[:space:]]*(FAIL|×) ' vitest.log || true)
+          # Strip ANSI before counting. vitest colourises on CI even though the
+          # output is piped, so the markers arrive as ESC[32m✓ESC[39m and a
+          # line-anchored match silently counts zero — which is how the first
+          # attempt at this gate reported "0 passed, 0 failed" on a log holding
+          # 499 green ticks. NO_COLOR above should prevent it; this does not
+          # depend on vitest honouring it.
+          sed "s/$(printf '\033')\[[0-9;]*m//g" vitest.log > vitest.plain.log
+          PASSED=$(grep -cE '^[[:space:]]*✓ ' vitest.plain.log || true)
+          FAILED=$(grep -cE '^[[:space:]]*(FAIL|×) ' vitest.plain.log || true)
           echo "vitest: ${PASSED} passed, ${FAILED} failed, exit ${CODE}"
 
           if [ "$FAILED" -ne 0 ]; then
