@@ -91,11 +91,28 @@ jobs:
             exit 1
           fi
 
+          # Unhandled rejections and worker/teardown errors are reported under
+          # their own "Unhandled Errors" banner, NOT as a FAIL or × line, so the
+          # count above misses them entirely. vitest exits 1 for them on its own
+          # — but the cleanup hang overwrites that with 124, so without this the
+          # run would be accepted. Verified with a probe test that passes while
+          # leaking a rejection: vitest exit 1, our counters 1 passed / 0 failed.
+          if grep -qE 'Vitest caught [0-9]+ unhandled error' vitest.plain.log; then
+            echo "::error::vitest reported unhandled errors."
+            grep -A3 'Vitest caught' vitest.plain.log | head -20
+            exit 1
+          fi
+
           # Fail CLOSED on a truncated run. Without this, a suite that outgrows
           # the timeout gets killed partway and still looks clean, because no
-          # failure has been printed yet. Bump the floor when tests are added;
-          # lower it deliberately if tests are removed.
-          MIN_TESTS=480
+          # failure has been printed yet.
+          #
+          # This is the EXACT current suite size, not a floor with slack. Slack is
+          # the gap a truncated run hides in: at 480 against a real 499, the last
+          # 19 tests could vanish and still be accepted. Adding tests raises the
+          # count and keeps passing; removing tests is a deliberate act that
+          # should require lowering this number in the same commit.
+          MIN_TESTS=499
           if [ "$PASSED" -lt "$MIN_TESTS" ]; then
             echo "::error::Only ${PASSED} tests ran, expected at least ${MIN_TESTS}. Run was truncated."
             exit 1
