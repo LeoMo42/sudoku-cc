@@ -153,6 +153,9 @@ function nakedSingle(cg: CandidateGrid): HintStep | null {
 // ---------------------------------------------------------------------------
 
 function hiddenSingle(cg: CandidateGrid): HintStep | null {
+  // getHouses(), never getAllDifferentGroups(): "digit d has one spot left in
+  // this group, so d goes there" needs the group to be obliged to contain d.
+  // A Killer cage is not (#267).
   for (const house of cg.getHouses()) {
     for (let digit = 1; digit <= 9; digit++) {
       const bit = DIGIT_BIT[digit];
@@ -283,7 +286,10 @@ function lockedCandidates(cg: CandidateGrid): HintStep | null {
 
 function _nakedSubset(cg: CandidateGrid, size: number): HintStep | null {
   const technique = ['', '', 'NAKED_PAIR', 'NAKED_TRIPLE', 'NAKED_QUAD'][size] as TechniqueName;
-  for (const house of cg.getHouses()) {
+  // All-different is enough: N cells sharing exactly N candidates lock those
+  // digits away from the rest of the group, whether or not the group must
+  // contain every digit. Killer cages qualify (#267).
+  for (const house of cg.getAllDifferentGroups()) {
     const emptyCells = house.filter(([r, c]) => cg.isEmpty(r, c));
     if (emptyCells.length < size + 1) continue;
     for (const combo of combinations(emptyCells, size)) {
@@ -309,6 +315,8 @@ function _nakedSubset(cg: CandidateGrid, size: number): HintStep | null {
 
 function _hiddenSubset(cg: CandidateGrid, size: number): HintStep | null {
   const technique = ['', '', 'HIDDEN_PAIR', 'HIDDEN_TRIPLE', 'HIDDEN_QUAD'][size] as TechniqueName;
+  // Exact-cover only: confining N digits to N cells proves those cells hold
+  // nothing else only if the group must contain all N digits (#267).
   for (const house of cg.getHouses()) {
     const emptyCells = house.filter(([r, c]) => cg.isEmpty(r, c));
     if (emptyCells.length < size + 1) continue;
@@ -579,6 +587,8 @@ function wWing(cg: CandidateGrid): HintStep | null {
       for (const [linkBit, elimBit] of [[aBit, bBit], [bBit, aBit]] as [number, number][]) {
         const elimDigit = bitsToDigits(elimBit)[0];
 
+        // Exact-cover only: a strong link says "exactly two spots, so one is
+        // true", which needs the group obliged to contain the digit (#267).
         for (const house of cg.getHouses()) {
           const linkPos = house.filter(
             ([r, c]) => cg.isEmpty(r, c) && (cg.candidateBits(r, c) & linkBit)
@@ -727,7 +737,9 @@ function simpleColoring(cg: CandidateGrid): HintStep | null {
   for (let digit = 1; digit <= 9; digit++) {
     const bit = DIGIT_BIT[digit];
 
-    // Build strong-link graph
+    // Build strong-link graph.
+    // Exact-cover only, same reason as W-Wing: two candidate spots imply one is
+    // true only when the group must contain the digit at all (#267).
     const strongLinks = new Map<string, Set<string>>(); // "r,c" → Set of "r,c"
     for (const house of cg.getHouses()) {
       const positions = house.filter(([r, c]) => cg.isEmpty(r, c) && (cg.candidateBits(r, c) & bit));
@@ -767,7 +779,9 @@ function simpleColoring(cg: CandidateGrid): HintStep | null {
       const cells1 = new Set([...component.entries()].filter(([,v]) => v === 1).map(([k]) => k));
 
       // Rule 4: Color Wrap
-      for (const house of cg.getHouses()) {
+      // All-different is enough: two same-coloured cells in one group would be
+      // the same digit twice, which a cage forbids just as a house does (#267).
+      for (const house of cg.getAllDifferentGroups()) {
         const houseKeys = new Set(house.map(([r,c]) => `${r},${c}`));
         for (const badCells of [cells0, cells1]) {
           const overlap = [...badCells].filter(k => houseKeys.has(k));

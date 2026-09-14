@@ -47,3 +47,6 @@ __pycache__
 
 # Review/QA artifacts (gstack skills write screenshots here)
 screenshots/
+
+# Codex session ids from /codex — local scratch, never shared
+.context/

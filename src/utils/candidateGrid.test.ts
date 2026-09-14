@@ -10,6 +10,16 @@ function emptyBoard(): Board {
   return Array.from({ length: 9 }, () => new Array(9).fill(0)) as Board;
 }
 
+// Killer fixture (#267). Cages grow by orthogonal adjacency, so L_CAGE below —
+// (2,2) → (3,2) → (3,3) — is a shape the real generator produces. Its two ends
+// share no row, column or box, which makes it the only cage here that can prove
+// cage-derived peerhood.
+const KILLER_CAGES = [
+  { sum: 9, cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }] },
+  { sum: 17, cells: [{ row: 2, col: 2 }, { row: 3, col: 2 }, { row: 3, col: 3 }] }, // L_CAGE
+  { sum: 12, cells: [{ row: 8, col: 7 }, { row: 8, col: 8 }] },
+];
+
 // A fully filled valid board (for isSolved / contradiction tests)
 const SOLVED_BOARD: Board = [
   [5, 3, 4, 6, 7, 8, 9, 1, 2],
@@ -242,6 +252,63 @@ describe('getHouses()', () => {
   it('WINDOKU: 31 houses (27 + 4 windows)', () => {
     const cg = new CandidateGrid(emptyBoard(), 'WINDOKU');
     expect(cg.getHouses().length).toBe(31);
+  });
+
+  // Regression #267 — cages used to be pushed in here, which let hiddenSingle
+  // treat a 2-5 cell cage as though it had to contain every digit. Measured at
+  // a wrong placement in 40 of 40 Killer games.
+  it('KILLER: cages are NOT houses — still 27', () => {
+    const cg = new CandidateGrid(emptyBoard(), 'KILLER', { killerCages: KILLER_CAGES });
+    expect(cg.getHouses().length).toBe(27);
+  });
+
+  it('every house holds 9 cells, in every variant', () => {
+    const grids = [
+      new CandidateGrid(emptyBoard(), 'CLASSIC'),
+      new CandidateGrid(emptyBoard(), 'DIAGONAL'),
+      new CandidateGrid(emptyBoard(), 'WINDOKU'),
+      new CandidateGrid(emptyBoard(), 'KILLER', { killerCages: KILLER_CAGES }),
+    ];
+    for (const cg of grids)
+      for (const house of cg.getHouses())
+        expect(house.length).toBe(9);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// All-different groups (#267)
+// ---------------------------------------------------------------------------
+
+describe('getAllDifferentGroups()', () => {
+  it('classic: identical to the houses', () => {
+    const cg = new CandidateGrid(emptyBoard());
+    expect(cg.getAllDifferentGroups().length).toBe(27);
+  });
+
+  it('KILLER: houses plus every cage', () => {
+    const cg = new CandidateGrid(emptyBoard(), 'KILLER', { killerCages: KILLER_CAGES });
+    expect(cg.getAllDifferentGroups().length).toBe(27 + KILLER_CAGES.length);
+  });
+
+  it('KILLER: contains each cage verbatim', () => {
+    const cg = new CandidateGrid(emptyBoard(), 'KILLER', { killerCages: KILLER_CAGES });
+    const groups = cg.getAllDifferentGroups().map(g => JSON.stringify(g));
+    for (const cage of KILLER_CAGES)
+      expect(groups).toContain(JSON.stringify(cage.cells.map(c => [c.row, c.col])));
+  });
+
+  // Cage membership means "may not repeat a digit", which is exactly peerhood.
+  // L_CAGE is the interesting case: (2,2) and (3,3) share no row, no column and
+  // no box, so they are peers only because the cage makes them so.
+  it('KILLER: cage-mates are peers even across row/col/box boundaries', () => {
+    const cg = new CandidateGrid(emptyBoard(), 'KILLER', { killerCages: KILLER_CAGES });
+    expect(cg.getPeers(2, 2).has('3,3')).toBe(true);
+    expect(cg.getPeers(3, 3).has('2,2')).toBe(true);
+  });
+
+  it('CLASSIC: those same cells are not peers without the cage', () => {
+    const cg = new CandidateGrid(emptyBoard(), 'CLASSIC');
+    expect(cg.getPeers(2, 2).has('3,3')).toBe(false);
   });
 });
 
