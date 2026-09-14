@@ -207,11 +207,12 @@ function generateAntiKing(): Board {
  *
  * The shared fillRemaining caps recursion at 50K steps. A bad random
  * branch can blow that budget without converging, so we retry up to 5
- * times before giving up. In practice the first attempt succeeds the
- * vast majority of the time; the retry exists to make the rare
- * unlucky branch invisible to callers.
+ * times before reporting failure to generateFullBoard, which retries
+ * the whole thing again (#269).
+ *
+ * @returns A complete board, or null when every attempt blew its budget.
  */
-function generateNonConsecutive(): Board {
+function generateNonConsecutive(): Board | null {
   // 500K-step cap per attempt. Empirically this is enough for the
   // arithmetic constraint to converge on the vast majority of random
   // branchings; the retry exists to cover the rare unlucky one.
@@ -221,17 +222,20 @@ function generateNonConsecutive(): Board {
       return board;
     }
   }
-  throw new Error(
-    'Non-Consecutive backtracking generator failed after 5 attempts',
-  );
+  // Measured at 2.3% of calls (7 of 300). This used to throw, and nothing
+  // between here and <ErrorBoundary> caught it, so roughly 1 in 43
+  // Non-Consecutive games replaced the whole app with the error screen.
+  return null;
 }
 
 /**
- * Generate a fully filled valid sudoku board
- * @param sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
- * @returns Complete sudoku board
+ * One generation attempt.
+ *
+ * @returns A complete board, or null when this attempt failed to converge.
+ *   Only the two backtracking paths can return null: the four structural
+ *   variants permute a hardcoded complete template and cannot fail.
  */
-export function generateFullBoard(sudokuType: SudokuTypeId = 'CLASSIC'): Board {
+function tryGenerateFullBoard(sudokuType: SudokuTypeId): Board | null {
   if (sudokuType === 'DIAGONAL') {
     return generateXSudoku();
   }
@@ -252,11 +256,62 @@ export function generateFullBoard(sudokuType: SudokuTypeId = 'CLASSIC'): Board {
     return generateNonConsecutive();
   }
 
-  // Classic sudoku generation
+  // Classic sudoku generation. fillRemaining returns false when its 50K-step
+  // budget runs out, leaving the grid PARTIALLY filled. That return value used
+  // to be discarded, so the partial grid became the stored `solution` and every
+  // player entry in an unfilled cell counted as a mistake against a zero (#273).
   const board = createEmptyBoard();
   fillDiagonal(board);
-  fillRemaining(board, 0, BOX_SIZE, 'CLASSIC', { count: 0 });
+  if (!fillRemaining(board, 0, BOX_SIZE, 'CLASSIC', { count: 0 })) {
+    return null;
+  }
   return board;
+}
+
+/** True only when every cell holds a digit 1-9. */
+function isFullyPopulated(board: Board): boolean {
+  for (let row = 0; row < GRID_SIZE; row++) {
+    for (let col = 0; col < GRID_SIZE; col++) {
+      const value = board[row]![col]!;
+      if (!Number.isInteger(value) || value < 1 || value > GRID_SIZE) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * How many independent attempts generateFullBoard makes before giving up.
+ *
+ * NON_CONSECUTIVE is the only path that realistically fails, at a measured
+ * 2.3% per attempt. Attempts are independent, so 5 of them put the odds of
+ * total failure near 6e-9 — rare enough that the throw below is a genuine
+ * "this cannot happen" guard rather than a 1-in-43 crash.
+ */
+const GENERATION_ATTEMPTS = 5;
+
+/**
+ * Generate a fully filled valid sudoku board.
+ *
+ * Contract: the returned board is ALWAYS complete. A generator that cannot
+ * converge is retried rather than allowed to return a half-filled grid — the
+ * bug behind both #269 (throw reached <ErrorBoundary>) and #273 (silent partial
+ * solution). The completeness check is enforced here, once, rather than trusted
+ * from each variant.
+ *
+ * @param sudokuType - Type of sudoku (CLASSIC, DIAGONAL, etc.)
+ * @returns Complete sudoku board
+ */
+export function generateFullBoard(sudokuType: SudokuTypeId = 'CLASSIC'): Board {
+  for (let attempt = 0; attempt < GENERATION_ATTEMPTS; attempt++) {
+    const board = tryGenerateFullBoard(sudokuType);
+    if (board !== null && isFullyPopulated(board)) {
+      return board;
+    }
+  }
+
+  throw new Error(
+    `Sudoku generator failed to produce a complete ${sudokuType} board in ${GENERATION_ATTEMPTS} attempts`,
+  );
 }
 
 /**
