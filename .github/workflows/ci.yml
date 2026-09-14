@@ -65,8 +65,13 @@ jobs:
           #   2. The exit-124 branch guarded on `grep -qE '[1-9][0-9]* tests?'`,
           #      but the hung run never prints a "N tests" summary, so that
           #      guard could never have matched even if it had been reached.
+          #
+          # The `timeout` value only has to exceed real test execution (~63s on
+          # CI), because a hung-but-complete run is accepted below. It must also
+          # leave room under this job's `timeout-minutes: 5`, or Actions cancels
+          # the job before any of these checks run.
           set +e
-          timeout 300 npx vitest run --config vitest.unit.config.ts --reporter=verbose 2>&1 | tee vitest.log
+          timeout 180 npx vitest run --config vitest.unit.config.ts --reporter=verbose 2>&1 | tee vitest.log
           CODE=${PIPESTATUS[0]}
           set -e
 
