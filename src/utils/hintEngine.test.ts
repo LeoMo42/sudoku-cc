@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { findHintStep } from './hintEngine';
+import { createPuzzle } from './sudokuGenerator';
 import type { Board } from '../types/index';
 
 // ---------------------------------------------------------------------------
@@ -522,5 +523,76 @@ describe('findHintStep – regressions for #213', () => {
       expect(killerStep.technique).not.toBe('UNIQUE_RECTANGLE_1');
       expect(killerStep.technique).not.toBe('UNIQUE_RECTANGLE_2');
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Killer soundness (#267)
+// ---------------------------------------------------------------------------
+
+// A Killer cage is an all-different group, not an exact-cover house: a 2-5 cell
+// cage carries no obligation to contain any particular digit. CandidateGrid used
+// to return cages from getHouses(), so hiddenSingle placed digits on reasoning
+// that does not hold. Measured before the fix: a wrong placement in 40 of 40
+// games, always HIDDEN_SINGLE, on average by move 6.
+//
+// This test plays each game the way a player does — take the hint, apply it,
+// ask again — and asserts the engine never contradicts the stored solution.
+describe('findHintStep – Killer hints are sound', () => {
+  it('never places a digit that contradicts the solution (30 games)', () => {
+    const offenders: string[] = [];
+
+    for (let seed = 1; seed <= 30; seed++) {
+      const { puzzle, solution, killerCages } = createPuzzle('MEDIUM', 'KILLER', seed);
+      const board = puzzle.map(row => [...row]) as Board;
+
+      for (let step = 0; step < 200; step++) {
+        const hint = findHintStep(board, 'KILLER', { killerCages });
+        if (hint === null) break;
+
+        const placement = hint.placement;
+        // Elimination-only hints do not advance the board here: the engine's
+        // candidate state is not persisted between calls (#270), so asking
+        // again would return the same step forever. Stop this game instead.
+        if (!placement) break;
+
+        const { row, col, value } = placement;
+        const truth = solution[row]![col]!;
+        if (truth !== value) {
+          offenders.push(
+            `seed=${seed} step=${step} ${hint.technique} (${row},${col}) hint=${value} truth=${truth}`
+          );
+          break;
+        }
+        board[row]![col] = value as Board[number][number];
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  // Guards against "fixing" the soundness bug by making the engine give up on
+  // Killer entirely — the hints must still do real work.
+  it('still makes progress: placements come from several techniques', () => {
+    const techniques = new Set<string>();
+    let placements = 0;
+
+    for (let seed = 1; seed <= 10; seed++) {
+      const { puzzle, killerCages } = createPuzzle('MEDIUM', 'KILLER', seed);
+      const board = puzzle.map(row => [...row]) as Board;
+
+      for (let step = 0; step < 200; step++) {
+        const hint = findHintStep(board, 'KILLER', { killerCages });
+        if (hint === null) break;
+        techniques.add(hint.technique);
+        if (!hint.placement) break;
+        const { row, col, value } = hint.placement;
+        board[row]![col] = value as Board[number][number];
+        placements++;
+      }
+    }
+
+    expect(placements).toBeGreaterThan(30);
+    expect(techniques.size).toBeGreaterThan(1);
   });
 });

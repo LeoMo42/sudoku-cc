@@ -98,6 +98,7 @@ export class CandidateGrid {
   private _cellToCage: Map<string, KillerCage>;
   private _cellToLK: Map<string, LittleKillerClue[]>;
   private _housesCache: [number, number][][] | null;
+  private _groupsCache: [number, number][][] | null;
   private _peerCache: Map<string, Set<string>>;
 
   constructor(
@@ -161,6 +162,7 @@ export class CandidateGrid {
     }
 
     this._housesCache = null;
+    this._groupsCache = null;
     this._peerCache = new Map();
 
     this._initialize();
@@ -507,9 +509,34 @@ export class CandidateGrid {
   }
 
   // -------------------------------------------------------------------------
-  // Houses
+  // Houses and all-different groups
+  //
+  // These are two different things and conflating them is unsound (#267).
+  //
+  // A HOUSE is an exact-cover group: it holds all nine digits exactly once.
+  // That is what licenses "this digit has only one spot left here, so it goes
+  // there" (hidden single), "these N digits are confined to N cells" (hidden
+  // subset), and "this digit has exactly two spots, so one of them is true"
+  // (strong link, used by W-Wing and simple coloring).
+  //
+  // An ALL-DIFFERENT GROUP only promises its cells never repeat a digit. Every
+  // house is one, but a Killer cage of 2-5 cells is one WITHOUT being a house —
+  // it carries no obligation to contain any particular digit. Cage membership
+  // still licenses "these cells are mutually exclusive", which is all that
+  // peers, naked subsets and colour-wrap need.
+  //
+  // Before the split, getHouses() returned cages too, so hiddenSingle placed
+  // digits in cages on reasoning that does not hold — measured at a wrong
+  // placement in 40 of 40 Killer games. DIAGONAL and WINDOKU were never
+  // affected: the groups they add are genuinely nine cells.
   // -------------------------------------------------------------------------
 
+  /**
+   * Exact-cover houses: rows, columns, boxes, plus the two DIAGONAL diagonals
+   * and the four WINDOKU windows. Every one holds all nine digits exactly once.
+   *
+   * Killer cages are deliberately NOT here — see getAllDifferentGroups().
+   */
   getHouses(): [number, number][][] {
     if (this._housesCache) return this._housesCache;
 
@@ -538,13 +565,32 @@ export class CandidateGrid {
         houses.push(
           Array.from({ length: 9 }, (_, i) => [wr + Math.floor(i / 3), wc + (i % 3)])
         );
-    } else if (this.sudokuType === 'KILLER' && this.killerCages) {
-      for (const cage of this.killerCages)
-        houses.push(cage.cells.map(cell => [cell.row, cell.col]));
     }
 
     this._housesCache = houses;
     return houses;
+  }
+
+  /**
+   * Every group whose cells are guaranteed mutually distinct: all the exact-cover
+   * houses, plus Killer cages.
+   *
+   * Use this for reasoning of the form "these cells cannot repeat a digit"
+   * (peers, naked subsets, colour wrap). Do NOT use it for reasoning of the form
+   * "this group must contain digit d" — that needs getHouses().
+   */
+  getAllDifferentGroups(): [number, number][][] {
+    if (this._groupsCache) return this._groupsCache;
+
+    const groups: [number, number][][] = [...this.getHouses()];
+
+    if (this.sudokuType === 'KILLER' && this.killerCages) {
+      for (const cage of this.killerCages)
+        groups.push(cage.cells.map(cell => [cell.row, cell.col]));
+    }
+
+    this._groupsCache = groups;
+    return groups;
   }
 
   getPeers(row: number, col: number): Set<string> {
@@ -552,9 +598,11 @@ export class CandidateGrid {
     if (this._peerCache.has(key)) return this._peerCache.get(key)!;
 
     const peers = new Set<string>();
-    for (const house of this.getHouses()) {
-      const inHouse = house.some(([r, c]) => r === row && c === col);
-      if (inHouse) house.forEach(([r, c]) => peers.add(`${r},${c}`));
+    // All-different is exactly the property peerhood needs: two cells are peers
+    // when they may not hold the same digit. Cages qualify.
+    for (const group of this.getAllDifferentGroups()) {
+      const inGroup = group.some(([r, c]) => r === row && c === col);
+      if (inGroup) group.forEach(([r, c]) => peers.add(`${r},${c}`));
     }
     peers.delete(key);
 
