@@ -53,16 +53,45 @@ jobs:
       - run: npm ci
       - name: Run unit tests
         run: |
-          # vitest hangs after tests pass (jsdom/esbuild cleanup issue).
-          # Pipe to tee so we capture output, then verify tests actually passed.
+          # vitest runs every test, then hangs before printing its summary
+          # (jsdom/esbuild cleanup). So the run legitimately ends in `timeout`
+          # exit 124 with no summary line, and the gate has to decide pass/fail
+          # from the per-test lines instead.
+          #
+          # Two bugs made the old version of this unable to fail at all (#287):
+          #   1. CODE=$? after a pipeline captures `tee`, not vitest. Without
+          #      pipefail (GitHub's default shell is `bash -e {0}`) it was
+          #      always 0, so the first branch exited 0 unconditionally.
+          #   2. The exit-124 branch guarded on `grep -qE '[1-9][0-9]* tests?'`,
+          #      but the hung run never prints a "N tests" summary, so that
+          #      guard could never have matched even if it had been reached.
           set +e
-          timeout 120 npx vitest run --config vitest.unit.config.ts --reporter=verbose 2>&1 | tee vitest.log
-          CODE=$?
+          timeout 300 npx vitest run --config vitest.unit.config.ts --reporter=verbose 2>&1 | tee vitest.log
+          CODE=${PIPESTATUS[0]}
           set -e
-          if [ $CODE -eq 0 ]; then exit 0; fi
-          # timeout exit 124: check if tests ran with no failures
-          if [ $CODE -eq 124 ] && grep -qE '[1-9][0-9]* tests?' vitest.log && ! grep -qE '^\s*(FAIL|×)' vitest.log; then
-            echo "Tests passed but vitest hung during cleanup (known jsdom issue). Exiting cleanly."
+
+          PASSED=$(grep -cE '^[[:space:]]*✓ ' vitest.log || true)
+          FAILED=$(grep -cE '^[[:space:]]*(FAIL|×) ' vitest.log || true)
+          echo "vitest: ${PASSED} passed, ${FAILED} failed, exit ${CODE}"
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo "::error::${FAILED} test(s) failed."
+            exit 1
+          fi
+
+          # Fail CLOSED on a truncated run. Without this, a suite that outgrows
+          # the timeout gets killed partway and still looks clean, because no
+          # failure has been printed yet. Bump the floor when tests are added;
+          # lower it deliberately if tests are removed.
+          MIN_TESTS=480
+          if [ "$PASSED" -lt "$MIN_TESTS" ]; then
+            echo "::error::Only ${PASSED} tests ran, expected at least ${MIN_TESTS}. Run was truncated."
+            exit 1
+          fi
+
+          # 0 = clean exit. 124 = the known post-run hang, with every test
+          # accounted for by the two checks above.
+          if [ "$CODE" -eq 0 ] || [ "$CODE" -eq 124 ]; then
             exit 0
           fi
           exit $CODE

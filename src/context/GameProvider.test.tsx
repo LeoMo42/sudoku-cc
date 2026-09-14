@@ -88,18 +88,29 @@ describe('GameProvider localStorage save/clear', () => {
     expect(getCtx().state.gameStatus).toBe('playing');
   });
 
+  // Seeded deliberately (#277). This test is about save/clear behaviour, but it
+  // was paying for real EXPERT generation, which runs a uniqueness check on every
+  // accepted removal. Unseeded, the cost swings enormously with the random draw —
+  // measured across EXPERT/DIAGONAL seeds 1-12: 24ms to 31,800ms. So the test
+  // blew vitest's 5s default whenever it drew a slow one, and passed whenever it
+  // did not. That read as order-dependent flakiness; it was generation latency.
+  //
+  // Seed 8 lands at a reproducible 24ms. The explicit budget below is a guard
+  // against the generator regressing, not a cover for the swing.
+  const FAST_EXPERT_DIAGONAL_SEED = 8;
+
   it('starting a new game overwrites saved state', async () => {
     const { getCtx } = renderProvider();
     await act(async () => {
-      getCtx().actions.newGame('EASY', 'CLASSIC');
+      getCtx().actions.newGame('EASY', 'CLASSIC', 1);
     });
     await act(async () => {
-      getCtx().actions.newGame('EXPERT', 'DIAGONAL');
+      getCtx().actions.newGame('EXPERT', 'DIAGONAL', FAST_EXPERT_DIAGONAL_SEED);
     });
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     expect(saved.difficulty).toBe('EXPERT');
     expect(saved.sudokuType).toBe('DIAGONAL');
-  });
+  }, 30_000);
 
   function makeTerminalSeed(gameStatus: 'completed' | 'lost') {
     const board = Array(9).fill(null).map(() => Array(9).fill(0));
