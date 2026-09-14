@@ -53,16 +53,74 @@ jobs:
       - run: npm ci
       - name: Run unit tests
         run: |
-          # vitest hangs after tests pass (jsdom/esbuild cleanup issue).
-          # Pipe to tee so we capture output, then verify tests actually passed.
+          # vitest runs every test, then hangs before printing its summary
+          # (jsdom/esbuild cleanup). So the run legitimately ends in `timeout`
+          # exit 124 with no summary line, and the gate has to decide pass/fail
+          # from the per-test lines instead.
+          #
+          # Two bugs made the old version of this unable to fail at all (#287):
+          #   1. CODE=$? after a pipeline captures `tee`, not vitest. Without
+          #      pipefail (GitHub's default shell is `bash -e {0}`) it was
+          #      always 0, so the first branch exited 0 unconditionally.
+          #   2. The exit-124 branch guarded on `grep -qE '[1-9][0-9]* tests?'`,
+          #      but the hung run never prints a "N tests" summary, so that
+          #      guard could never have matched even if it had been reached.
+          #
+          # The `timeout` value only has to exceed real test execution (~63s on
+          # CI), because a hung-but-complete run is accepted below. It must also
+          # leave room under this job's `timeout-minutes: 5`, or Actions cancels
+          # the job before any of these checks run.
           set +e
-          timeout 120 npx vitest run --config vitest.unit.config.ts --reporter=verbose 2>&1 | tee vitest.log
-          CODE=$?
+          NO_COLOR=1 timeout 180 npx vitest run --config vitest.unit.config.ts --reporter=verbose 2>&1 | tee vitest.log
+          CODE=${PIPESTATUS[0]}
           set -e
-          if [ $CODE -eq 0 ]; then exit 0; fi
-          # timeout exit 124: check if tests ran with no failures
-          if [ $CODE -eq 124 ] && grep -qE '[1-9][0-9]* tests?' vitest.log && ! grep -qE '^\s*(FAIL|×)' vitest.log; then
-            echo "Tests passed but vitest hung during cleanup (known jsdom issue). Exiting cleanly."
+
+          # Strip ANSI before counting. vitest colourises on CI even though the
+          # output is piped, so the markers arrive as ESC[32m✓ESC[39m and a
+          # line-anchored match silently counts zero — which is how the first
+          # attempt at this gate reported "0 passed, 0 failed" on a log holding
+          # 499 green ticks. NO_COLOR above should prevent it; this does not
+          # depend on vitest honouring it.
+          sed "s/$(printf '\033')\[[0-9;]*m//g" vitest.log > vitest.plain.log
+          PASSED=$(grep -cE '^[[:space:]]*✓ ' vitest.plain.log || true)
+          FAILED=$(grep -cE '^[[:space:]]*(FAIL|×) ' vitest.plain.log || true)
+          echo "vitest: ${PASSED} passed, ${FAILED} failed, exit ${CODE}"
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo "::error::${FAILED} test(s) failed."
+            exit 1
+          fi
+
+          # Unhandled rejections and worker/teardown errors are reported under
+          # their own "Unhandled Errors" banner, NOT as a FAIL or × line, so the
+          # count above misses them entirely. vitest exits 1 for them on its own
+          # — but the cleanup hang overwrites that with 124, so without this the
+          # run would be accepted. Verified with a probe test that passes while
+          # leaking a rejection: vitest exit 1, our counters 1 passed / 0 failed.
+          if grep -qE 'Vitest caught [0-9]+ unhandled error' vitest.plain.log; then
+            echo "::error::vitest reported unhandled errors."
+            grep -A3 'Vitest caught' vitest.plain.log | head -20
+            exit 1
+          fi
+
+          # Fail CLOSED on a truncated run. Without this, a suite that outgrows
+          # the timeout gets killed partway and still looks clean, because no
+          # failure has been printed yet.
+          #
+          # This is the EXACT current suite size, not a floor with slack. Slack is
+          # the gap a truncated run hides in: at 480 against a real 499, the last
+          # 19 tests could vanish and still be accepted. Adding tests raises the
+          # count and keeps passing; removing tests is a deliberate act that
+          # should require lowering this number in the same commit.
+          MIN_TESTS=499
+          if [ "$PASSED" -lt "$MIN_TESTS" ]; then
+            echo "::error::Only ${PASSED} tests ran, expected at least ${MIN_TESTS}. Run was truncated."
+            exit 1
+          fi
+
+          # 0 = clean exit. 124 = the known post-run hang, with every test
+          # accounted for by the two checks above.
+          if [ "$CODE" -eq 0 ] || [ "$CODE" -eq 124 ]; then
             exit 0
           fi
           exit $CODE

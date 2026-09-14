@@ -26,6 +26,69 @@ describe('Sudoku Generator', () => {
       // Boards should be different (very unlikely to be same)
       expect(JSON.stringify(board1)).not.toBe(JSON.stringify(board2));
     });
+
+    // Regression #269 + #273 — the generator contract.
+    //
+    // Two paths could break it. CLASSIC discarded fillRemaining's return value,
+    // so an exhausted 50K-step budget left a PARTIAL grid that became the stored
+    // solution (#273). NON_CONSECUTIVE threw after 5 failed attempts, measured at
+    // 2.3% of calls, and nothing below <ErrorBoundary> caught it (#269).
+    //
+    // generateFullBoard now retries and verifies completeness centrally, so
+    // neither a partial board nor a throw can reach a caller.
+    describe('contract: always returns a complete board', () => {
+      function expectFullyPopulated(board: Board): void {
+        for (let row = 0; row < GRID_SIZE; row++) {
+          for (let col = 0; col < GRID_SIZE; col++) {
+            const value = board[row]![col]!;
+            expect(Number.isInteger(value)).toBe(true);
+            expect(value).toBeGreaterThanOrEqual(1);
+            expect(value).toBeLessThanOrEqual(GRID_SIZE);
+          }
+        }
+        expect(isComplete(board)).toBe(true);
+      }
+
+      // The four structural variants permute a hardcoded complete template and
+      // cannot fail; CLASSIC backtracks and could return a partial grid (#273).
+      const CHEAP_VARIANTS: SudokuTypeId[] = [
+        'CLASSIC',
+        'DIAGONAL',
+        'WINDOKU',
+        'ANTI_KNIGHT',
+        'ANTI_KING',
+      ];
+
+      for (const variant of CHEAP_VARIANTS) {
+        it(`${variant}: never returns an incomplete board`, () => {
+          for (let i = 0; i < 10; i++) expectFullyPopulated(generateFullBoard(variant));
+        });
+      }
+
+      // Deliberately few iterations with an explicit budget: a single
+      // Non-Consecutive board costs ~790ms, which is itself the subject of the
+      // unfixed half of #269 (generation still runs on the main thread).
+      it('NON_CONSECUTIVE: never returns an incomplete board', () => {
+        for (let i = 0; i < 3; i++) expectFullyPopulated(generateFullBoard('NON_CONSECUTIVE'));
+      }, 30_000);
+
+      // The precise regression. createPuzzle takes a seed, so these four are
+      // deterministic: under the old single-round generator every one of them
+      // exhausted all 5 inner attempts and threw. Found by scanning seeds 1-400
+      // with the retry budget pinned to 1. Brute-forcing random boards would
+      // need ~60 generations to catch a 2.3% failure and would flake; these
+      // fail outright if the retry is removed.
+      const SEEDS_THAT_USED_TO_THROW = [139, 157, 172, 217];
+
+      it.each(SEEDS_THAT_USED_TO_THROW)(
+        'NON_CONSECUTIVE: seed %i no longer throws',
+        seed => {
+          const { solution } = createPuzzle('MEDIUM', 'NON_CONSECUTIVE', seed);
+          expectFullyPopulated(solution);
+        },
+        30_000
+      );
+    });
   });
 
   describe('createPuzzle', () => {
@@ -81,16 +144,29 @@ describe('Sudoku Generator', () => {
     // solver on every accepted removal, so the worst-case cost
     // (median ~275ms / max ~1.4s per generation locally) makes 5
     // iterations occasionally bump up against vitest's 5s default.
-    it('should produce uniquely-solvable EXPERT puzzles every time', { timeout: 60_000 }, () => {
-      for (let i = 0; i < 5; i++) {
-        const { puzzle } = createPuzzle('EXPERT');
+    // Seeded (#277, #287). These ran unseeded, and EXPERT generation cost swings
+    // by three orders of magnitude with the random draw — one CI run of this very
+    // test took 123,644ms and blew the 60s budget, while the runs either side of
+    // it finished in under 4s. That is the #269 removal-loop tail, not a uniqueness
+    // problem, but it made the test a coin flip.
+    //
+    // Five fixed seeds keep what the test is actually for: five DISTINCT EXPERT
+    // puzzles, ~50 accepted removals each, every one of which must have held the
+    // uniqueness invariant. Determinism makes it a stronger regression guard, not
+    // a weaker one — the same five puzzles are re-checked on every run instead of
+    // whatever the RNG happened to pick. Chosen for speed: ~1.7s for all five.
+    const FAST_SEEDS = [9, 5, 8, 1, 7];
+
+    it('should produce uniquely-solvable EXPERT puzzles every time', { timeout: 30_000 }, () => {
+      for (const seed of FAST_SEEDS) {
+        const { puzzle } = createPuzzle('EXPERT', 'CLASSIC', seed);
         expect(hasUniqueSolution(puzzle, 'CLASSIC')).toBe(true);
       }
     });
 
-    it('should produce uniquely-solvable HARD puzzles every time', { timeout: 60_000 }, () => {
-      for (let i = 0; i < 5; i++) {
-        const { puzzle } = createPuzzle('HARD');
+    it('should produce uniquely-solvable HARD puzzles every time', { timeout: 30_000 }, () => {
+      for (const seed of FAST_SEEDS) {
+        const { puzzle } = createPuzzle('HARD', 'CLASSIC', seed);
         expect(hasUniqueSolution(puzzle, 'CLASSIC')).toBe(true);
       }
     });
@@ -334,13 +410,17 @@ describe('Sudoku Generator', () => {
       // populated — without isComplete the helper would still pass on a
       // partially-filled board if no two filled-and-adjacent pairs
       // happened to differ by 1 (Claude PR #240 review).
+      // This used to fail ~1 run in 3 — not flakiness, but the 2.3% generator
+      // throw from #269 surfacing. With the throw gone the only remaining risk
+      // is the clock: 5 boards at ~790ms each sit right on vitest's 5s default,
+      // so the budget is now explicit rather than borrowed.
       it('should verify Non-Consecutive constraint in generated boards', () => {
         for (let i = 0; i < 5; i++) {
           const board = generateFullBoard('NON_CONSECUTIVE');
           expect(isComplete(board)).toBe(true);
           assertNonConsecutive(board);
         }
-      });
+      }, 30_000);
     });
 
     // Regression #210 — cage growth must not produce duplicate digits.
