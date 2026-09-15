@@ -839,22 +839,21 @@ const TECHNIQUES: Array<(cg: CandidateGrid) => HintStep | null> = [
 ];
 
 /**
- * Find the next logical hint step for the given board state.
- *
- * @param board - Current board (0 = empty)
- * @param sudokuType - Puzzle variant
- * @param constraints - Variant-specific constraints
- * @returns HintStep or null if puzzle is already solved / stuck
+ * Total candidates left across the grid. Strictly decreasing while the chain
+ * makes progress, which is what makes the loop in findHintStep terminate.
  */
-export function findHintStep(
-  board: Board,
-  sudokuType: SudokuTypeId,
-  constraints: VariantConstraints = {}
-): HintStep | null {
-  const cg = new CandidateGrid(board, sudokuType, constraints);
+function totalCandidates(cg: CandidateGrid): number {
+  let total = 0;
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (cg.isEmpty(r, c)) total += cg.candidateCount(r, c);
+    }
+  }
+  return total;
+}
 
-  if (cg.isSolved() || cg.hasContradiction()) return null;
-
+/** Run the technique ladder once against the current grid state. */
+function nextTechniqueStep(cg: CandidateGrid, sudokuType: SudokuTypeId): HintStep | null {
   for (const technique of TECHNIQUES) {
     // Unique Rectangle assumes the puzzle has exactly one solution —
     // its eliminations are derived from "this candidate would create
@@ -870,6 +869,113 @@ export function findHintStep(
     if (technique === uniqueRectangle && sudokuType !== 'CLASSIC') continue;
     const step = technique(cg);
     if (step !== null) return step;
+  }
+  return null;
+}
+
+/** Merge highlight lists, keeping the first role seen for each cell. */
+function mergeHighlights(...lists: HighlightCell[][]): HighlightCell[] {
+  const seen = new Set<string>();
+  const merged: HighlightCell[] = [];
+  for (const list of lists) {
+    for (const cell of list) {
+      const key = `${cell.row},${cell.col}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(cell);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Find the next logical hint step for the given board state.
+ *
+ * Chains eliminations internally until it can offer a PLACEMENT (#270).
+ *
+ * It used to return the first technique that fired, elimination or not. An
+ * elimination hint is applied by deleting digits from the player's pencil
+ * notes — so for the many players who keep no notes, applying it changed
+ * nothing at all. The engine then rebuilt its CandidateGrid from the same
+ * unchanged board, produced the same elimination, and charged another hint
+ * (GET_HINT charges at request time, #219). Measured on this branch: the same
+ * hint repeated until the credits ran out in 27% of HARD games and 60% of
+ * EXPERT ones.
+ *
+ * Now the eliminations are the reasoning, not the deliverable: each one is
+ * applied to the engine's own grid and the search continues, so what comes
+ * back is a cell to fill. The eliminations found along the way ride along on
+ * the step, and APPLY_HINT clears them from the player's notes too, so the
+ * deduction is not wasted.
+ *
+ * @param board - Current board (0 = empty)
+ * @param sudokuType - Puzzle variant
+ * @param constraints - Variant-specific constraints
+ * @returns A placement step where one is reachable; otherwise every
+ *   elimination the engine could derive, collapsed into a single step; null
+ *   when the puzzle is solved, contradictory, or beyond the technique ladder.
+ */
+export function findHintStep(
+  board: Board,
+  sudokuType: SudokuTypeId,
+  constraints: VariantConstraints = {}
+): HintStep | null {
+  const cg = new CandidateGrid(board, sudokuType, constraints);
+
+  if (cg.isSolved() || cg.hasContradiction()) return null;
+
+  const chainEliminations: Elimination[] = [];
+  const chainHighlights: HighlightCell[] = [];
+  const chain: TechniqueName[] = [];
+  let lastEliminationStep: HintStep | null = null;
+
+  // No fixed depth limit (#270 review). A cap could stop one link short of a
+  // placement and hand back an elimination that gives the answer away for
+  // free. Termination comes from measured progress instead: every elimination
+  // strictly reduces the candidate total, which is finite, so a link that
+  // reduces nothing ends the chain.
+  for (;;) {
+    const before = totalCandidates(cg);
+    const step = nextTechniqueStep(cg, sudokuType);
+    if (step === null) break;
+
+    chain.push(step.technique);
+
+    if (step.placement) {
+      // Nothing was deduced on the way here, so the step stands as-is. This is
+      // the common case and keeps the simple hints exactly as they were.
+      if (chainEliminations.length === 0) return { ...step, chain };
+
+      return {
+        ...step,
+        chain,
+        eliminations: [...chainEliminations, ...step.eliminations],
+        highlightCells: mergeHighlights(step.highlightCells, chainHighlights),
+      };
+    }
+
+    // An elimination. The technique has already applied it to cg, so the next
+    // pass reasons over the reduced grid.
+    chainEliminations.push(...step.eliminations);
+    chainHighlights.push(...step.highlightCells);
+    lastEliminationStep = step;
+
+    // A technique that claims a step without shrinking the grid would spin
+    // forever. None should, but the loop is unbounded so this is the guard
+    // that makes that safe rather than assumed.
+    if (totalCandidates(cg) >= before) break;
+  }
+
+  // No placement was reachable. Hand back everything the engine deduced as one
+  // step rather than the first slice of it: the player gets one note cleanup
+  // for one credit instead of paying per technique for the same dead end.
+  if (lastEliminationStep !== null) {
+    return {
+      ...lastEliminationStep,
+      chain,
+      eliminations: chainEliminations,
+      highlightCells: mergeHighlights(chainHighlights),
+    };
   }
 
   return null;

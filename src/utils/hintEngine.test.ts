@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { findHintStep } from './hintEngine';
+import { createPuzzle } from './sudokuGenerator';
 import type { Board } from '../types/index';
 
 // ---------------------------------------------------------------------------
@@ -168,12 +169,21 @@ describe('findHintStep – NAKED_PAIR', () => {
     //   Other row 5 cells still have many candidates → pair eliminates from them
     const step = findHintStep(board, 'CLASSIC');
     expect(step).not.toBeNull();
-    expect(['LOCKED_CANDIDATES', 'NAKED_PAIR']).toContain(step!.technique);
-    expect(step!.difficulty).toBe('MEDIUM');
+
+    // Since #270 the engine chains eliminations internally and hands back a
+    // placement, so the pair is no longer the RETURNED technique — it is a link
+    // in the chain. Assert on the chain rather than on step.technique, which
+    // keeps this test measuring what it always meant to: that the naked pair
+    // was actually found on this board.
+    expect(step!.chain).toBeDefined();
+    expect(['LOCKED_CANDIDATES', 'NAKED_PAIR'].some(t => step!.chain!.includes(t as never))).toBe(true);
     expect(step!.eliminations.length).toBeGreaterThan(0);
-    // When NAKED_PAIR fires, all eliminations target digit 1 or 4
-    if (step!.technique === 'NAKED_PAIR') {
-      for (const e of step!.eliminations) {
+
+    // And its effect survives: the pair can only ever strike 1 and 4 in row 5.
+    if (step!.chain!.includes('NAKED_PAIR')) {
+      const inRow5 = step!.eliminations.filter(e => e.row === 5);
+      expect(inRow5.length).toBeGreaterThan(0);
+      for (const e of inRow5) {
         expect([1, 4]).toContain(e.digit);
       }
     }
@@ -523,4 +533,102 @@ describe('findHintStep – regressions for #213', () => {
       expect(killerStep.technique).not.toBe('UNIQUE_RECTANGLE_2');
     }
   });
+});
+
+// ---------------------------------------------------------------------------
+// Chaining to a placement (#270)
+// ---------------------------------------------------------------------------
+
+// findHintStep used to return the first technique that fired, elimination or
+// not. An elimination is applied by deleting digits from the player's pencil
+// notes, so for a player who keeps none, applying it changed nothing — the
+// engine then rebuilt its grid from the same board, produced the same
+// elimination, and charged another credit (GET_HINT charges at request time,
+// #219). Measured before the fix by playing generated puzzles through the
+// engine: the same hint repeated until the credits ran out in 27% of HARD
+// games and 60% of EXPERT ones.
+describe('findHintStep – chains eliminations to a placement (#270)', () => {
+  // Plays a puzzle the way a player without notes does: take the hint, apply
+  // it if it is a placement, ask again. Returns how often the engine handed
+  // back the identical step it had just given.
+  function playByHints(difficulty: 'HARD' | 'EXPERT', seed: number) {
+    const { puzzle } = createPuzzle(difficulty, 'CLASSIC', seed);
+    const board = puzzle.map((row: number[]) => [...row]) as Board;
+    let placements = 0;
+    let longestRepeatRun = 0;
+    let currentRun = 0;
+    let previous = '';
+
+    for (let i = 0; i < 80; i++) {
+      const hint = findHintStep(board, 'CLASSIC');
+      if (hint === null) break;
+
+      const signature = JSON.stringify([hint.technique, hint.placement, hint.eliminations]);
+      if (signature === previous) {
+        currentRun++;
+        longestRepeatRun = Math.max(longestRepeatRun, currentRun);
+      } else {
+        currentRun = 0;
+      }
+      previous = signature;
+
+      if (!hint.placement) break;
+      board[hint.placement.row]![hint.placement.col] = hint.placement.value as Board[number][number];
+      placements++;
+    }
+
+    return { placements, longestRepeatRun };
+  }
+
+  it('never hands back the same step twice in a row', () => {
+    const offenders: string[] = [];
+    for (const difficulty of ['HARD', 'EXPERT'] as const) {
+      for (let seed = 1; seed <= 8; seed++) {
+        const { longestRepeatRun } = playByHints(difficulty, seed);
+        if (longestRepeatRun > 0) offenders.push(`${difficulty} seed=${seed} run=${longestRepeatRun}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  }, 60_000);
+
+  // The other half of the fix: chaining must not make the engine weaker. It
+  // should place MORE cells than before, not fewer, because a dead-end
+  // elimination no longer ends the session.
+  it('makes real progress on every puzzle it is given', () => {
+    for (let seed = 1; seed <= 8; seed++) {
+      const { placements } = playByHints('HARD', seed);
+      expect(placements).toBeGreaterThan(5);
+    }
+  }, 60_000);
+
+  // Eliminations deduced on the way to a placement ride along on the step so
+  // APPLY_HINT can clear them from the player's notes — the deduction is not
+  // thrown away just because it was internal.
+  it('a chained placement carries the eliminations it passed through', () => {
+    let sawChained = false;
+    for (let seed = 1; seed <= 25 && !sawChained; seed++) {
+      const { puzzle } = createPuzzle('EXPERT', 'CLASSIC', seed);
+      const board = puzzle.map((row: number[]) => [...row]) as Board;
+      for (let i = 0; i < 80; i++) {
+        const hint = findHintStep(board, 'CLASSIC');
+        if (hint === null) break;
+        if (hint.placement && hint.eliminations.length > 0) {
+          sawChained = true;
+          // Every carried elimination must name a real cell and digit.
+          for (const e of hint.eliminations) {
+            expect(e.row).toBeGreaterThanOrEqual(0);
+            expect(e.row).toBeLessThan(9);
+            expect(e.col).toBeGreaterThanOrEqual(0);
+            expect(e.col).toBeLessThan(9);
+            expect(e.digit).toBeGreaterThanOrEqual(1);
+            expect(e.digit).toBeLessThanOrEqual(9);
+          }
+          break;
+        }
+        if (!hint.placement) break;
+        board[hint.placement.row]![hint.placement.col] = hint.placement.value as Board[number][number];
+      }
+    }
+    expect(sawChained).toBe(true);
+  }, 60_000);
 });

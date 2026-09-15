@@ -24,8 +24,14 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
 
   if (!activeHint) return null;
 
-  const { technique, difficulty, placement, eliminations } = activeHint;
+  const { technique, difficulty, placement, eliminations, chain } = activeHint;
   const isPlacement = !!placement;
+
+  // A placement can be the end of a chain of eliminations (#270). Showing only
+  // "Naked Single" would understate the deduction, and Apply would silently
+  // delete notes the player never saw explained. Surface both.
+  const prerequisites = (chain ?? []).slice(0, -1);
+  const showEliminations = eliminations.length > 0;
 
   const techniqueName = t(`hint.techniques.${technique}.name`, technique);
   const explanation = t(`hint.techniques.${technique}.explanation`, {
@@ -45,7 +51,7 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
     >
       {/* Modal card */}
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4 max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -68,6 +74,10 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
           </button>
         </div>
 
+        {/* Body scrolls, so the action row below stays reachable no matter how
+            long the chain is (#270 review). A single chained hint has been
+            measured at 11 techniques and 37 eliminations. */}
+        <div className="flex flex-col gap-4 overflow-y-auto min-h-0">
         {/* Step type badge */}
         <div className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">
           {isPlacement ? t('hint.stepType.placement') : t('hint.stepType.elimination')}
@@ -76,9 +86,23 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
         {/* Explanation */}
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{explanation}</p>
 
+        {/* Techniques that had to fire first, when this was a chained step */}
+        {prerequisites.length > 0 && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {t('hint.viaChain', {
+              techniques: prerequisites
+                .map(name => t(`hint.techniques.${name}.name`, name))
+                .join(' → '),
+            })}
+          </p>
+        )}
+
         {/* Elimination list */}
-        {!isPlacement && eliminations.length > 0 && (
-          <div className="text-xs text-gray-600 dark:text-gray-300 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
+        {showEliminations && (
+          <div className="text-xs text-gray-600 dark:text-gray-300 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3 max-h-40 overflow-y-auto">
+            {isPlacement && (
+              <p className="mb-1 font-normal">{t('hint.alsoClears')}</p>
+            )}
             <span className="font-semibold">
               {eliminations.length === 1
                 ? `R${eliminations[0]!.row + 1}C${eliminations[0]!.col + 1}: −${eliminations[0]!.digit}`
@@ -87,6 +111,8 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
           </div>
         )}
 
+
+        </div>
 
         {/* Action buttons */}
         <div className="flex gap-2 justify-end pt-1">
