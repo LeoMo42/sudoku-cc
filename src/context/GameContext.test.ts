@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // vi.mock is hoisted above imports — find/replace findHintStep with a
 // vi.fn so #219 hint-counter tests can drive both the "hint found" and
@@ -10,8 +10,8 @@ vi.mock('../utils/hintEngine', () => ({
 }));
 
 import { findHintStep } from '../utils/hintEngine';
-import { gameReducer, Actions, isValidSavedState, migrateSavedState, safeSetItem, safeRemoveItem } from './GameContext';
-import { GAME_STATUS, EMPTY_CELL } from '../utils/constants';
+import { gameReducer, Actions, isValidSavedState, migrateSavedState } from './GameContext';
+import { GAME_STATUS, DIFFICULTY_LEVELS, EMPTY_CELL } from '../utils/constants';
 import { copyBoard } from '../utils/sudokuValidator';
 import type { GameState } from '../types/index';
 
@@ -708,14 +708,35 @@ describe('Undo/Redo', () => {
 });
 
 describe('isValidSavedState', () => {
-  it('should accept valid state', () => {
-    const board = Array(9).fill(null).map(() => Array(9).fill(0));
-    expect(isValidSavedState({
-      board,
+  // A realistic save: every field the persist effect actually writes. Tests
+  // below override one thing at a time so each assertion isolates one rule.
+  function emptyGrid(): number[][] {
+    return Array(9).fill(null).map(() => Array(9).fill(0));
+  }
+  function solvedGrid(): number[][] {
+    return Array(9).fill(null).map((_, r) => Array(9).fill(null).map((_, c) => ((r * 3 + Math.floor(r / 3) + c) % 9) + 1));
+  }
+  function makeValidSave(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      board: emptyGrid(),
+      initialBoard: emptyGrid(),
+      solution: solvedGrid(),
       difficulty: 'EASY',
       sudokuType: 'CLASSIC',
       gameStatus: 'playing',
-    })).toBe(true);
+      elapsedTime: 42,
+      hintsUsed: 0,
+      mistakeCount: 0,
+      errors: [],
+      notes: [],
+      wrongAttempts: [],
+      version: 1,
+      ...overrides,
+    };
+  }
+
+  it('should accept valid state', () => {
+    expect(isValidSavedState(makeValidSave())).toBe(true);
   });
 
   it('should reject null', () => {
@@ -727,58 +748,126 @@ describe('isValidSavedState', () => {
     expect(isValidSavedState(42)).toBe(false);
   });
 
+  it('should reject arrays', () => {
+    expect(isValidSavedState([])).toBe(false);
+  });
+
   it('should reject missing board', () => {
-    expect(isValidSavedState({
-      difficulty: 'EASY',
-      sudokuType: 'CLASSIC',
-      gameStatus: 'playing',
-    })).toBe(false);
+    const save = makeValidSave();
+    delete save.board;
+    expect(isValidSavedState(save)).toBe(false);
   });
 
   it('should reject board with wrong dimensions', () => {
-    expect(isValidSavedState({
-      board: [[1, 2, 3]],
-      difficulty: 'EASY',
-      sudokuType: 'CLASSIC',
-      gameStatus: 'playing',
-    })).toBe(false);
+    expect(isValidSavedState(makeValidSave({ board: [[1, 2, 3]] }))).toBe(false);
   });
 
   it('should reject board with wrong row length', () => {
     const board = Array(9).fill(null).map(() => Array(8).fill(0));
-    expect(isValidSavedState({
-      board,
-      difficulty: 'EASY',
-      sudokuType: 'CLASSIC',
-      gameStatus: 'playing',
-    })).toBe(false);
+    expect(isValidSavedState(makeValidSave({ board }))).toBe(false);
   });
 
-  it('should reject missing sudokuType', () => {
-    const board = Array(9).fill(null).map(() => Array(9).fill(0));
-    expect(isValidSavedState({
-      board,
-      difficulty: 'EASY',
-      gameStatus: 'playing',
-    })).toBe(false);
+  // ---- #272: meaning, not just shape ----
+
+  // A save without `solution` is the unwinnable case. `solution` is what
+  // mistakes are counted against, so every entry becomes a mistake against
+  // undefined and the game can never be completed.
+  it.each(['initialBoard', 'solution'])('should reject a save missing %s', field => {
+    const save = makeValidSave();
+    delete save[field];
+    expect(isValidSavedState(save)).toBe(false);
   });
 
-  it('should reject missing difficulty', () => {
-    const board = Array(9).fill(null).map(() => Array(9).fill(0));
-    expect(isValidSavedState({
-      board,
-      sudokuType: 'CLASSIC',
-      gameStatus: 'playing',
-    })).toBe(false);
+  // Out-of-range cells reach isComplete, which only rejects zero (#274).
+  it.each([
+    ['a negative cell', -1],
+    ['a cell above 9', 10],
+    ['a null cell', null],
+    ['a fractional cell', 4.5],
+    ['a string cell', '5'],
+  ])('should reject %s', (_label, bad) => {
+    const board = emptyGrid();
+    board[4]![4] = bad as number;
+    expect(isValidSavedState(makeValidSave({ board }))).toBe(false);
   });
 
-  it('should reject missing gameStatus', () => {
-    const board = Array(9).fill(null).map(() => Array(9).fill(0));
-    expect(isValidSavedState({
-      board,
-      difficulty: 'EASY',
-      sudokuType: 'CLASSIC',
-    })).toBe(false);
+  // The old check was `typeof === 'string'`, so any string passed. An unknown
+  // difficulty indexes DIFFICULTY_LEVELS to undefined and throws on first read.
+  it('should reject an unknown difficulty', () => {
+    expect(isValidSavedState(makeValidSave({ difficulty: 'IMPOSSIBLE' }))).toBe(false);
+  });
+
+  it('should reject an unknown sudokuType', () => {
+    expect(isValidSavedState(makeValidSave({ sudokuType: 'HEXADOKU' }))).toBe(false);
+  });
+
+  it('should reject an unknown gameStatus', () => {
+    expect(isValidSavedState(makeValidSave({ gameStatus: 'vibing' }))).toBe(false);
+  });
+
+  it('should accept every real difficulty, variant and status', () => {
+    for (const difficulty of Object.keys(DIFFICULTY_LEVELS))
+      expect(isValidSavedState(makeValidSave({ difficulty }))).toBe(true);
+    for (const gameStatus of Object.values(GAME_STATUS))
+      expect(isValidSavedState(makeValidSave({ gameStatus }))).toBe(true);
+  });
+
+  it.each([
+    ['elapsedTime', NaN],
+    ['elapsedTime', Infinity],
+    ['elapsedTime', -1],
+    ['hintsUsed', 'three'],
+    ['mistakeCount', null],
+  ])('should reject %s = %s', (field, bad) => {
+    expect(isValidSavedState(makeValidSave({ [field as string]: bad }))).toBe(false);
+  });
+
+  it('should reject a malformed notes map', () => {
+    expect(isValidSavedState(makeValidSave({ notes: [['0,0', [10]]] }))).toBe(false);
+    expect(isValidSavedState(makeValidSave({ notes: [['0,0']] }))).toBe(false);
+    expect(isValidSavedState(makeValidSave({ notes: 'nope' }))).toBe(false);
+  });
+
+  it('should accept a well-formed notes map', () => {
+    expect(isValidSavedState(makeValidSave({ notes: [['0,0', [1, 2, 9]]] }))).toBe(true);
+  });
+
+  it('should reject non-string errors', () => {
+    expect(isValidSavedState(makeValidSave({ errors: [1, 2] }))).toBe(false);
+  });
+
+  // Loading a KILLER save with no cages gives the player a blank grid and no
+  // rules — unwinnable, and indistinguishable from a bug in the app.
+  it('should reject a variant save missing its clue data', () => {
+    expect(isValidSavedState(makeValidSave({ sudokuType: 'KILLER' }))).toBe(false);
+    expect(isValidSavedState(makeValidSave({ sudokuType: 'THERMO', thermos: null }))).toBe(false);
+  });
+
+  // Regression bridge to #273: a partially generated board used to be stored as
+  // the solution, turning every entry in an unfilled cell into a mistake against
+  // a zero. Such a save must never load.
+  it('should reject a solution containing empty cells', () => {
+    const solution = solvedGrid();
+    solution[3]![7] = 0;
+    expect(isValidSavedState(makeValidSave({ solution }))).toBe(false);
+  });
+
+  it('should still allow empty cells in board and initialBoard', () => {
+    expect(isValidSavedState(makeValidSave({ board: emptyGrid(), initialBoard: emptyGrid() }))).toBe(true);
+  });
+
+  it('should accept a variant save that carries its clue data', () => {
+    expect(isValidSavedState(makeValidSave({
+      sudokuType: 'KILLER',
+      killerCages: [{ sum: 9, cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }] }],
+    }))).toBe(true);
+  });
+
+  // CLASSIC and the structural variants carry no clue payload, so requiring
+  // one would reject every ordinary save.
+  it('should not demand clue data from variants that have none', () => {
+    for (const sudokuType of ['CLASSIC', 'DIAGONAL', 'WINDOKU', 'ANTI_KNIGHT', 'ANTI_KING', 'NON_CONSECUTIVE'])
+      expect(isValidSavedState(makeValidSave({ sudokuType }))).toBe(true);
   });
 });
 
@@ -1132,53 +1221,3 @@ describe('migrateSavedState', () => {
 // blocked-domain policies, full quota). The previous code called
 // localStorage.setItem/getItem/removeItem directly and crashed the
 // provider mount on hostile storage.
-describe('safe localStorage helpers (#218)', () => {
-  function mockThrowingStorage(): Storage {
-    const storage = {
-      length: 0,
-      clear: () => { throw new Error('SecurityError'); },
-      getItem: () => { throw new Error('SecurityError'); },
-      key: () => { throw new Error('SecurityError'); },
-      removeItem: () => { throw new Error('SecurityError'); },
-      setItem: () => { throw new Error('SecurityError'); },
-    } satisfies Storage;
-    return storage;
-  }
-
-  let originalStorage: Storage;
-  let warnSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    originalStorage = window.localStorage;
-    Object.defineProperty(window, 'localStorage', {
-      value: mockThrowingStorage(),
-      configurable: true,
-      writable: true,
-    });
-    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    Object.defineProperty(window, 'localStorage', {
-      value: originalStorage,
-      configurable: true,
-      writable: true,
-    });
-    warnSpy.mockRestore();
-  });
-
-  it('safeSetItem swallows SecurityError instead of crashing the caller', () => {
-    expect(() => safeSetItem('any-key', 'any-value')).not.toThrow();
-    expect(warnSpy).toHaveBeenCalledWith(
-      'Failed to persist to localStorage:',
-      expect.any(Error),
-    );
-  });
-
-  it('safeRemoveItem swallows SecurityError silently (cleanup path)', () => {
-    expect(() => safeRemoveItem('any-key')).not.toThrow();
-    // safeRemoveItem deliberately does NOT log — it's only called from
-    // already-failing paths where adding more noise hurts signal.
-    expect(warnSpy).not.toHaveBeenCalled();
-  });
-});

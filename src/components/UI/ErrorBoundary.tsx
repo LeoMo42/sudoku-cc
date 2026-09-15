@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
+import { safeGetItem } from '../../utils/safeStorage';
 
 interface Props {
   children: ReactNode;
@@ -35,7 +36,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('language')) || 'ru';
+      // safeGetItem, not a bare read (#271). The `typeof` guard this replaced
+      // tested for ABSENCE, but in Safari private mode and locked-down
+      // enterprise profiles localStorage is present and every access throws.
+      // A throw here throws inside the fallback of an error boundary, which
+      // React cannot catch — the recovery screen becomes a blank page, in
+      // exactly the browsers where errors are most likely.
+      const lang = safeGetItem('language') || 'ru';
       const t = lang === 'ru' ? messages.ru : messages.en;
 
       return (

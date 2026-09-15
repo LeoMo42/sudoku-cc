@@ -1,9 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useReducer, useCallback, useEffect, ReactNode } from 'react';
 import { createPuzzle } from '../utils/sudokuGenerator';
+import { safeGetItem, safeSetItem, safeRemoveItem } from '../utils/safeStorage';
 import { findConflicts, isSolved, copyBoard } from '../utils/sudokuValidator';
 import { findHintStep } from '../utils/hintEngine';
-import { GAME_STATUS, DIFFICULTY_LEVELS, STORAGE_KEY, SAVE_VERSION, EMPTY_CELL } from '../utils/constants';
+import { GAME_STATUS, DIFFICULTY_LEVELS, SUDOKU_TYPES, STORAGE_KEY, SAVE_VERSION, EMPTY_CELL } from '../utils/constants';
 import type {
   GameState,
   GameStatus,
@@ -71,21 +72,107 @@ const initialState: GameState = {
   historyIndex: -1,
 };
 
-// Structural validation only; cell values and enum variants are not checked here.
+const VALID_DIFFICULTIES: ReadonlySet<string> = new Set(Object.keys(DIFFICULTY_LEVELS));
+const VALID_SUDOKU_TYPES: ReadonlySet<string> = new Set(Object.keys(SUDOKU_TYPES));
+const VALID_GAME_STATUSES: ReadonlySet<string> = new Set(Object.values(GAME_STATUS));
+
+/**
+ * Variants whose puzzle is unsolvable without its clue data. Loading, say, a
+ * KILLER save with no cages gives the player a blank grid and no rules —
+ * unwinnable, and indistinguishable from a bug in the app.
+ */
+const REQUIRED_VARIANT_DATA: Readonly<Record<string, string>> = {
+  ODD_EVEN: 'oddEvenMarkers',
+  KROPKI: 'kropkiDots',
+  KILLER: 'killerCages',
+  LITTLE_KILLER: 'littleKillerClues',
+  GREATER_THAN: 'greaterThanSigns',
+  THERMO: 'thermos',
+  SANDWICH: 'sandwichClues',
+};
+
+/**
+ * A 9x9 grid of integers. `min` is 0 for playable boards, where 0 means empty,
+ * and 1 for `solution`, which by definition has no empty cells — a zero there
+ * is the #273 partial-generation corruption, and loading it makes every entry
+ * in that cell a mistake against nothing.
+ */
+function isDigitGrid(value: unknown, min: 0 | 1 = 0): boolean {
+  if (!Array.isArray(value) || value.length !== 9) return false;
+  for (const row of value) {
+    if (!Array.isArray(row) || row.length !== 9) return false;
+    for (const cell of row) {
+      if (!Number.isInteger(cell) || cell < min || cell > 9) return false;
+    }
+  }
+  return true;
+}
+
+/** Optional numeric counter: absent is fine, present must be a finite count. */
+function isOptionalCount(value: unknown): boolean {
+  return value === undefined || (typeof value === 'number' && Number.isFinite(value) && value >= 0);
+}
+
+/** Serialised Map<string, Set<number>> — an array of [key, digits] pairs. */
+function isOptionalNoteMap(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (!Array.isArray(value)) return false;
+  return value.every(
+    entry =>
+      Array.isArray(entry) &&
+      entry.length === 2 &&
+      typeof entry[0] === 'string' &&
+      Array.isArray(entry[1]) &&
+      entry[1].every(d => Number.isInteger(d) && d >= 1 && d <= 9),
+  );
+}
+
+/**
+ * Validate a saved game before it is spread into state.
+ *
+ * This checks MEANING, not just shape (#272). The previous version accepted any
+ * string for difficulty/sudokuType/gameStatus, never looked at cell values, and
+ * did not require `solution` or `initialBoard` to exist at all. LOAD_STATE
+ * spreads the payload straight over state, so a save written by an older build
+ * — or hand-edited in devtools — could load a game that is unwinnable, or throw
+ * later at `DIFFICULTY_LEVELS[state.difficulty]` with an undefined key. Either
+ * way the player is stuck with no route back except clearing site data.
+ *
+ * Rejection is atomic: the caller discards the save and starts clean rather
+ * than half-loading it.
+ */
 export function isValidSavedState(data: unknown): data is Record<string, unknown> {
-  if (!data || typeof data !== 'object') return false;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
   const obj = data as Record<string, unknown>;
 
-  // Must have a 9x9 board
-  if (!Array.isArray(obj.board) || obj.board.length !== 9) return false;
-  for (const row of obj.board) {
-    if (!Array.isArray(row) || row.length !== 9) return false;
+  // All three grids must be present and consistent with each other. `solution`
+  // is what mistakes are counted against, so a save without it turns every
+  // entry into a mistake against undefined.
+  if (!isDigitGrid(obj.board)) return false;
+  if (!isDigitGrid(obj.initialBoard)) return false;
+  if (!isDigitGrid(obj.solution, 1)) return false;
+
+  // Enum membership, not merely `typeof === 'string'`. An unknown difficulty
+  // indexes DIFFICULTY_LEVELS to undefined and throws on first read.
+  if (typeof obj.difficulty !== 'string' || !VALID_DIFFICULTIES.has(obj.difficulty)) return false;
+  if (typeof obj.sudokuType !== 'string' || !VALID_SUDOKU_TYPES.has(obj.sudokuType)) return false;
+  if (typeof obj.gameStatus !== 'string' || !VALID_GAME_STATUSES.has(obj.gameStatus)) return false;
+
+  if (!isOptionalCount(obj.elapsedTime)) return false;
+  if (!isOptionalCount(obj.hintsUsed)) return false;
+  if (!isOptionalCount(obj.mistakeCount)) return false;
+
+  if (!isOptionalNoteMap(obj.notes)) return false;
+  if (!isOptionalNoteMap(obj.wrongAttempts)) return false;
+
+  if (obj.errors !== undefined && obj.errors !== null) {
+    if (!Array.isArray(obj.errors) || !obj.errors.every(e => typeof e === 'string')) return false;
   }
 
-  // Must have required string fields
-  if (typeof obj.difficulty !== 'string') return false;
-  if (typeof obj.sudokuType !== 'string') return false;
-  if (typeof obj.gameStatus !== 'string') return false;
+  const requiredField = REQUIRED_VARIANT_DATA[obj.sudokuType];
+  if (requiredField !== undefined && (obj[requiredField] === undefined || obj[requiredField] === null)) {
+    return false;
+  }
 
   return true;
 }
@@ -530,20 +617,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 function loadInitialState(): GameState {
   if (typeof window === 'undefined') return initialState;
 
-  // Wrap the entire localStorage read in try/catch — getItem/setItem can
-  // throw SecurityError or QuotaExceededError in restricted environments
-  // (private browsing, third-party-cookie blocks, blocked-domain policies,
-  // disabled-storage settings). Optional chaining only handles the
-  // `localStorage === undefined` case, not throws from a present-but-
-  // -unreadable storage. Without this the provider mount crashes the
-  // whole app on hostile/restricted browsers (#218).
-  let savedState: string | null = null;
-  try {
-    savedState = window.localStorage?.getItem(STORAGE_KEY) ?? null;
-  } catch (error) {
-    console.warn('localStorage unavailable, starting fresh:', error);
-    return initialState;
-  }
+  // safeGetItem, not a bare read: getItem throws SecurityError in restricted
+  // environments and an unguarded read crashes the provider mount, taking the
+  // whole app with it (#218). Rationale lives in utils/safeStorage (#271).
+  const savedState = safeGetItem(STORAGE_KEY);
   if (!savedState) return initialState;
 
   try {
@@ -561,26 +638,6 @@ function loadInitialState(): GameState {
     console.warn('Failed to load saved game, starting fresh:', error);
     safeRemoveItem(STORAGE_KEY);
     return initialState;
-  }
-}
-
-// Best-effort localStorage helpers. These swallow throws (SecurityError,
-// QuotaExceededError) so a hostile storage environment can't crash the
-// app — the user just doesn't get persistence (#218). Exported so tests
-// can assert the swallow contract directly.
-export function safeSetItem(key: string, value: string): void {
-  try {
-    window.localStorage?.setItem(key, value);
-  } catch (error) {
-    console.warn('Failed to persist to localStorage:', error);
-  }
-}
-
-export function safeRemoveItem(key: string): void {
-  try {
-    window.localStorage?.removeItem(key);
-  } catch {
-    // ignore — already in the failure path, best-effort cleanup
   }
 }
 

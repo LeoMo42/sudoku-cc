@@ -1,4 +1,5 @@
 import type { SudokuTypeId } from '../types/index';
+import { safeGetItem } from './safeStorage';
 
 /**
  * Stable URL slugs for each variant. Used by the SEO landing pages
@@ -67,7 +68,13 @@ export function isSupportedLanguage(lang: string | undefined): lang is Supported
  */
 export function detectPreferredLanguage(): SupportedLanguage {
   if (typeof window === 'undefined') return 'en';
-  const stored = window.localStorage?.getItem('language');
+  // safeGetItem, not `?.getItem` (#271). Optional chaining guards against
+  // localStorage being undefined, not against it throwing — and this runs
+  // during the root redirect's render. An unguarded throw here takes out the
+  // redirect, hands control to <ErrorBoundary>, which until #271 also read
+  // storage unguarded in its fallback. Two unguarded reads on one path: the
+  // user got a blank page rather than a recovery screen.
+  const stored = safeGetItem('language');
   if (isSupportedLanguage(stored ?? undefined)) return stored as SupportedLanguage;
   const navLang = navigator.language?.slice(0, 2);
   if (isSupportedLanguage(navLang)) return navLang;
