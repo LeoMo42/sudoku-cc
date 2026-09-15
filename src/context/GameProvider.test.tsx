@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, act } from '@testing-library/react';
 import React, { useContext } from 'react';
-import { GameProvider, GameContext } from './GameContext';
+import { GameProvider, GameContext, isValidSavedState } from './GameContext';
 import { STORAGE_KEY } from '../utils/constants';
 
 // Minimal wrapper to access GameContext inside tests — re-renders on every state change
@@ -24,6 +24,15 @@ function renderProvider() {
 }
 
 describe('GameProvider localStorage save/clear', () => {
+  // A real 9x9 solution. Fixtures must not use a zero grid here:
+  // isValidSavedState rejects empty cells in `solution` (#272/#273), and a
+  // rejected save is discarded — which would make these tests pass without
+  // ever exercising the load path they exist to cover.
+  function solvedGrid(): number[][] {
+    return Array(9).fill(null).map((_, r) =>
+      Array(9).fill(null).map((_, c) => ((r * 3 + Math.floor(r / 3) + c) % 9) + 1));
+  }
+
   beforeEach(() => localStorage.clear());
   afterEach(() => localStorage.clear());
 
@@ -57,7 +66,7 @@ describe('GameProvider localStorage save/clear', () => {
     const savedState = {
       board,
       initialBoard: board,
-      solution: board,
+      solution: solvedGrid(),
       difficulty: 'HARD',
       sudokuType: 'CLASSIC',
       gameStatus: 'playing',
@@ -101,12 +110,34 @@ describe('GameProvider localStorage save/clear', () => {
     expect(saved.sudokuType).toBe('DIAGONAL');
   });
 
+  // The compatibility check that matters (#272). Tightening isValidSavedState
+  // is only safe if a save written by THIS build still passes it — otherwise
+  // every player loses their in-progress game on the next deploy. Round-trips
+  // through the real persist effect rather than a hand-written fixture, and
+  // covers a variant so the clue-data requirement is exercised too.
+  it.each(['CLASSIC', 'KILLER'])('a %s save written by the app validates and restores', async variant => {
+    const { getCtx } = renderProvider();
+    await act(async () => {
+      getCtx().actions.newGame('EASY', variant as 'CLASSIC', 3);
+    });
+
+    const raw = localStorage.getItem(STORAGE_KEY);
+    expect(raw).not.toBeNull();
+    expect(isValidSavedState(JSON.parse(raw!))).toBe(true);
+
+    // And it survives a remount, which is the path a player actually takes.
+    const remounted = renderProvider();
+    await act(async () => {});
+    expect(remounted.getCtx().state.sudokuType).toBe(variant);
+    expect(remounted.getCtx().state.gameStatus).toBe('playing');
+  }, 30_000);
+
   function makeTerminalSeed(gameStatus: 'completed' | 'lost') {
     const board = Array(9).fill(null).map(() => Array(9).fill(0));
     return {
       board,
       initialBoard: board,
-      solution: board,
+      solution: solvedGrid(),
       difficulty: 'EASY',
       sudokuType: 'CLASSIC',
       gameStatus,
