@@ -24,8 +24,14 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
 
   if (!activeHint) return null;
 
-  const { technique, difficulty, placement, eliminations } = activeHint;
+  const { technique, difficulty, placement, eliminations, chain } = activeHint;
   const isPlacement = !!placement;
+
+  // A placement can be the end of a chain of eliminations (#270). Showing only
+  // "Naked Single" would understate the deduction, and Apply would silently
+  // delete notes the player never saw explained. Surface both.
+  const prerequisites = (chain ?? []).slice(0, -1);
+  const showEliminations = eliminations.length > 0;
 
   const techniqueName = t(`hint.techniques.${technique}.name`, technique);
   const explanation = t(`hint.techniques.${technique}.explanation`, {
@@ -76,9 +82,23 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
         {/* Explanation */}
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{explanation}</p>
 
+        {/* Techniques that had to fire first, when this was a chained step */}
+        {prerequisites.length > 0 && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {t('hint.viaChain', {
+              techniques: prerequisites
+                .map(name => t(`hint.techniques.${name}.name`, name))
+                .join(' → '),
+            })}
+          </p>
+        )}
+
         {/* Elimination list */}
-        {!isPlacement && eliminations.length > 0 && (
+        {showEliminations && (
           <div className="text-xs text-gray-600 dark:text-gray-300 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
+            {isPlacement && (
+              <p className="mb-1 font-normal">{t('hint.alsoClears')}</p>
+            )}
             <span className="font-semibold">
               {eliminations.length === 1
                 ? `R${eliminations[0]!.row + 1}C${eliminations[0]!.col + 1}: −${eliminations[0]!.digit}`

@@ -153,6 +153,39 @@ export const SimpleColoringExpert = {
 };
 
 // ---------------------------------------------------------------------------
+// Chained placement (#270)
+//
+// The engine reached a Naked Single only by first firing an X-Wing and a
+// Naked Pair. The modal has to show both the prerequisite techniques and the
+// candidates Apply is about to strike from the player's notes — otherwise the
+// player sees an unexplained "single" and silently loses pencil marks.
+// ---------------------------------------------------------------------------
+
+export const ChainedPlacement = {
+  args: {
+    activeHint: {
+      technique: 'NAKED_SINGLE',
+      difficulty: 'EASY',
+      placement: { row: 4, col: 4, value: 7 },
+      eliminations: [
+        { row: 1, col: 4, digit: 7 },
+        { row: 6, col: 4, digit: 7 },
+        { row: 4, col: 1, digit: 3 },
+      ],
+      highlightCells: [
+        { row: 4, col: 4, role: 'target' },
+        { row: 1, col: 4, role: 'eliminate' },
+        { row: 6, col: 4, role: 'eliminate' },
+      ],
+      learnMoreSlug: 'naked-single',
+      chain: ['X_WING', 'NAKED_PAIR', 'NAKED_SINGLE'],
+    },
+    onApply: noop,
+    onDismiss: noop,
+  },
+};
+
+// ---------------------------------------------------------------------------
 // No hint (modal hidden)
 // ---------------------------------------------------------------------------
 

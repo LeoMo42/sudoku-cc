@@ -493,6 +493,15 @@ describe('gameReducer', () => {
   // it trivial to bypass the per-difficulty hint limit by requesting,
   // reading, and dismissing.
   describe('hint counter charging (#219)', () => {
+    const eliminationOnlyHint = {
+      technique: 'X_WING',
+      difficulty: 'HARD',
+      placement: null,
+      eliminations: [{ row: 2, col: 3, digit: 7 }],
+      highlightCells: [{ row: 2, col: 3, role: 'eliminate' as const }],
+      learnMoreSlug: 'x-wing',
+    };
+
     const stubHint = {
       technique: 'NAKED_SINGLE',
       placement: { row: 0, col: 0, value: 5 },
@@ -522,15 +531,26 @@ describe('gameReducer', () => {
       expect(next.hintsUsed).toBe(0);
     });
 
-    it('GET_HINT does NOT increment when hint limit already reached', () => {
+    it('GET_HINT refuses a placement hint when the limit is reached', () => {
       mockedFindHintStep.mockReturnValue(stubHint as never);
       // Difficulty.EASY maxHints is well under 9999; this is a hard cap.
       const state = { ...createTestState(), hintsUsed: 9999 };
       const next = gameReducer(state, { type: Actions.GET_HINT });
       expect(next).toBe(state);
       expect(next.hintsUsed).toBe(9999);
-      // findHintStep should not even be invoked when over the limit
-      expect(mockedFindHintStep).not.toHaveBeenCalled();
+    });
+
+    // #270 review — the step is now computed BEFORE the limit is enforced, so
+    // that a free elimination hint is still available to a player who has
+    // nothing left to spend. Gating on the counter first would lock away
+    // exactly the help that costs nothing, at exactly the moment it is needed.
+    it('GET_HINT still serves an elimination hint at the limit', () => {
+      mockedFindHintStep.mockReturnValue(eliminationOnlyHint as never);
+      const state = { ...createTestState(), hintsUsed: 9999 };
+      const next = gameReducer(state, { type: Actions.GET_HINT });
+      expect(next).not.toBe(state);
+      expect(next.activeHint).not.toBeNull();
+      expect(next.hintsUsed).toBe(9999);
     });
 
     // #270 — the limit rations ANSWERS. An elimination-only step is not an
@@ -540,15 +560,6 @@ describe('gameReducer', () => {
     // findHintStep now returns eliminations only when it can find no placement
     // whatsoever, so there is nothing to farm — asking again yields the same
     // complete deduction.
-    const eliminationOnlyHint = {
-      technique: 'X_WING',
-      difficulty: 'HARD',
-      placement: null,
-      eliminations: [{ row: 2, col: 3, digit: 7 }],
-      highlightCells: [{ row: 2, col: 3, role: 'eliminate' as const }],
-      learnMoreSlug: 'x-wing',
-    };
-
     it('GET_HINT does NOT charge for an elimination-only hint', () => {
       mockedFindHintStep.mockReturnValue(eliminationOnlyHint as never);
       const state = createTestState();

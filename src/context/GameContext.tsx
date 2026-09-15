@@ -272,8 +272,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case Actions.GET_HINT: {
       const maxHints = DIFFICULTY_LEVELS[state.difficulty].maxHints;
-      if (state.hintsUsed >= maxHints) return state;
 
+      // Compute BEFORE enforcing the limit (#270 review). The limit rations
+      // answers, and an elimination-only step is not an answer — gating on the
+      // counter first would have kept free hints locked away at exactly the
+      // moment a stuck player has nothing left to spend.
       const hintStep = findHintStep(state.board, state.sudokuType, {
         oddEvenMarkers: state.oddEvenMarkers,
         killerCages: state.killerCages,
@@ -285,6 +288,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       });
 
       if (!hintStep) return state;
+      if (hintStep.placement && state.hintsUsed >= maxHints) return state;
 
       // Highlight the target cell (first highlight cell with role 'target')
       const targetCell = hintStep.highlightCells.find(c => c.role === 'target');

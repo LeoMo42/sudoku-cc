@@ -187,7 +187,9 @@
         "name": "Simple Coloring",
         "explanation": "Strong links on a digit form a chain. Cells at alternating chain positions are colored. Either a color group is self-contradicting (wrap) or cells seeing both colors cannot contain the digit (trap)."
       }
-    }
+    },
+    "viaChain": "Reached via: {{techniques}}",
+    "alsoClears": "Applying also clears these ruled-out candidates from your notes:"
   },
   "oddEven": {
     "odd": "Odd",

@@ -839,12 +839,18 @@ const TECHNIQUES: Array<(cg: CandidateGrid) => HintStep | null> = [
 ];
 
 /**
- * How deep findHintStep will chain eliminations looking for a placement.
- * Each link strictly reduces the candidate grid, so this cannot run away; it
- * exists only as a backstop against a technique that reports progress without
- * making any.
+ * Total candidates left across the grid. Strictly decreasing while the chain
+ * makes progress, which is what makes the loop in findHintStep terminate.
  */
-const MAX_HINT_CHAIN = 24;
+function totalCandidates(cg: CandidateGrid): number {
+  let total = 0;
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (cg.isEmpty(r, c)) total += cg.candidateCount(r, c);
+    }
+  }
+  return total;
+}
 
 /** Run the technique ladder once against the current grid state. */
 function nextTechniqueStep(cg: CandidateGrid, sudokuType: SudokuTypeId): HintStep | null {
@@ -923,7 +929,13 @@ export function findHintStep(
   const chain: TechniqueName[] = [];
   let lastEliminationStep: HintStep | null = null;
 
-  for (let depth = 0; depth < MAX_HINT_CHAIN; depth++) {
+  // No fixed depth limit (#270 review). A cap could stop one link short of a
+  // placement and hand back an elimination that gives the answer away for
+  // free. Termination comes from measured progress instead: every elimination
+  // strictly reduces the candidate total, which is finite, so a link that
+  // reduces nothing ends the chain.
+  for (;;) {
+    const before = totalCandidates(cg);
     const step = nextTechniqueStep(cg, sudokuType);
     if (step === null) break;
 
@@ -947,6 +959,11 @@ export function findHintStep(
     chainEliminations.push(...step.eliminations);
     chainHighlights.push(...step.highlightCells);
     lastEliminationStep = step;
+
+    // A technique that claims a step without shrinking the grid would spin
+    // forever. None should, but the loop is unbounded so this is the guard
+    // that makes that safe rather than assumed.
+    if (totalCandidates(cg) >= before) break;
   }
 
   // No placement was reachable. Hand back everything the engine deduced as one
