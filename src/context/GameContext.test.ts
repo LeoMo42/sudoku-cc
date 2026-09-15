@@ -533,6 +533,47 @@ describe('gameReducer', () => {
       expect(mockedFindHintStep).not.toHaveBeenCalled();
     });
 
+    // #270 — the limit rations ANSWERS. An elimination-only step is not an
+    // answer: applying it only edits pencil notes, so for a player who keeps
+    // none it changes nothing at all, and the engine would hand back the same
+    // step on the next request. Charging for that is what burned the limit.
+    // findHintStep now returns eliminations only when it can find no placement
+    // whatsoever, so there is nothing to farm — asking again yields the same
+    // complete deduction.
+    const eliminationOnlyHint = {
+      technique: 'X_WING',
+      difficulty: 'HARD',
+      placement: null,
+      eliminations: [{ row: 2, col: 3, digit: 7 }],
+      highlightCells: [{ row: 2, col: 3, role: 'eliminate' as const }],
+      learnMoreSlug: 'x-wing',
+    };
+
+    it('GET_HINT does NOT charge for an elimination-only hint', () => {
+      mockedFindHintStep.mockReturnValue(eliminationOnlyHint as never);
+      const state = createTestState();
+      const next = gameReducer(state, { type: Actions.GET_HINT });
+      expect(next.hintsUsed).toBe(0);
+      // The hint is still shown — free, not withheld.
+      expect(next.activeHint).not.toBeNull();
+    });
+
+    it('GET_HINT still charges for a placement hint', () => {
+      mockedFindHintStep.mockReturnValue(stubHint as never);
+      const state = createTestState();
+      const next = gameReducer(state, { type: Actions.GET_HINT });
+      expect(next.hintsUsed).toBe(1);
+    });
+
+    it('repeated elimination-only hints never exhaust the limit', () => {
+      mockedFindHintStep.mockReturnValue(eliminationOnlyHint as never);
+      let state = createTestState();
+      for (let i = 0; i < 50; i++) {
+        state = gameReducer(state, { type: Actions.GET_HINT });
+      }
+      expect(state.hintsUsed).toBe(0);
+    });
+
     it('APPLY_HINT does NOT re-charge hintsUsed (already charged at GET_HINT)', () => {
       const state: GameState = {
         ...createTestState(),
@@ -543,6 +584,64 @@ describe('gameReducer', () => {
       expect(next.hintsUsed).toBe(1);
       // Sanity: the placement was actually applied
       expect(next.board[0]![0]).toBe(5);
+    });
+  });
+
+  // #270 — a placement step can now arrive carrying the eliminations the
+  // engine chained through to reach it. Applying only the placement would
+  // throw that reasoning away and leave the player's notes holding digits the
+  // engine has already ruled out.
+  describe('APPLY_HINT applies placement AND carried eliminations (#270)', () => {
+    it('fills the cell and clears the ruled-out digits from notes', () => {
+      const notes = new Map<string, Set<number>>([
+        ['2,3', new Set([4, 7, 9])],
+        ['5,5', new Set([7])],
+        ['8,8', new Set([1, 2])],
+      ]);
+      const state: GameState = {
+        ...createTestState(),
+        notes,
+        activeHint: {
+          technique: 'NAKED_SINGLE',
+          difficulty: 'EASY',
+          placement: { row: 0, col: 0, value: 5 },
+          eliminations: [
+            { row: 2, col: 3, digit: 7 },
+            { row: 5, col: 5, digit: 7 },
+          ],
+          highlightCells: [{ row: 0, col: 0, role: 'target' }],
+          learnMoreSlug: 'naked-single',
+          chain: ['X_WING', 'NAKED_SINGLE'],
+        } as never,
+      };
+
+      const next = gameReducer(state, { type: Actions.APPLY_HINT });
+
+      expect(next.board[0]![0]).toBe(5);
+      // 7 struck from the cell that had other candidates...
+      expect([...next.notes.get('2,3')!].sort()).toEqual([4, 9]);
+      // ...and the cell whose only candidate was 7 is dropped entirely.
+      expect(next.notes.has('5,5')).toBe(false);
+      // Untouched cells stay untouched.
+      expect([...next.notes.get('8,8')!].sort()).toEqual([1, 2]);
+    });
+
+    it('an elimination-only hint still behaves as before', () => {
+      const state: GameState = {
+        ...createTestState(),
+        notes: new Map([['2,3', new Set([4, 7])]]),
+        activeHint: {
+          technique: 'X_WING',
+          difficulty: 'HARD',
+          placement: null,
+          eliminations: [{ row: 2, col: 3, digit: 7 }],
+          highlightCells: [],
+          learnMoreSlug: 'x-wing',
+        } as never,
+      };
+      const next = gameReducer(state, { type: Actions.APPLY_HINT });
+      expect([...next.notes.get('2,3')!]).toEqual([4]);
+      expect(next.board[0]![0]).toBe(EMPTY_CELL);
     });
   });
 

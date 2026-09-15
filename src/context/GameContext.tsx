@@ -297,7 +297,15 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         // request a hint, read the suggestion, then dismiss without
         // tapping Apply could otherwise see unlimited free hints by
         // manually re-creating the move themselves.
-        hintsUsed: state.hintsUsed + 1,
+        //
+        // But only for a PLACEMENT (#270). The limit exists to ration
+        // answers, and an elimination-only step is not an answer — it is
+        // reasoning that may not even change the board, since applying it
+        // just edits pencil notes. findHintStep now returns eliminations
+        // only when it can find no placement at all, so there is nothing
+        // to farm: asking again yields the same complete deduction. What
+        // this removes is paying repeatedly for that same dead end.
+        hintsUsed: hintStep.placement ? state.hintsUsed + 1 : state.hintsUsed,
         selectedCell: targetCell
           ? { row: targetCell.row, col: targetCell.col }
           : state.selectedCell,
@@ -311,22 +319,25 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       let newBoard = copyBoard(state.board);
       const newNotes = new Map(state.notes);
 
+      // Both, not either/or (#270). A placement step can now arrive carrying
+      // the eliminations the engine chained through to reach it. Applying only
+      // the placement would throw that reasoning away and leave the player's
+      // notes holding digits the engine has already ruled out.
       if (activeHint.placement) {
-        // Placement hint: fill the cell
         const { row, col, value } = activeHint.placement;
         newBoard[row]![col] = value as CellValue;
         newNotes.delete(`${row},${col}`);
-      } else {
-        // Elimination hint: remove eliminated candidates from notes
-        for (const { row, col, digit } of activeHint.eliminations) {
-          const key = `${row},${col}`;
-          const cellNotes = new Set(newNotes.get(key) || []);
-          cellNotes.delete(digit);
-          if (cellNotes.size === 0) {
-            newNotes.delete(key);
-          } else {
-            newNotes.set(key, cellNotes);
-          }
+      }
+
+      for (const { row, col, digit } of activeHint.eliminations) {
+        const key = `${row},${col}`;
+        if (!newNotes.has(key)) continue;
+        const cellNotes = new Set(newNotes.get(key));
+        cellNotes.delete(digit);
+        if (cellNotes.size === 0) {
+          newNotes.delete(key);
+        } else {
+          newNotes.set(key, cellNotes);
         }
       }
 

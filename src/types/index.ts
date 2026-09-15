@@ -135,6 +135,15 @@ export interface HintStep {
   eliminations: Elimination[];
   highlightCells: HighlightCell[];
   learnMoreSlug: string;
+  /**
+   * Techniques the engine applied to reach this step, in order, ending with
+   * `technique` itself. Longer than one entry when findHintStep chained
+   * eliminations to get to a placement (#270) — the intermediate deductions
+   * are real work and this is what makes them inspectable.
+   *
+   * Optional so hand-built HintStep fixtures in stories and tests stay valid.
+   */
+  chain?: TechniqueName[];
 }
 
 // Puzzle result from generator
