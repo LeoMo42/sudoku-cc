@@ -540,17 +540,16 @@ describe('gameReducer', () => {
       expect(next.hintsUsed).toBe(9999);
     });
 
-    // #270 review — the step is now computed BEFORE the limit is enforced, so
-    // that a free elimination hint is still available to a player who has
-    // nothing left to spend. Gating on the counter first would lock away
-    // exactly the help that costs nothing, at exactly the moment it is needed.
-    it('GET_HINT still serves an elimination hint at the limit', () => {
+    // Exhausted means exhausted, for either kind of step. The free-elimination
+    // rule applies below the limit, which is where the burn in #270 happened;
+    // serving hints past exhaustion would need a "nothing left to suggest" UI
+    // affordance, since the Hint button is disabled from this same counter.
+    it('GET_HINT refuses an elimination hint at the limit too', () => {
       mockedFindHintStep.mockReturnValue(eliminationOnlyHint as never);
       const state = { ...createTestState(), hintsUsed: 9999 };
       const next = gameReducer(state, { type: Actions.GET_HINT });
-      expect(next).not.toBe(state);
-      expect(next.activeHint).not.toBeNull();
-      expect(next.hintsUsed).toBe(9999);
+      expect(next).toBe(state);
+      expect(mockedFindHintStep).not.toHaveBeenCalled();
     });
 
     // #270 — the limit rations ANSWERS. An elimination-only step is not an

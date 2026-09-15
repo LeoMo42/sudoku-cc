@@ -51,7 +51,7 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
     >
       {/* Modal card */}
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4 max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -74,6 +74,10 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
           </button>
         </div>
 
+        {/* Body scrolls, so the action row below stays reachable no matter how
+            long the chain is (#270 review). A single chained hint has been
+            measured at 11 techniques and 37 eliminations. */}
+        <div className="flex flex-col gap-4 overflow-y-auto min-h-0">
         {/* Step type badge */}
         <div className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">
           {isPlacement ? t('hint.stepType.placement') : t('hint.stepType.elimination')}
@@ -95,7 +99,7 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
 
         {/* Elimination list */}
         {showEliminations && (
-          <div className="text-xs text-gray-600 dark:text-gray-300 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
+          <div className="text-xs text-gray-600 dark:text-gray-300 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3 max-h-40 overflow-y-auto">
             {isPlacement && (
               <p className="mb-1 font-normal">{t('hint.alsoClears')}</p>
             )}
@@ -107,6 +111,8 @@ export function HintModal({ activeHint, onApply, onDismiss }: HintModalProps) {
           </div>
         )}
 
+
+        </div>
 
         {/* Action buttons */}
         <div className="flex gap-2 justify-end pt-1">

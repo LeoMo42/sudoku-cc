@@ -272,11 +272,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case Actions.GET_HINT: {
       const maxHints = DIFFICULTY_LEVELS[state.difficulty].maxHints;
+      // Exhausted means exhausted. An earlier revision computed the step first
+      // so a free elimination could still be served at the limit, but the Hint
+      // button is disabled from this same counter, so GET_HINT was never
+      // dispatched and the branch was unreachable (#270 review). Serving it for
+      // real needs a UI affordance for "nothing left to suggest", which is a
+      // feature rather than part of this bug. The burn this issue is about
+      // happens BELOW the limit, and not charging for eliminations fixes it
+      // there.
+      if (state.hintsUsed >= maxHints) return state;
 
-      // Compute BEFORE enforcing the limit (#270 review). The limit rations
-      // answers, and an elimination-only step is not an answer — gating on the
-      // counter first would have kept free hints locked away at exactly the
-      // moment a stuck player has nothing left to spend.
       const hintStep = findHintStep(state.board, state.sudokuType, {
         oddEvenMarkers: state.oddEvenMarkers,
         killerCages: state.killerCages,
@@ -288,7 +293,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       });
 
       if (!hintStep) return state;
-      if (hintStep.placement && state.hintsUsed >= maxHints) return state;
 
       // Highlight the target cell (first highlight cell with role 'target')
       const targetCell = hintStep.highlightCells.find(c => c.role === 'target');
